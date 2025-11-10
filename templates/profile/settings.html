@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Settings - Sakina Gas{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card card-sakina">
+                <div class="card-header card-header-sakina">
+                    <h5 class="mb-0">
+                        <i class="bi bi-gear me-2"></i>
+                        User Settings
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Settings page coming soon! You can change your password from the profile menu.
+                    </div>
+                    
+                    <a href="{{ url_for('profile.view_profile') }}" class="btn btn-sakina-primary">
+                        <i class="bi bi-arrow-left me-2"></i>
+                        Back to Profile
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -14,7 +14,7 @@ leaves_bp = Blueprint('leaves', __name__)
 
 @leaves_bp.route('/')
 @login_required
-def list_leaves():
+def list_requests():
     """List all leave requests"""
     status_filter = request.args.get('status', 'all')
     

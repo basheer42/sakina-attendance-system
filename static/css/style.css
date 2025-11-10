@@ -1,0 +1,610 @@
+/*
+Sakina Gas Company - Professional Attendance Management System
+Custom CSS Styles - Modern, Clean, Professional Design
+*/
+
+/* ========================================
+   CSS RESET & BASE STYLES
+======================================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f8f9fa;
+    font-size: 16px;
+}
+
+/* ========================================
+   COMPANY BRANDING COLORS
+======================================== */
+:root {
+    /* Primary Brand Colors */
+    --primary-blue: #1e3a8a;          /* Deep Blue */
+    --primary-light: #3b82f6;         /* Medium Blue */
+    --primary-dark: #1e40af;          /* Dark Blue */
+    
+    /* Secondary Colors */
+    --secondary-green: #059669;       /* Success Green */
+    --secondary-orange: #ea580c;      /* Warning Orange */
+    --secondary-red: #dc2626;         /* Error Red */
+    
+    /* Neutral Colors */
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    
+    /* Status Colors */
+    --status-present: #10b981;
+    --status-absent: #ef4444;
+    --status-late: #f59e0b;
+    --status-leave: #8b5cf6;
+}
+
+/* ========================================
+   LAYOUT & NAVIGATION
+======================================== */
+.navbar {
+    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-dark) 100%);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 0.75rem 0;
+}
+
+.navbar-brand {
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: white !important;
+    text-decoration: none;
+}
+
+.navbar-brand:hover {
+    color: #e2e8f0 !important;
+}
+
+.navbar-nav .nav-link {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-weight: 500;
+    padding: 0.5rem 1rem !important;
+    border-radius: 6px;
+    margin: 0 0.25rem;
+    transition: all 0.3s ease;
+}
+
+.navbar-nav .nav-link:hover {
+    color: white !important;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.navbar-nav .nav-link.active {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white !important;
+}
+
+/* ========================================
+   MAIN CONTENT AREA
+======================================== */
+.main-content {
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+}
+
+.container-fluid {
+    max-width: 1400px;
+}
+
+/* ========================================
+   DASHBOARD CARDS
+======================================== */
+.dashboard-card {
+    background: white;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-card .card-header {
+    background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+    border-bottom: 1px solid var(--gray-200);
+    padding: 1.25rem 1.5rem;
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+.dashboard-card .card-body {
+    padding: 1.5rem;
+}
+
+/* ========================================
+   ATTENDANCE OVERVIEW CARDS
+======================================== */
+.attendance-overview {
+    margin-bottom: 2rem;
+}
+
+.attendance-card {
+    background: white;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+}
+
+.attendance-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.attendance-card.present {
+    border-left: 4px solid var(--status-present);
+}
+
+.attendance-card.absent {
+    border-left: 4px solid var(--status-absent);
+}
+
+.attendance-card.late {
+    border-left: 4px solid var(--status-late);
+}
+
+.attendance-card.leave {
+    border-left: 4px solid var(--status-leave);
+}
+
+.attendance-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.attendance-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--gray-600);
+}
+
+.attendance-location {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    margin-top: 0.25rem;
+}
+
+/* ========================================
+   BUTTONS & FORM CONTROLS
+======================================== */
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-light) 100%);
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-blue) 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, var(--secondary-green) 0%, #065f46 100%);
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, var(--secondary-orange) 0%, #c2410c 100%);
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, var(--secondary-red) 0%, #b91c1c 100%);
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+}
+
+.btn-lg {
+    padding: 1rem 2rem;
+    font-size: 1.125rem;
+}
+
+/* ========================================
+   FORM STYLING
+======================================== */
+.form-control, .form-select {
+    border: 2px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary-light);
+    box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25);
+}
+
+.form-label {
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 0.5rem;
+}
+
+.input-group .form-control {
+    border-radius: 0;
+}
+
+.input-group .form-control:first-child {
+    border-radius: 8px 0 0 8px;
+}
+
+.input-group .form-control:last-child {
+    border-radius: 0 8px 8px 0;
+}
+
+/* ========================================
+   TABLES
+======================================== */
+.table-custom {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.table-custom thead th {
+    background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+    border: none;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.875rem;
+    color: var(--gray-700);
+    padding: 1rem;
+}
+
+.table-custom tbody td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--gray-100);
+    vertical-align: middle;
+}
+
+.table-custom tbody tr:hover {
+    background-color: var(--gray-50);
+}
+
+.table-custom tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ========================================
+   STATUS BADGES
+======================================== */
+.status-badge {
+    padding: 0.375rem 0.75rem;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-present {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.status-absent {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.status-late {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.status-leave {
+    background-color: #ede9fe;
+    color: #5b21b6;
+}
+
+/* ========================================
+   ALERT MESSAGES
+======================================== */
+.alert {
+    border: none;
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+}
+
+.alert-success {
+    background-color: #dcfce7;
+    color: #166534;
+    border-left: 4px solid var(--secondary-green);
+}
+
+.alert-danger {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border-left: 4px solid var(--secondary-red);
+}
+
+.alert-warning {
+    background-color: #fef3c7;
+    color: #92400e;
+    border-left: 4px solid var(--secondary-orange);
+}
+
+.alert-info {
+    background-color: #dbeafe;
+    color: #1e40af;
+    border-left: 4px solid var(--primary-light);
+}
+
+/* ========================================
+   MODAL STYLING
+======================================== */
+.modal-content {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+    background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+    border-bottom: 1px solid var(--gray-200);
+    border-radius: 12px 12px 0 0;
+    padding: 1.5rem 2rem;
+}
+
+.modal-title {
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+.modal-body {
+    padding: 2rem;
+}
+
+.modal-footer {
+    padding: 1.5rem 2rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+/* ========================================
+   QUICK ACTIONS PANEL
+======================================== */
+.quick-actions {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    margin-bottom: 2rem;
+}
+
+.quick-actions h5 {
+    color: var(--gray-800);
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.quick-action-btn {
+    width: 100%;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    font-weight: 600;
+    text-align: left;
+}
+
+/* ========================================
+   LOCATION & SHIFT INDICATORS
+======================================== */
+.location-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.location-head-office {
+    background-color: #e0f2fe;
+    color: #0277bd;
+}
+
+.location-dandora {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+}
+
+.location-tassia {
+    background-color: #fff3e0;
+    color: #ef6c00;
+}
+
+.location-kiambu {
+    background-color: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.shift-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.shift-day {
+    background-color: #fff9c4;
+    color: #854d0e;
+}
+
+.shift-night {
+    background-color: #1f2937;
+    color: #f3f4f6;
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+======================================== */
+@media (max-width: 768px) {
+    .navbar-brand {
+        font-size: 1.25rem;
+    }
+    
+    .attendance-number {
+        font-size: 2rem;
+    }
+    
+    .main-content {
+        margin-top: 1rem;
+    }
+    
+    .dashboard-card .card-body {
+        padding: 1rem;
+    }
+    
+    .table-custom {
+        font-size: 0.875rem;
+    }
+    
+    .btn {
+        font-size: 0.875rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .container-fluid {
+        padding: 0 0.75rem;
+    }
+    
+    .attendance-number {
+        font-size: 1.75rem;
+    }
+    
+    .modal-body {
+        padding: 1.5rem;
+    }
+    
+    .quick-actions {
+        padding: 1rem;
+    }
+}
+
+/* ========================================
+   CUSTOM UTILITIES
+======================================== */
+.text-gradient {
+    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-light) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 700;
+}
+
+.shadow-custom {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.shadow-custom-hover:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.border-gradient {
+    border: 2px solid;
+    border-image: linear-gradient(135deg, var(--primary-blue), var(--primary-light)) 1;
+}
+
+/* ========================================
+   ANIMATION & TRANSITIONS
+======================================== */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+    from { transform: translateX(-100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+.animate-fadeIn {
+    animation: fadeIn 0.6s ease-out;
+}
+
+.animate-slideIn {
+    animation: slideIn 0.6s ease-out;
+}
+
+/* ========================================
+   LOADING STATES
+======================================== */
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ========================================
+   PRINT STYLES
+======================================== */
+@media print {
+    .navbar, .btn, .quick-actions {
+        display: none !important;
+    }
+    
+    .main-content {
+        margin-top: 0;
+    }
+    
+    .dashboard-card, .table-custom {
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+}

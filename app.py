@@ -49,12 +49,14 @@ def create_app(config_name=None):
     from routes.employees import employees_bp
     from routes.attendance import attendance_bp
     from routes.leaves import leaves_bp
-    
+    from routes.profile import profile_bp
+      
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(dashboard_bp, url_prefix='/')
     app.register_blueprint(employees_bp, url_prefix='/employees')
     app.register_blueprint(attendance_bp, url_prefix='/attendance')
     app.register_blueprint(leaves_bp, url_prefix='/leaves')
+    app.register_blueprint(profile_bp, url_prefix='/profile')
     
     # Professional error handlers
     @app.errorhandler(404)
