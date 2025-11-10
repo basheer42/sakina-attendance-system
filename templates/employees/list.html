@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Employees - Sakina Gas Attendance System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="bi bi-people"></i> Employee Management</h5>
+                    {% if current_user.role == 'hr_manager' %}
+                    <a href="{{ url_for('employees.add_employee') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Add Employee
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if employees %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Employee ID</th>
+                                    <th>Name</th>
+                                    <th>Department</th>
+                                    <th>Position</th>
+                                    <th>Location</th>
+                                    <th>Shift</th>
+                                    <th>Hire Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for employee in employees %}
+                                <tr>
+                                    <td><strong>{{ employee.employee_id }}</strong></td>
+                                    <td>{{ employee.full_name }}</td>
+                                    <td>{{ employee.department }}</td>
+                                    <td>{{ employee.position }}</td>
+                                    <td>{{ employee.location.replace('_', ' ').title() }}</td>
+                                    <td>
+                                        {% if employee.shift %}
+                                            {{ employee.shift.title() }}
+                                        {% else %}
+                                            <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ employee.hire_date.strftime('%Y-%m-%d') }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center">
+                        <i class="bi bi-info-circle text-info" style="font-size: 3rem;"></i>
+                        <h4 class="mt-3">No employees found</h4>
+                        <p class="text-muted">Start by adding some employees to the system.</p>
+                        {% if current_user.role == 'hr_manager' %}
+                        <a href="{{ url_for('employees.add_employee') }}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> Add First Employee
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

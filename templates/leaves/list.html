@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Leave Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="bi bi-calendar-check"></i> Leave Management</h5>
+                    <a href="{{ url_for('leaves.request_leave') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Request Leave
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Kenyan Labor Law Compliance Built-in!</strong><br>
+                        The system automatically validates all leave requests against Employment Act 2007:
+                        <ul class="mt-2 mb-0">
+                            <li>Maternity leave: Maximum 90 days</li>
+                            <li>Paternity leave: Maximum 14 days</li>
+                            <li>Annual leave: 21 days per year</li>
+                            <li>Sick leave: 7 days without certificate</li>
+                        </ul>
+                    </div>
+                    
+                    {% if leave_requests %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Leave Type</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                    <th>Days</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for leave in leave_requests %}
+                                <tr>
+                                    <td>{{ leave.employee.full_name }}</td>
+                                    <td>{{ leave.leave_type.replace('_', ' ').title() }}</td>
+                                    <td>{{ leave.start_date.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ leave.end_date.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ leave.total_days }}</td>
+                                    <td>
+                                        {% if leave.status == 'approved' %}
+                                            <span class="badge bg-success">Approved</span>
+                                        {% elif leave.status == 'rejected' %}
+                                            <span class="badge bg-danger">Rejected</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if current_user.role == 'hr_manager' and leave.status == 'pending' %}
+                                        <a href="{{ url_for('leaves.approve_leave', leave_id=leave.id) }}" 
+                                           class="btn btn-success btn-sm">Approve</a>
+                                        <a href="{{ url_for('leaves.reject_leave', leave_id=leave.id) }}" 
+                                           class="btn btn-danger btn-sm">Reject</a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center">
+                        <i class="bi bi-calendar-x text-info" style="font-size: 3rem;"></i>
+                        <h4 class="mt-3">No leave requests found</h4>
+                        <p class="text-muted">Start by requesting leave for an employee.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

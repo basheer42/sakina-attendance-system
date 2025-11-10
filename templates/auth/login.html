@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Sakina Gas Attendance System{% endblock %}
+
+{% block content %}
+<div class="min-vh-100 d-flex align-items-center" style="background: linear-gradient(135deg, #1976D2 0%, #FF5722 100%);">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-5 col-md-7">
+                <!-- Login Card -->
+                <div class="card card-sakina border-0 shadow-lg">
+                    <!-- Header with Logo and Branding -->
+                    <div class="card-header text-center bg-white border-0 py-4">
+                        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Sakina Gas Logo" 
+                             class="mb-3" style="height: 80px;">
+                        <h3 class="text-primary fw-bold mb-1">Sakina Gas Company</h3>
+                        <p class="text-muted mb-0">Attendance Management System</p>
+                    </div>
+                    
+                    <!-- Login Form -->
+                    <div class="card-body px-5 py-4">
+                        <form method="POST" action="{{ url_for('auth.login') }}" class="needs-validation" novalidate>
+                            <!-- Username Field -->
+                            <div class="mb-4">
+                                <label for="username" class="form-label fw-medium text-dark">
+                                    <i class="bi bi-person-circle me-2 text-primary"></i>Username
+                                </label>
+                                <input type="text" 
+                                       class="form-control form-control-lg form-control-sakina" 
+                                       id="username" 
+                                       name="username" 
+                                       placeholder="Enter your username"
+                                       required>
+                                <div class="invalid-feedback">
+                                    Please enter your username.
+                                </div>
+                            </div>
+                            
+                            <!-- Password Field -->
+                            <div class="mb-4">
+                                <label for="password" class="form-label fw-medium text-dark">
+                                    <i class="bi bi-shield-lock me-2 text-primary"></i>Password
+                                </label>
+                                <div class="position-relative">
+                                    <input type="password" 
+                                           class="form-control form-control-lg form-control-sakina" 
+                                           id="password" 
+                                           name="password" 
+                                           placeholder="Enter your password"
+                                           required>
+                                    <button type="button" 
+                                            class="btn btn-link position-absolute end-0 top-50 translate-middle-y pe-3 text-muted"
+                                            onclick="togglePassword()"
+                                            style="border: none; background: none;">
+                                        <i class="bi bi-eye" id="toggleIcon"></i>
+                                    </button>
+                                </div>
+                                <div class="invalid-feedback">
+                                    Please enter your password.
+                                </div>
+                            </div>
+                            
+                            <!-- Remember Me -->
+                            <div class="mb-4">
+                                <div class="form-check">
+                                    <input type="checkbox" 
+                                           class="form-check-input" 
+                                           id="remember_me" 
+                                           name="remember_me">
+                                    <label class="form-check-label fw-medium" for="remember_me">
+                                        Remember me for 8 hours
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- Login Button -->
+                            <div class="d-grid mb-4">
+                                <button type="submit" class="btn btn-sakina-primary btn-lg fw-medium py-3">
+                                    <i class="bi bi-box-arrow-in-right me-2"></i>Sign In to Dashboard
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- Default Credentials Info -->
+                    <div class="card-footer bg-light text-center py-4">
+                        <div class="row">
+                            <div class="col-12">
+                                <h6 class="text-muted fw-bold mb-3">Default Login Credentials</h6>
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="bg-white rounded-3 p-3 shadow-sm">
+                                    <div class="text-primary fw-bold mb-1">
+                                        <i class="bi bi-person-badge me-2"></i>HR Manager
+                                    </div>
+                                    <code class="small text-dark">hr_manager</code><br>
+                                    <code class="small text-dark">admin123</code>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="bg-white rounded-3 p-3 shadow-sm">
+                                    <div class="text-secondary fw-bold mb-1">
+                                        <i class="bi bi-geo-alt me-2"></i>Station Manager
+                                    </div>
+                                    <code class="small text-dark">dandora_manager</code><br>
+                                    <code class="small text-dark">manager123</code>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Change these credentials after first login for security.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- System Status -->
+                <div class="text-center mt-4">
+                    <div class="bg-white bg-opacity-25 rounded-3 p-3">
+                        <div class="d-flex align-items-center justify-content-center text-white">
+                            <div class="bg-success rounded-circle p-1 me-3">
+                                <i class="bi bi-check-lg"></i>
+                            </div>
+                            <div class="text-start">
+                                <div class="fw-bold">System Online</div>
+                                <small class="opacity-75">All services operational</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Form validation
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        const forms = document.getElementsByClassName('needs-validation');
+        Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+
+// Password toggle
+function togglePassword() {
+    const passwordField = document.getElementById('password');
+    const toggleIcon = document.getElementById('toggleIcon');
+    
+    if (passwordField.type === 'password') {
+        passwordField.type = 'text';
+        toggleIcon.className = 'bi bi-eye-slash';
+    } else {
+        passwordField.type = 'password';
+        toggleIcon.className = 'bi bi-eye';
+    }
+}
+
+// Auto-focus username field
+document.getElementById('username').focus();
+
+// Add subtle animations
+document.addEventListener('DOMContentLoaded', function() {
+    const card = document.querySelector('.card');
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(30px)';
+    
+    setTimeout(function() {
+        card.style.transition = 'all 0.6s ease';
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0)';
+    }, 100);
+});
+</script>
+{% endblock %}

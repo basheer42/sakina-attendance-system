@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Add Employee - Sakina Gas Attendance System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-person-plus"></i> Add New Employee</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('employees.add_employee') }}">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="employee_id" class="form-label">Employee ID *</label>
+                                <input type="text" class="form-control" id="employee_id" name="employee_id" 
+                                       placeholder="e.g. EMP001" required>
+                                <div class="form-text">Must be unique</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="hire_date" class="form-label">Hire Date</label>
+                                <input type="date" class="form-control" id="hire_date" name="hire_date">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="first_name" class="form-label">First Name *</label>
+                                <input type="text" class="form-control" id="first_name" name="first_name" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="last_name" class="form-label">Last Name *</label>
+                                <input type="text" class="form-control" id="last_name" name="last_name" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="phone" class="form-label">Phone</label>
+                                <input type="tel" class="form-control" id="phone" name="phone" 
+                                       placeholder="0712345678">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="department" class="form-label">Department *</label>
+                                <select class="form-control" id="department" name="department" required>
+                                    <option value="">Select Department</option>
+                                    <option value="Operations">Operations</option>
+                                    <option value="Administration">Administration</option>
+                                    <option value="Finance">Finance</option>
+                                    <option value="HR">Human Resources</option>
+                                    <option value="Security">Security</option>
+                                    <option value="Maintenance">Maintenance</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="position" class="form-label">Position *</label>
+                                <input type="text" class="form-control" id="position" name="position" 
+                                       placeholder="e.g. Station Attendant, Manager" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="location" class="form-label">Location *</label>
+                                <select class="form-control" id="location" name="location" required>
+                                    <option value="">Select Location</option>
+                                    <option value="head_office">Head Office</option>
+                                    <option value="dandora">Dandora Station</option>
+                                    <option value="tassia">Tassia Station</option>
+                                    <option value="kiambu">Kiambu Station</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3" id="shift-group" style="display: none;">
+                                <label for="shift" class="form-label">Shift *</label>
+                                <select class="form-control" id="shift" name="shift">
+                                    <option value="">Select Shift</option>
+                                    <option value="day">Day Shift (06:00 - 18:00)</option>
+                                    <option value="night">Night Shift (18:00 - 06:00)</option>
+                                </select>
+                                <div class="form-text">Required for station employees</div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary me-2">
+                                    <i class="bi bi-save"></i> Add Employee
+                                </button>
+                                <a href="{{ url_for('employees.list_employees') }}" class="btn btn-secondary">
+                                    <i class="bi bi-arrow-left"></i> Cancel
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Set today's date as default for hire date
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('hire_date').value = new Date().toISOString().split('T')[0];
+});
+
+// Handle location change to show/hide shift selection
+document.getElementById('location').addEventListener('change', function() {
+    const shiftGroup = document.getElementById('shift-group');
+    const shiftSelect = document.getElementById('shift');
+    
+    if (this.value === 'head_office') {
+        shiftGroup.style.display = 'none';
+        shiftSelect.value = '';
+        shiftSelect.removeAttribute('required');
+    } else if (this.value) {
+        shiftGroup.style.display = 'block';
+        shiftSelect.setAttribute('required', 'required');
+    } else {
+        shiftGroup.style.display = 'none';
+        shiftSelect.removeAttribute('required');
+    }
+});
+
+// Form validation
+document.querySelector('form').addEventListener('submit', function(e) {
+    const location = document.getElementById('location').value;
+    const shift = document.getElementById('shift').value;
+    
+    if (location && location !== 'head_office' && !shift) {
+        e.preventDefault();
+        alert('Please select a shift for station employees');
+        return false;
+    }
+});
+</script>
+{% endblock %}
