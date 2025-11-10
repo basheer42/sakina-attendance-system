@@ -1,11 +1,23 @@
-# Sakina Gas Attendance System - Git Ignore File
+# Sakina Gas Attendance System - Enhanced Security Git Ignore
 
-# Database files
+# CRITICAL: Database files (NEVER commit these)
 *.db
 *.sqlite
 *.sqlite3
 sakina_attendance.db
 sakina_professional.db
+app_data.db
+
+# CRITICAL: Configuration files with secrets
+config_production.py
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+secrets.txt
+*.key
+*.pem
 
 # Python cache and compiled files
 __pycache__/
@@ -37,6 +49,7 @@ ENV/
 env.bak/
 venv.bak/
 .venv/
+sakina_env/
 
 # IDE and editor files
 .vscode/
@@ -58,13 +71,8 @@ desktop.ini
 # Flask specific
 instance/
 .webassets-cache
-.env
-.env.local
-.env.development
-.env.test
-.env.production
 
-# Logs
+# Logs and sensitive data
 logs/
 *.log
 npm-debug.log*
@@ -77,20 +85,15 @@ pids/
 *.seed
 *.pid.lock
 
-# Uploads (if sensitive)
+# Uploads (potentially sensitive)
 uploads/
 temp/
+user_uploads/
 
 # Backup files
 *.bak
 *.backup
 *.old
-
-# Security sensitive files
-config_production.py
-secrets.txt
-*.key
-*.pem
 
 # Test coverage
 htmlcov/
@@ -119,15 +122,6 @@ celerybeat-schedule
 # SageMath parsed files
 *.sage.py
 
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -142,3 +136,9 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# SECURITY: Never commit these
+password.txt
+credentials.txt
+api_keys.txt
+database_backups/

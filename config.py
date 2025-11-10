@@ -1,6 +1,6 @@
 """
-Professional Configuration for Sakina Gas Attendance Management System
-Enhanced with brand styling and enterprise features
+SECURE Configuration for Sakina Gas Attendance Management System
+This version removes all sensitive data and uses environment variables
 """
 import os
 from datetime import timedelta
@@ -8,9 +8,11 @@ from datetime import timedelta
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 class Config:
-    # Core Flask Configuration
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'sakina-gas-professional-2025-secret-key'
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///' + os.path.join(basedir, 'sakina_professional.db')
+    # Core Flask Configuration - USE ENVIRONMENT VARIABLES
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'CHANGE-THIS-IN-PRODUCTION-' + str(hash('sakina-gas-2025'))
+    
+    # Database Configuration - NO SENSITIVE PATHS
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///' + os.path.join(basedir, 'app_data.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_recycle': 300,
@@ -18,16 +20,16 @@ class Config:
     }
     
     # Session and Security
-    PERMANENT_SESSION_LIFETIME = timedelta(hours=8)  # Work day duration
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
     WTF_CSRF_ENABLED = True
     WTF_CSRF_TIME_LIMIT = 3600
     
-    # Company Branding (from uploaded logo)
+    # Company Branding
     COMPANY_NAME = "Sakina Gas Company"
     COMPANY_TAGLINE = "Excellence in Energy Solutions"
     COMPANY_LOGO = "logo.png"
     
-    # Brand Colors from Logo
+    # Brand Colors
     BRAND_COLORS = {
         'primary_orange': '#FF5722',
         'secondary_orange': '#FF9800', 
@@ -74,24 +76,6 @@ class Config:
             'has_shifts': True, 
             'shifts': ['day', 'night'],
             'timezone': 'Africa/Nairobi'
-        }
-    }
-    
-    # Shift Configuration
-    SHIFT_SCHEDULES = {
-        'day': {
-            'name': 'Day Shift',
-            'start_time': '06:00',
-            'end_time': '18:00',
-            'duration_hours': 12,
-            'break_minutes': 60
-        },
-        'night': {
-            'name': 'Night Shift', 
-            'start_time': '18:00',
-            'end_time': '06:00',
-            'duration_hours': 12,
-            'break_minutes': 60
         }
     }
     
@@ -144,58 +128,13 @@ class Config:
     
     # Department Structure
     DEPARTMENTS = {
-        'operations': {
-            'name': 'Operations',
-            'code': 'OPS',
-            'color': '#FF5722'
-        },
-        'administration': {
-            'name': 'Administration', 
-            'code': 'ADM',
-            'color': '#1976D2'
-        },
-        'finance': {
-            'name': 'Finance',
-            'code': 'FIN', 
-            'color': '#4CAF50'
-        },
-        'hr': {
-            'name': 'Human Resources',
-            'code': 'HR',
-            'color': '#E91E63'
-        },
-        'security': {
-            'name': 'Security',
-            'code': 'SEC',
-            'color': '#795548'
-        },
-        'maintenance': {
-            'name': 'Maintenance',
-            'code': 'MNT',
-            'color': '#607D8B'
-        }
+        'operations': {'name': 'Operations', 'code': 'OPS', 'color': '#FF5722'},
+        'administration': {'name': 'Administration', 'code': 'ADM', 'color': '#1976D2'},
+        'finance': {'name': 'Finance', 'code': 'FIN', 'color': '#4CAF50'},
+        'hr': {'name': 'Human Resources', 'code': 'HR', 'color': '#E91E63'},
+        'security': {'name': 'Security', 'code': 'SEC', 'color': '#795548'},
+        'maintenance': {'name': 'Maintenance', 'code': 'MNT', 'color': '#607D8B'}
     }
-    
-    # Application Settings
-    ITEMS_PER_PAGE = 25
-    MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5MB
-    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf', 'doc', 'docx'}
-    
-    # Email Configuration (for future notifications)
-    MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
-    MAIL_PORT = int(os.environ.get('MAIL_PORT', '587'))
-    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'true').lower() in ['true', 'on', '1']
-    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
-    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
-    
-    # Reporting and Analytics
-    ENABLE_ANALYTICS = True
-    CHART_COLORS = ['#FF5722', '#1976D2', '#4CAF50', '#FF9800', '#E91E63', '#795548']
-    
-    # System Limits
-    MAX_EMPLOYEES_PER_LOCATION = 100
-    MAX_LEAVE_REQUESTS_PER_MONTH = 50
-    SESSION_TIMEOUT_MINUTES = 480  # 8 hours
 
 class DevelopmentConfig(Config):
     DEBUG = True
