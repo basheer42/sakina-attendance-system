@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Reject Leave Request{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5><i class="bi bi-x-circle"></i> Reject Leave Request</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Warning Alert -->
+                    <div class="alert alert-warning">
+                        <h6><i class="bi bi-exclamation-triangle"></i> Important Notice</h6>
+                        <p class="mb-0">You are about to <strong>reject</strong> this leave request. Please provide a clear reason for rejection as this will be communicated to the employee and stored in their records.</p>
+                    </div>
+
+                    <!-- Leave Request Details -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <h6><i class="bi bi-info-circle"></i> Leave Request Details</h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>Employee:</strong> {{ leave_request.employee.full_name }}<br>
+                                        <strong>Employee ID:</strong> {{ leave_request.employee.employee_id }}<br>
+                                        <strong>Department:</strong> {{ leave_request.employee.department }}<br>
+                                        <strong>Position:</strong> {{ leave_request.employee.position }}<br>
+                                        <strong>Location:</strong> {{ leave_request.employee.location.replace('_', ' ').title() }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Leave Type:</strong> {{ leave_request.leave_type.replace('_', ' ').title() }}<br>
+                                        <strong>Start Date:</strong> {{ leave_request.start_date.strftime('%Y-%m-%d') }}<br>
+                                        <strong>End Date:</strong> {{ leave_request.end_date.strftime('%Y-%m-%d') }}<br>
+                                        <strong>Total Days:</strong> {{ leave_request.total_days }} days<br>
+                                        <strong>Requested On:</strong> {{ leave_request.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Employee's Original Reason -->
+                    <div class="mb-4">
+                        <h6><i class="bi bi-chat-quote"></i> Employee's Reason for Leave</h6>
+                        <div class="border p-3 bg-light rounded">
+                            {{ leave_request.reason|replace('\n', '<br>')|safe }}
+                        </div>
+                    </div>
+
+                    <!-- Legal Compliance Information -->
+                    <div class="mb-4">
+                        <div class="alert alert-secondary">
+                            <h6><i class="bi bi-shield-check"></i> Legal Compliance Check</h6>
+                            <div class="row">
+                                <div class="col-md-12">
+                                    {% set max_days = {'annual_leave': 21, 'maternity_leave': 90, 'paternity_leave': 14, 'sick_leave': 7, 'compassionate_leave': 7} %}
+                                    {% if leave_request.leave_type in max_days %}
+                                        {% if leave_request.total_days <= max_days[leave_request.leave_type] %}
+                                            <span class="text-success">✓ Request is within Kenyan legal limits ({{ max_days[leave_request.leave_type] }} days max for {{ leave_request.leave_type.replace('_', ' ') }})</span>
+                                        {% else %}
+                                            <span class="text-danger">⚠ Request exceeds Kenyan legal limits ({{ max_days[leave_request.leave_type] }} days max for {{ leave_request.leave_type.replace('_', ' ') }})</span>
+                                            <br><small class="text-muted">This could be a valid reason for rejection.</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-info">No specific legal limits apply to {{ leave_request.leave_type.replace('_', ' ') }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rejection Form -->
+                    <form method="POST" action="{{ url_for('leaves.reject_leave', leave_id=leave_request.id) }}" id="rejectionForm">
+                        <div class="mb-4">
+                            <label for="rejection_reason" class="form-label">
+                                <i class="bi bi-exclamation-circle"></i> Reason for Rejection *
+                            </label>
+                            <textarea class="form-control" id="rejection_reason" name="rejection_reason" rows="5" 
+                                      placeholder="Please provide a clear, professional reason for rejecting this leave request. This reason will be shared with the employee."
+                                      required></textarea>
+                            <div class="form-text">
+                                <strong>Required:</strong> You must provide a reason for rejection. This helps maintain transparency and good employee relations.
+                            </div>
+                        </div>
+
+                        <!-- Common Rejection Reasons (Quick Select) -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="bi bi-list-check"></i> Quick Reason Templates (Click to use)
+                            </label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm quick-reason" 
+                                        data-reason="Insufficient staffing during requested period. Please consider alternative dates.">
+                                    Staffing Issues
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm quick-reason"
+                                        data-reason="Exceeds annual leave allocation. Please check your leave balance and resubmit.">
+                                    Exceeds Allocation
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm quick-reason"
+                                        data-reason="Conflicts with peak business period. Please consider rescheduling for a less critical time.">
+                                    Peak Period
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm quick-reason"
+                                        data-reason="Insufficient notice provided. Please ensure adequate notice as per company policy.">
+                                    Insufficient Notice
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm quick-reason"
+                                        data-reason="Documentation requirements not met. Please provide necessary supporting documents.">
+                                    Missing Documentation
+                                </button>
+                            </div>
+                            <div class="form-text mt-2">Click any template above to use it, then customize as needed.</div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="row">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-danger btn-lg me-3">
+                                    <i class="bi bi-x-circle"></i> Reject Leave Request
+                                </button>
+                                <a href="{{ url_for('leaves.approve_leave', leave_id=leave_request.id) }}" 
+                                   class="btn btn-success btn-lg me-3">
+                                    <i class="bi bi-check-circle"></i> Approve Instead
+                                </a>
+                                <a href="{{ url_for('leaves.list_leaves') }}" class="btn btn-secondary">
+                                    <i class="bi bi-arrow-left"></i> Back to Leave List
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Professional Guidelines -->
+                    <div class="mt-5 pt-4 border-top">
+                        <h6><i class="bi bi-lightbulb"></i> Professional Guidelines for Rejection</h6>
+                        <div class="alert alert-light">
+                            <ul class="mb-0">
+                                <li><strong>Be specific:</strong> Clearly state the reason for rejection</li>
+                                <li><strong>Be professional:</strong> Use respectful, constructive language</li>
+                                <li><strong>Offer alternatives:</strong> Suggest alternative dates if possible</li>
+                                <li><strong>Reference policy:</strong> Cite relevant company policies if applicable</li>
+                                <li><strong>Maintain records:</strong> This rejection will be documented in the employee's file</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-focus the rejection reason textarea
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('rejection_reason').focus();
+});
+
+// Quick reason template functionality
+document.querySelectorAll('.quick-reason').forEach(function(button) {
+    button.addEventListener('click', function() {
+        const reason = this.getAttribute('data-reason');
+        document.getElementById('rejection_reason').value = reason;
+        document.getElementById('rejection_reason').focus();
+    });
+});
+
+// Form validation and confirmation
+document.getElementById('rejectionForm').addEventListener('submit', function(e) {
+    const rejectionReason = document.getElementById('rejection_reason').value.trim();
+    
+    if (rejectionReason.length < 10) {
+        e.preventDefault();
+        alert('Please provide a more detailed reason for rejection (at least 10 characters).');
+        document.getElementById('rejection_reason').focus();
+        return false;
+    }
+    
+    const confirmed = confirm('Are you sure you want to REJECT this leave request?\n\nEmployee: {{ leave_request.employee.full_name }}\nDuration: {{ leave_request.total_days }} days\nType: {{ leave_request.leave_type.replace("_", " ").title() }}\n\nThis action cannot be easily undone.');
+    
+    if (!confirmed) {
+        e.preventDefault();
+    }
+});
+
+// Character counter for rejection reason
+document.getElementById('rejection_reason').addEventListener('input', function() {
+    const length = this.value.length;
+    const minLength = 10;
+    
+    if (length < minLength) {
+        this.style.borderColor = '#dc3545';
+    } else {
+        this.style.borderColor = '#198754';
+    }
+});
+</script>
+{% endblock %}

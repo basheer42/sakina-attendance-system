@@ -18,6 +18,9 @@
                             <a href="{{ url_for('dashboard.main') }}" class="btn btn-light">
                                 <i class="bi bi-arrow-left"></i> Back to Dashboard
                             </a>
+                            <button onclick="location.reload()" class="btn btn-outline-light ms-2">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -35,7 +38,7 @@
                             All ({{ attendance_details|length }})
                         </a>
                         <a href="?filter=present" class="btn {{ 'btn-success' if filter_status == 'present' else 'btn-outline-success' }}">
-                            Present
+                            Present/Late
                         </a>
                         <a href="?filter=absent" class="btn {{ 'btn-danger' if filter_status == 'absent' else 'btn-outline-danger' }}">
                             Absent
@@ -78,12 +81,14 @@
                                     <td>{{ item.employee.full_name }}</td>
                                     <td>{{ item.employee.department }}</td>
                                     <td>
-                                        {% if item.status == 'present' %}
+                                        {% if item.get('actual_status') == 'present' %}
                                             <span class="badge bg-success"><i class="bi bi-check-circle"></i> Present</span>
+                                        {% elif item.get('actual_status') == 'late' %}
+                                            <span class="badge bg-warning"><i class="bi bi-clock"></i> Late</span>
                                         {% elif item.status == 'absent' %}
                                             <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Absent</span>
                                         {% elif item.status == 'on_leave' %}
-                                            <span class="badge bg-warning"><i class="bi bi-calendar-check"></i> On Leave</span>
+                                            <span class="badge bg-info"><i class="bi bi-calendar-check"></i> On Leave</span>
                                         {% else %}
                                             <span class="badge bg-secondary">{{ item.status.title() }}</span>
                                         {% endif %}
@@ -98,6 +103,7 @@
                                     <td>
                                         {% if item.clock_out %}
                                             {{ item.clock_out.strftime('%H:%M') }}
+                                            <small class="text-muted">(Auto)</small>
                                         {% else %}
                                             <span class="text-muted">-</span>
                                         {% endif %}
@@ -137,4 +143,17 @@
         </div>
     </div>
 </div>
+
+<script>
+// Auto-refresh every 30 seconds
+setInterval(function() {
+    location.reload();
+}, 30000);
+
+// Show refresh indicator when manually refreshing
+document.querySelector('button[onclick="location.reload()"]').addEventListener('click', function() {
+    this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> <span class="spinner-border spinner-border-sm ms-2"></span>';
+    this.disabled = true;
+});
+</script>
 {% endblock %}

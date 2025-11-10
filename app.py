@@ -1,6 +1,7 @@
 """
 Sakina Gas Company - Professional Attendance Management System
 Main Application File with Enhanced Enterprise Features
+UPDATED: Fixed SQLAlchemy 2.0 deprecation warnings
 """
 from flask import Flask, render_template, redirect, url_for, request, jsonify
 from flask_login import LoginManager, login_required, current_user
@@ -38,8 +39,9 @@ def create_app(config_name=None):
     
     @login_manager.user_loader
     def load_user(user_id):
-        from models import User
-        return User.query.get(int(user_id))
+        from models import User, db
+        # FIXED: Using db.session.get() instead of deprecated User.query.get()
+        return db.session.get(User, int(user_id))
     
     # Register professional blueprints
     from routes.auth import auth_bp
@@ -78,7 +80,8 @@ def create_app(config_name=None):
             'company_tagline': app.config.get('COMPANY_TAGLINE', 'Excellence in Energy Solutions'),
             'brand_colors': app.config.get('BRAND_COLORS', {}),
             'current_year': datetime.now().year,
-            'system_version': '2.0 Professional'
+            'system_version': '2.0 Professional',
+            'today': date.today()  # Added for templates
         }
     
     # Professional template filters
@@ -183,7 +186,11 @@ def create_professional_defaults():
     ]
     
     for user_data in default_users:
-        existing_user = User.query.filter_by(username=user_data['username']).first()
+        # FIXED: Using db.session.get() instead of deprecated User.query.filter_by().first()
+        existing_user = db.session.execute(
+            db.select(User).where(User.username == user_data['username'])
+        ).scalar_one_or_none()
+        
         if not existing_user:
             user = User(
                 username=user_data['username'],
@@ -208,11 +215,16 @@ def create_professional_defaults():
     ]
     
     for holiday_name, holiday_date in kenyan_holidays_2025:
-        existing_holiday = Holiday.query.filter_by(date=datetime.strptime(holiday_date, '%Y-%m-%d').date()).first()
+        holiday_date_obj = datetime.strptime(holiday_date, '%Y-%m-%d').date()
+        # FIXED: Using db.session.get() instead of deprecated Holiday.query.filter_by().first()
+        existing_holiday = db.session.execute(
+            db.select(Holiday).where(Holiday.date == holiday_date_obj)
+        ).scalar_one_or_none()
+        
         if not existing_holiday:
             holiday = Holiday(
                 name=holiday_name,
-                date=datetime.strptime(holiday_date, '%Y-%m-%d').date()
+                date=holiday_date_obj
             )
             db.session.add(holiday)
     
@@ -233,8 +245,8 @@ if __name__ == '__main__':
     print("🌐 Server: http://localhost:5000")
     print("👤 HR Manager: hr_manager / admin123")
     print("🏪 Station Manager: dandora_manager / manager123")
-    print("📊 System: Professional Enterprise Edition")
-    print("🔒 Security: Enhanced with session protection")
+    print("📊 System: Professional Enterprise Edition v2.0")
+    print("🔒 Security: Enhanced with SQLAlchemy 2.0 compatibility")
     print("=" * 80)
     
     # Run with professional settings

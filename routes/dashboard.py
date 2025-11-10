@@ -1,12 +1,13 @@
 """
 Dashboard routes for Sakina Gas Attendance System
+UPDATED: Fixed SQLAlchemy 2.0 deprecation warnings
 """
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 from models import db, Employee, AttendanceRecord, LeaveRequest
 from datetime import date, datetime
 from config import Config
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, select
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -59,12 +60,15 @@ def get_attendance_overview(target_date):
 def get_shift_attendance(location, shift, target_date):
     """Get attendance data for a specific location and shift"""
     # Base query for employees in this location
-    employee_query = Employee.query.filter_by(location=location, is_active=True)
+    employee_query = select(Employee).where(
+        Employee.location == location, 
+        Employee.is_active == True
+    )
     
     if shift:
-        employee_query = employee_query.filter_by(shift=shift)
+        employee_query = employee_query.where(Employee.shift == shift)
     
-    employees = employee_query.all()
+    employees = db.session.execute(employee_query).scalars().all()
     total_employees = len(employees)
     
     present = 0
@@ -73,24 +77,28 @@ def get_shift_attendance(location, shift, target_date):
     
     for employee in employees:
         # Check if employee has attendance record for today
-        attendance = AttendanceRecord.query.filter_by(
-            employee_id=employee.id,
-            date=target_date
-        ).first()
+        attendance = db.session.execute(
+            select(AttendanceRecord).where(
+                AttendanceRecord.employee_id == employee.id,
+                AttendanceRecord.date == target_date
+            )
+        ).scalar_one_or_none()
         
         # Check if employee is on approved leave
-        leave_request = LeaveRequest.query.filter(
-            and_(
-                LeaveRequest.employee_id == employee.id,
-                LeaveRequest.start_date <= target_date,
-                LeaveRequest.end_date >= target_date,
-                LeaveRequest.status == 'approved'
+        leave_request = db.session.execute(
+            select(LeaveRequest).where(
+                and_(
+                    LeaveRequest.employee_id == employee.id,
+                    LeaveRequest.start_date <= target_date,
+                    LeaveRequest.end_date >= target_date,
+                    LeaveRequest.status == 'approved'
+                )
             )
-        ).first()
+        ).scalar_one_or_none()
         
         if leave_request:
             on_leave += 1
-        elif attendance and attendance.status == 'present':
+        elif attendance and attendance.status in ['present', 'late']:
             present += 1
         else:
             absent += 1
@@ -111,30 +119,37 @@ def attendance_details(location, shift=None):
     filter_status = request.args.get('filter', 'all')  # all, present, absent, on_leave
     
     # Get employees for this location/shift
-    employee_query = Employee.query.filter_by(location=location, is_active=True)
+    employee_query = select(Employee).where(
+        Employee.location == location, 
+        Employee.is_active == True
+    )
     if shift:
-        employee_query = employee_query.filter_by(shift=shift)
+        employee_query = employee_query.where(Employee.shift == shift)
     
-    employees = employee_query.all()
+    employees = db.session.execute(employee_query).scalars().all()
     
     # Get detailed attendance information
     attendance_details = []
     for employee in employees:
         # Get attendance record for today
-        attendance = AttendanceRecord.query.filter_by(
-            employee_id=employee.id,
-            date=today
-        ).first()
+        attendance = db.session.execute(
+            select(AttendanceRecord).where(
+                AttendanceRecord.employee_id == employee.id,
+                AttendanceRecord.date == today
+            )
+        ).scalar_one_or_none()
         
         # Check for approved leave
-        leave_request = LeaveRequest.query.filter(
-            and_(
-                LeaveRequest.employee_id == employee.id,
-                LeaveRequest.start_date <= today,
-                LeaveRequest.end_date >= today,
-                LeaveRequest.status == 'approved'
+        leave_request = db.session.execute(
+            select(LeaveRequest).where(
+                and_(
+                    LeaveRequest.employee_id == employee.id,
+                    LeaveRequest.start_date <= today,
+                    LeaveRequest.end_date >= today,
+                    LeaveRequest.status == 'approved'
+                )
             )
-        ).first()
+        ).scalar_one_or_none()
         
         status = 'absent'
         notes = ''
@@ -145,17 +160,27 @@ def attendance_details(location, shift=None):
         elif attendance:
             status = attendance.status
             notes = attendance.notes or ''
+            # Include both 'present' and 'late' as present for filtering
+            if attendance.status == 'late':
+                status = 'present'  # For filtering purposes, late is still present
         
         employee_data = {
             'employee': employee,
             'status': status,
+            'actual_status': attendance.status if attendance else 'absent',  # Keep original for display
             'notes': notes,
             'clock_in': attendance.clock_in if attendance else None,
             'clock_out': attendance.clock_out if attendance else None
         }
         
-        # Apply filter
-        if filter_status == 'all' or status == filter_status:
+        # Apply filter - now includes both present and late employees under "present"
+        if filter_status == 'all':
+            attendance_details.append(employee_data)
+        elif filter_status == 'present' and status in ['present']:
+            attendance_details.append(employee_data)
+        elif filter_status == 'absent' and status == 'absent':
+            attendance_details.append(employee_data)
+        elif filter_status == 'on_leave' and status == 'on_leave':
             attendance_details.append(employee_data)
     
     location_name = Config.LOCATIONS[location]['name']

@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Approve Leave Request{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5><i class="bi bi-check-circle"></i> Approve Leave Request</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Leave Request Details -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <h6><i class="bi bi-info-circle"></i> Leave Request Details</h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>Employee:</strong> {{ leave_request.employee.full_name }}<br>
+                                        <strong>Employee ID:</strong> {{ leave_request.employee.employee_id }}<br>
+                                        <strong>Department:</strong> {{ leave_request.employee.department }}<br>
+                                        <strong>Location:</strong> {{ leave_request.employee.location.replace('_', ' ').title() }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Leave Type:</strong> {{ leave_request.leave_type.replace('_', ' ').title() }}<br>
+                                        <strong>Duration:</strong> {{ leave_request.start_date.strftime('%Y-%m-%d') }} to {{ leave_request.end_date.strftime('%Y-%m-%d') }}<br>
+                                        <strong>Total Days:</strong> {{ leave_request.total_days }} days<br>
+                                        <strong>Requested:</strong> {{ leave_request.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Employee's Reason -->
+                    <div class="mb-4">
+                        <h6><i class="bi bi-chat-quote"></i> Employee's Reason</h6>
+                        <div class="border p-3 bg-light rounded">
+                            {{ leave_request.reason|replace('\n', '<br>')|safe }}
+                        </div>
+                    </div>
+
+                    <!-- Legal Compliance Check -->
+                    <div class="mb-4">
+                        <div class="alert alert-warning">
+                            <h6><i class="bi bi-shield-check"></i> Kenyan Labor Law Compliance</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Leave Type Limits:</strong><br>
+                                    {% if leave_request.leave_type == 'annual_leave' %}
+                                        <span class="text-success">✓ Annual Leave: Max 21 days/year</span>
+                                    {% elif leave_request.leave_type == 'maternity_leave' %}
+                                        <span class="text-success">✓ Maternity Leave: Max 90 days</span>
+                                    {% elif leave_request.leave_type == 'paternity_leave' %}
+                                        <span class="text-success">✓ Paternity Leave: Max 14 days</span>
+                                    {% elif leave_request.leave_type == 'sick_leave' %}
+                                        <span class="text-success">✓ Sick Leave: 7 days without certificate</span>
+                                    {% elif leave_request.leave_type == 'compassionate_leave' %}
+                                        <span class="text-success">✓ Compassionate Leave: Max 7 days</span>
+                                    {% else %}
+                                        <span class="text-info">ℹ No legal limits apply</span>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Current Request:</strong><br>
+                                    {% set max_days = {'annual_leave': 21, 'maternity_leave': 90, 'paternity_leave': 14, 'sick_leave': 7, 'compassionate_leave': 7} %}
+                                    {% if leave_request.leave_type in max_days %}
+                                        {% if leave_request.total_days <= max_days[leave_request.leave_type] %}
+                                            <span class="text-success">✓ {{ leave_request.total_days }} days - Within legal limits</span>
+                                        {% else %}
+                                            <span class="text-danger">⚠ {{ leave_request.total_days }} days - Exceeds {{ max_days[leave_request.leave_type] }} day limit</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-info">{{ leave_request.total_days }} days - No legal restrictions</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Approval Form -->
+                    <form method="POST" action="{{ url_for('leaves.approve_leave', leave_id=leave_request.id) }}">
+                        <div class="mb-4">
+                            <label for="approval_notes" class="form-label">
+                                <i class="bi bi-pencil-square"></i> HR Approval Notes (Optional)
+                            </label>
+                            <textarea class="form-control" id="approval_notes" name="approval_notes" rows="4" 
+                                      placeholder="Add any notes regarding this approval (optional)..."></textarea>
+                            <div class="form-text">These notes will be added to the leave record for future reference.</div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="row">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-success btn-lg me-3">
+                                    <i class="bi bi-check-circle"></i> Approve Leave Request
+                                </button>
+                                <a href="{{ url_for('leaves.reject_leave', leave_id=leave_request.id) }}" 
+                                   class="btn btn-danger btn-lg me-3">
+                                    <i class="bi bi-x-circle"></i> Reject Instead
+                                </a>
+                                <a href="{{ url_for('leaves.list_leaves') }}" class="btn btn-secondary">
+                                    <i class="bi bi-arrow-left"></i> Back to Leave List
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Employee Leave History (Quick Reference) -->
+                    <div class="mt-5 pt-4 border-top">
+                        <h6><i class="bi bi-clock-history"></i> Employee Leave History (This Year)</h6>
+                        <div class="alert alert-light">
+                            <p class="mb-0"><strong>Quick Reference:</strong> This feature will show the employee's leave balance and history once fully implemented. For now, please check manually if needed.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-focus the notes textarea
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('approval_notes').focus();
+});
+
+// Add confirmation before approval
+document.querySelector('form').addEventListener('submit', function(e) {
+    const confirmed = confirm('Are you sure you want to APPROVE this leave request?\n\nEmployee: {{ leave_request.employee.full_name }}\nDuration: {{ leave_request.total_days }} days\nType: {{ leave_request.leave_type.replace("_", " ").title() }}');
+    
+    if (!confirmed) {
+        e.preventDefault();
+    }
+});
+</script>
+{% endblock %}

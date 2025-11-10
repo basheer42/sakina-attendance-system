@@ -1,10 +1,12 @@
 """
 Employee management routes for Sakina Gas Attendance System
+UPDATED: Fixed SQLAlchemy 2.0 deprecation warnings
 """
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from models import db, Employee
 from datetime import date
+from sqlalchemy import select
 
 employees_bp = Blueprint('employees', __name__)
 
@@ -16,13 +18,26 @@ def list_employees():
     
     if current_user.role == 'station_manager' and current_user.location:
         # Station managers can only see their own location
-        employees = Employee.query.filter_by(location=current_user.location, is_active=True).all()
+        # FIXED: Using modern SQLAlchemy syntax
+        employees = db.session.execute(
+            select(Employee).where(
+                Employee.location == current_user.location, 
+                Employee.is_active == True
+            )
+        ).scalars().all()
     else:
         # HR managers can see all
         if location_filter != 'all':
-            employees = Employee.query.filter_by(location=location_filter, is_active=True).all()
+            employees = db.session.execute(
+                select(Employee).where(
+                    Employee.location == location_filter, 
+                    Employee.is_active == True
+                )
+            ).scalars().all()
         else:
-            employees = Employee.query.filter_by(is_active=True).all()
+            employees = db.session.execute(
+                select(Employee).where(Employee.is_active == True)
+            ).scalars().all()
     
     return render_template('employees/list.html', employees=employees, location_filter=location_filter)
 

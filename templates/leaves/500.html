@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Server Error - Sakina Gas{% endblock %}
+
+{% block content %}
+<div class="min-vh-100 d-flex align-items-center justify-content-center">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-6 text-center">
+                <div class="card border-0 shadow-lg">
+                    <div class="card-body p-5">
+                        <!-- Large Error Icon -->
+                        <div class="mb-4">
+                            <i class="bi bi-exclamation-triangle text-danger" style="font-size: 6rem;"></i>
+                        </div>
+                        
+                        <!-- Error Message -->
+                        <h1 class="display-4 fw-bold text-danger mb-3">500</h1>
+                        <h3 class="fw-bold text-dark mb-3">Internal Server Error</h3>
+                        <p class="text-muted mb-4">
+                            We're experiencing some technical difficulties right now. Our team has been notified and is working to resolve this issue as quickly as possible.
+                        </p>
+                        
+                        <!-- Status Information -->
+                        <div class="alert alert-warning text-start mb-4">
+                            <h6><i class="bi bi-info-circle"></i> What happened?</h6>
+                            <ul class="mb-0 small">
+                                <li>A temporary server issue occurred</li>
+                                <li>Your data and information are safe</li>
+                                <li>The IT team has been automatically notified</li>
+                                <li>Service should be restored shortly</li>
+                            </ul>
+                        </div>
+                        
+                        <!-- Helpful Actions -->
+                        <div class="mb-4">
+                            <h6 class="text-dark mb-3">What can you do?</h6>
+                            <div class="d-grid gap-2 d-md-block">
+                                <button onclick="location.reload()" class="btn btn-primary btn-lg me-2">
+                                    <i class="bi bi-arrow-clockwise"></i> Try Again
+                                </button>
+                                {% if current_user.is_authenticated %}
+                                <a href="{{ url_for('dashboard.main') }}" class="btn btn-outline-primary me-2">
+                                    <i class="bi bi-house"></i> Go to Dashboard
+                                </a>
+                                {% else %}
+                                <a href="{{ url_for('auth.login') }}" class="btn btn-outline-primary">
+                                    <i class="bi bi-box-arrow-in-right"></i> Login Page
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Support Contact -->
+                        <div class="alert alert-light text-start mb-4">
+                            <h6><i class="bi bi-headset"></i> Need Immediate Help?</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>IT Support:</strong><br>
+                                    <small class="text-muted">
+                                        <i class="bi bi-telephone"></i> +254 700 000 000<br>
+                                        <i class="bi bi-envelope"></i> it@sakinagas.com
+                                    </small>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>HR Department:</strong><br>
+                                    <small class="text-muted">
+                                        <i class="bi bi-telephone"></i> +254 700 000 001<br>
+                                        <i class="bi bi-envelope"></i> hr@sakinagas.com
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Back Button -->
+                        <div class="mt-4">
+                            <button onclick="history.back()" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left"></i> Go Back
+                            </button>
+                        </div>
+                        
+                        <!-- Company Branding -->
+                        <div class="mt-5 pt-4 border-top">
+                            <div class="d-flex align-items-center justify-content-center">
+                                <img src="{{ url_for('static', filename='images/logo.png') }}" 
+                                     alt="Sakina Gas Logo" height="40" class="me-3">
+                                <div class="text-start">
+                                    <h6 class="mb-0 text-primary">Sakina Gas Company</h6>
+                                    <small class="text-muted">Excellence in Energy Solutions</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Error ID for Support -->
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                Error ID: {{ moment().format('YYYYMMDD-HHmmss') }}-{{ range(1000, 9999)|random }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-refresh every 30 seconds to check if server is back up
+let autoRefreshCount = 0;
+const maxAutoRefresh = 5; // Stop auto-refresh after 5 attempts
+
+const autoRefresh = setInterval(() => {
+    autoRefreshCount++;
+    
+    if (autoRefreshCount >= maxAutoRefresh) {
+        clearInterval(autoRefresh);
+        return;
+    }
+    
+    // Add loading indicator
+    const refreshBtn = document.querySelector('button[onclick="location.reload()"]');
+    const originalText = refreshBtn.innerHTML;
+    refreshBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Checking...';
+    refreshBtn.disabled = true;
+    
+    setTimeout(() => {
+        location.reload();
+    }, 2000);
+}, 30000);
+
+// Add animation
+document.addEventListener('DOMContentLoaded', function() {
+    const card = document.querySelector('.card');
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(30px)';
+    
+    setTimeout(function() {
+        card.style.transition = 'all 0.6s ease';
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0)';
+    }, 100);
+});
+
+// Enhanced try again button
+document.querySelector('button[onclick="location.reload()"]').addEventListener('click', function() {
+    this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Retrying...';
+    this.disabled = true;
+});
+</script>
+{% endblock %}

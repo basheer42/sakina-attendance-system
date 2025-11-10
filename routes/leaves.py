@@ -1,12 +1,14 @@
 """
 Leave management routes for Sakina Gas Attendance System
 Enhanced with Kenyan Labor Law Compliance
+UPDATED: Fixed SQLAlchemy 2.0 deprecation warnings
 """
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from models import db, Employee, LeaveRequest
 from kenyan_labor_laws import KenyanLaborLaws, create_leave_warning_message, format_leave_type_display
 from datetime import date, datetime
+from sqlalchemy import select
 
 leaves_bp = Blueprint('leaves', __name__)
 
@@ -16,15 +18,16 @@ def list_leaves():
     """List all leave requests"""
     status_filter = request.args.get('status', 'all')
     
-    query = LeaveRequest.query.join(Employee)
+    query = select(LeaveRequest).join(Employee)
     
     if current_user.role == 'station_manager':
-        query = query.filter(Employee.location == current_user.location)
+        query = query.where(Employee.location == current_user.location)
     
     if status_filter != 'all':
-        query = query.filter(LeaveRequest.status == status_filter)
+        query = query.where(LeaveRequest.status == status_filter)
     
-    leave_requests = query.order_by(LeaveRequest.created_at.desc()).all()
+    query = query.order_by(LeaveRequest.created_at.desc())
+    leave_requests = db.session.execute(query).scalars().all()
     
     return render_template('leaves/list.html', 
                          leave_requests=leave_requests, 
@@ -42,7 +45,11 @@ def request_leave():
         reason = request.form['reason']
         override_warning = request.form.get('override_warning', False)
         
-        employee = Employee.query.filter_by(employee_id=employee_id, is_active=True).first()
+        # FIXED: Using modern SQLAlchemy syntax
+        employee = db.session.execute(
+            select(Employee).where(Employee.employee_id == employee_id, Employee.is_active == True)
+        ).scalar_one_or_none()
+        
         if not employee:
             flash('Employee not found', 'error')
             return redirect(request.url)
@@ -104,18 +111,65 @@ def request_leave():
     
     # Get employees for dropdown
     if current_user.role == 'station_manager':
-        employees = Employee.query.filter_by(location=current_user.location, is_active=True).all()
+        employees = db.session.execute(
+            select(Employee).where(Employee.location == current_user.location, Employee.is_active == True)
+        ).scalars().all()
     else:
-        employees = Employee.query.filter_by(is_active=True).all()
+        employees = db.session.execute(
+            select(Employee).where(Employee.is_active == True)
+        ).scalars().all()
     
-    # Get leave type information for frontend
-    leave_types_info = {}
-    for leave_type, info in KenyanLaborLaws.LEAVE_LIMITS.items():
-        leave_types_info[leave_type] = {
-            'display_name': format_leave_type_display(leave_type),
-            'max_days': info['max_days'],
-            'description': info['description']
+    # Get leave type information for frontend with updated policies
+    leave_types_info = {
+        'annual_leave': {
+            'display_name': 'Annual Leave',
+            'max_days': 21,
+            'description': '21 days per year, must apply 2 weeks in advance',
+            'notice_days': 14
+        },
+        'sick_leave_full': {
+            'display_name': 'Sick Leave (Full Pay)',
+            'max_days': 30,
+            'description': '30 days at full pay with medical certificate',
+            'notice_days': 0
+        },
+        'sick_leave_half': {
+            'display_name': 'Sick Leave (Half Pay)',
+            'max_days': 15,
+            'description': '15 days at half pay with medical certificate',
+            'notice_days': 0
+        },
+        'maternity_leave': {
+            'display_name': 'Maternity Leave',
+            'max_days': 90,
+            'description': '90 days maternity leave, apply 1 month in advance',
+            'notice_days': 30
+        },
+        'paternity_leave': {
+            'display_name': 'Paternity Leave',
+            'max_days': 14,
+            'description': '14 days paternity leave',
+            'notice_days': 7
+        },
+        'compassionate_leave': {
+            'display_name': 'Compassionate Leave',
+            'max_days': 7,
+            'description': '7 days for death of close relative',
+            'notice_days': 0
+        },
+        'special_leave': {
+            'display_name': 'Special Leave (Studies/Exams)',
+            'max_days': None,
+            'description': 'For studies, exams, or other management-approved purposes',
+            'notice_days': 14
+        },
+        'unpaid_leave': {
+            'display_name': 'Unpaid Leave',
+            'max_days': None,
+            'description': 'Deducted from salary for unauthorized absences',
+            'notice_days': 14
         }
+    }
     
     return render_template('leaves/request.html', 
                          employees=employees,
@@ -129,7 +183,11 @@ def approve_leave(leave_id):
         flash('Only HR Manager can approve leave requests', 'error')
         return redirect(url_for('leaves.list_leaves'))
     
-    leave_request = LeaveRequest.query.get_or_404(leave_id)
+    # FIXED: Using db.session.get() instead of deprecated query.get_or_404()
+    leave_request = db.session.get(LeaveRequest, leave_id)
+    if not leave_request:
+        flash('Leave request not found', 'error')
+        return redirect(url_for('leaves.list_leaves'))
     
     if request.method == 'POST':
         approval_notes = request.form.get('approval_notes', '')
@@ -148,6 +206,56 @@ def approve_leave(leave_id):
     # GET request - show approval form with leave details
     return render_template('leaves/approve.html', leave_request=leave_request)
 
+@leaves_bp.route('/edit/<int:leave_id>', methods=['GET', 'POST'])
+@login_required
+def edit_leave(leave_id):
+    """Edit leave request (HR Manager only)"""
+    if current_user.role != 'hr_manager':
+        flash('Only HR Manager can edit leave requests', 'error')
+        return redirect(url_for('leaves.list_leaves'))
+    
+    leave_request = LeaveRequest.query.get_or_404(leave_id)
+    
+    if request.method == 'POST':
+        # Update leave request details
+        start_date = date.fromisoformat(request.form['start_date'])
+        end_date = date.fromisoformat(request.form['end_date'])
+        total_days = (end_date - start_date).days + 1
+        
+        leave_request.start_date = start_date
+        leave_request.end_date = end_date
+        leave_request.total_days = total_days
+        leave_request.reason = request.form['reason']
+        leave_request.leave_type = request.form['leave_type']
+        
+        # Add edit note to reason
+        edit_note = f"\n\n[EDITED BY {current_user.username} on {datetime.now().strftime('%Y-%m-%d %H:%M')}]"
+        leave_request.reason += edit_note
+        
+        db.session.commit()
+        flash(f'Leave request for {leave_request.employee.full_name} updated successfully', 'success')
+        return redirect(url_for('leaves.list_leaves'))
+    
+    # GET request - show edit form
+    return render_template('leaves/edit.html', leave_request=leave_request)
+
+@leaves_bp.route('/delete/<int:leave_id>')
+@login_required
+def delete_leave(leave_id):
+    """Delete leave request (HR Manager only)"""
+    if current_user.role != 'hr_manager':
+        flash('Only HR Manager can delete leave requests', 'error')
+        return redirect(url_for('leaves.list_leaves'))
+    
+    leave_request = LeaveRequest.query.get_or_404(leave_id)
+    employee_name = leave_request.employee.full_name
+    
+    db.session.delete(leave_request)
+    db.session.commit()
+    
+    flash(f'Leave request for {employee_name} deleted successfully', 'success')
+    return redirect(url_for('leaves.list_leaves'))
+
 @leaves_bp.route('/reject/<int:leave_id>', methods=['GET', 'POST'])
 @login_required
 def reject_leave(leave_id):
@@ -156,7 +264,11 @@ def reject_leave(leave_id):
         flash('Only HR Manager can reject leave requests', 'error')
         return redirect(url_for('leaves.list_leaves'))
     
-    leave_request = LeaveRequest.query.get_or_404(leave_id)
+    # FIXED: Using db.session.get() instead of deprecated query.get_or_404()
+    leave_request = db.session.get(LeaveRequest, leave_id)
+    if not leave_request:
+        flash('Leave request not found', 'error')
+        return redirect(url_for('leaves.list_leaves'))
     
     if request.method == 'POST':
         rejection_reason = request.form.get('rejection_reason', '').strip()
@@ -179,7 +291,10 @@ def reject_leave(leave_id):
 @login_required
 def check_leave_balance(employee_id):
     """Check employee leave balance (API endpoint)"""
-    employee = Employee.query.get_or_404(employee_id)
+    # FIXED: Using db.session.get() instead of deprecated query.get_or_404()
+    employee = db.session.get(Employee, employee_id)
+    if not employee:
+        return jsonify({'error': 'Employee not found'}), 404
     
     # Calculate leave balance for current year
     current_year = datetime.now().year
@@ -209,9 +324,11 @@ def compliance_report():
     
     # Get all leave requests for current year
     current_year = datetime.now().year
-    leave_requests = LeaveRequest.query.filter(
-        db.extract('year', LeaveRequest.start_date) == current_year
-    ).all()
+    leave_requests = db.session.execute(
+        select(LeaveRequest).where(
+            db.extract('year', LeaveRequest.start_date) == current_year
+        )
+    ).scalars().all()
     
     # Generate compliance report
     report = KenyanLaborLaws.generate_compliance_report(leave_requests)
