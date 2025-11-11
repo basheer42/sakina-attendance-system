@@ -1,119 +1,70 @@
+#!/usr/bin/env python3
 """
-Sakina Gas Company - Professional Attendance Management System
-Main Application File with Enhanced Enterprise Features
-UPDATED: Fixed SQLAlchemy 2.0 deprecation warnings
+Sakina Gas Company - Attendance Management System
+Professional Grade Flask Application
+Fixed Version - Resolves URL routing errors
 """
-from flask import Flask, render_template, redirect, url_for, request, jsonify
-from flask_login import LoginManager, login_required, current_user
-from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, date
+
 import os
+from flask import Flask, render_template, redirect, url_for, flash, jsonify
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, current_user, login_required
+from datetime import datetime, date
 
-# Import our configuration (fixed import)
-from config import config
-
-def create_app(config_name=None):
-    """Application factory pattern for professional deployment"""
+def create_app():
+    """Application factory pattern for better organization"""
     app = Flask(__name__)
     
-    # Load configuration
-    if config_name is None:
-        config_name = os.environ.get('FLASK_CONFIG', 'development')
+    # Configuration
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'sakina-gas-2024-secure-key-change-in-production')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///sakina_attendance.db')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['WTF_CSRF_ENABLED'] = True
     
-    if hasattr(config, config_name):
-        app.config.from_object(config[config_name])
-    else:
-        app.config.from_object(config['development'])
+    # Company configuration
+    app.config['COMPANY_NAME'] = 'Sakina Gas Company'
+    app.config['COMPANY_TAGLINE'] = 'Excellence in Energy Solutions'
+    app.config['BRAND_COLORS'] = {
+        'primary': '#1B4F72',
+        'secondary': '#2E86AB',
+        'success': '#28A745',
+        'danger': '#DC3545',
+        'warning': '#FFC107',
+        'info': '#17A2B8'
+    }
     
     # Initialize extensions
     from models import db
     db.init_app(app)
     
-    # Initialize Flask-Login with enhanced security
     login_manager = LoginManager()
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
-    login_manager.login_message = 'Please sign in to access the Sakina Gas attendance system.'
+    login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'info'
     login_manager.session_protection = 'strong'
     
     @login_manager.user_loader
     def load_user(user_id):
         from models import User, db
-        # FIXED: Using db.session.get() instead of deprecated User.query.get()
+        # Fixed: Using modern SQLAlchemy syntax
         return db.session.get(User, int(user_id))
     
-    # Register professional blueprints
-    from routes.auth import auth_bp
-    from routes.dashboard import dashboard_bp
-    from routes.employees import employees_bp
-    from routes.attendance import attendance_bp
-    from routes.leaves import leaves_bp
-    from routes.profile import profile_bp
-      
-    app.register_blueprint(auth_bp, url_prefix='/auth')
-    app.register_blueprint(dashboard_bp, url_prefix='/')
-    app.register_blueprint(employees_bp, url_prefix='/employees')
-    app.register_blueprint(attendance_bp, url_prefix='/attendance')
-    app.register_blueprint(leaves_bp, url_prefix='/leaves')
-    app.register_blueprint(profile_bp, url_prefix='/profile')
+    # Register blueprints with proper URL prefixes
+    register_blueprints(app)
     
-    # Professional error handlers
-    @app.errorhandler(404)
-    def not_found_error(error):
-        return render_template('errors/404.html'), 404
+    # Error handlers
+    register_error_handlers(app)
     
-    @app.errorhandler(500)
-    def internal_error(error):
-        from models import db
-        db.session.rollback()
-        return render_template('errors/500.html'), 500
-    
-    @app.errorhandler(403)
-    def forbidden_error(error):
-        return render_template('errors/403.html'), 403
-    
-    # Professional context processors
-    @app.context_processor
-    def inject_globals():
-        """Inject global variables for professional templates"""
-        return {
-            'company_name': app.config.get('COMPANY_NAME', 'Sakina Gas Company'),
-            'company_tagline': app.config.get('COMPANY_TAGLINE', 'Excellence in Energy Solutions'),
-            'brand_colors': app.config.get('BRAND_COLORS', {}),
-            'current_year': datetime.now().year,
-            'system_version': '2.0 Professional',
-            'today': date.today()  # Added for templates
-        }
-    
-    # Professional template filters
-    @app.template_filter('datetime_format')
-    def datetime_format(value, format='%Y-%m-%d %H:%M'):
-        """Format datetime for professional display"""
-        if value is None:
-            return ""
-        return value.strftime(format)
-    
-    @app.template_filter('currency')
-    def currency_format(value):
-        """Format currency in Kenyan Shillings"""
-        if value is None:
-            return "KSh 0"
-        return f"KSh {value:,.2f}"
-    
-    @app.template_filter('percentage')
-    def percentage_format(value, decimals=1):
-        """Format percentage values"""
-        if value is None:
-            return "0%"
-        return f"{value:.{decimals}f}%"
+    # Context processors for templates
+    register_context_processors(app)
     
     # Create database tables and default data
     with app.app_context():
         db.create_all()
         create_professional_defaults()
     
-    # Root route with professional redirect
+    # Root route
     @app.route('/')
     def index():
         """Professional landing page logic"""
@@ -132,43 +83,91 @@ def create_app(config_name=None):
             'company': 'Sakina Gas Company'
         })
     
-    # API endpoint for real-time dashboard updates
-    @app.route('/api/dashboard/stats')
-    @login_required
-    def dashboard_stats():
-        """Real-time dashboard statistics API"""
-        from routes.dashboard import get_attendance_overview
-        
-        today = date.today()
-        stats = get_attendance_overview(today)
-        
-        return jsonify({
-            'date': today.isoformat(),
-            'stats': stats,
-            'timestamp': datetime.utcnow().isoformat()
-        })
-    
     return app
 
+def register_blueprints(app):
+    """Register all route blueprints with fixed routing"""
+    from routes.auth import auth_bp
+    from routes.dashboard import dashboard_bp
+    from routes.employees import employees_bp
+    from routes.attendance import attendance_bp
+    from routes.leaves import leaves_bp
+    
+    # Register with proper URL prefixes
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(dashboard_bp, url_prefix='/')  # Main dashboard at root
+    app.register_blueprint(employees_bp, url_prefix='/employees')
+    app.register_blueprint(attendance_bp, url_prefix='/attendance')
+    app.register_blueprint(leaves_bp, url_prefix='/leaves')
+
+def register_error_handlers(app):
+    """Register custom error handlers"""
+    @app.errorhandler(404)
+    def not_found_error(error):
+        return render_template('errors/404.html'), 404
+    
+    @app.errorhandler(500)
+    def internal_error(error):
+        from models import db
+        db.session.rollback()
+        return render_template('errors/500.html'), 500
+    
+    @app.errorhandler(403)
+    def forbidden_error(error):
+        return render_template('errors/403.html'), 403
+
+def register_context_processors(app):
+    """Register context processors for templates"""
+    @app.context_processor
+    def inject_globals():
+        """Inject global variables for templates"""
+        return {
+            'company_name': app.config.get('COMPANY_NAME', 'Sakina Gas Company'),
+            'company_tagline': app.config.get('COMPANY_TAGLINE', 'Excellence in Energy Solutions'),
+            'brand_colors': app.config.get('BRAND_COLORS', {}),
+            'current_year': datetime.now().year,
+            'system_version': '2.0 Professional',
+            'today': date.today()
+        }
+    
+    # Template filters
+    @app.template_filter('datetime_format')
+    def datetime_format(value, format='%Y-%m-%d %H:%M'):
+        """Format datetime for display"""
+        if value is None:
+            return ""
+        return value.strftime(format)
+    
+    @app.template_filter('currency')
+    def currency_format(value):
+        """Format currency in Kenyan Shillings"""
+        if value is None:
+            return "KSh 0"
+        return f"KSh {value:,.2f}"
+
 def create_professional_defaults():
-    """Create professional default users and sample data"""
-    from models import db, User, Employee, Holiday
+    """Create default users and sample data"""
+    from models import db, User, Holiday
     from werkzeug.security import generate_password_hash
     
-    # Create default users with enhanced security
+    # Create default users
     default_users = [
         {
             'username': 'hr_manager',
             'email': 'hr@sakinagas.com', 
             'role': 'hr_manager',
             'location': None,
-            'password': 'admin123'  # Change in production
+            'first_name': 'HR',
+            'last_name': 'Manager',
+            'password': 'admin123'
         },
         {
             'username': 'dandora_manager',
             'email': 'dandora@sakinagas.com',
             'role': 'station_manager', 
             'location': 'dandora',
+            'first_name': 'Dandora',
+            'last_name': 'Manager',
             'password': 'manager123'
         },
         {
@@ -176,6 +175,8 @@ def create_professional_defaults():
             'email': 'tassia@sakinagas.com',
             'role': 'station_manager',
             'location': 'tassia', 
+            'first_name': 'Tassia',
+            'last_name': 'Manager',
             'password': 'manager123'
         },
         {
@@ -183,12 +184,14 @@ def create_professional_defaults():
             'email': 'kiambu@sakinagas.com',
             'role': 'station_manager',
             'location': 'kiambu',
+            'first_name': 'Kiambu',
+            'last_name': 'Manager',
             'password': 'manager123'
         }
     ]
     
     for user_data in default_users:
-        # FIXED: Using db.session.get() instead of deprecated User.query.filter_by().first()
+        # Check if user already exists
         existing_user = db.session.execute(
             db.select(User).where(User.username == user_data['username'])
         ).scalar_one_or_none()
@@ -198,63 +201,62 @@ def create_professional_defaults():
                 username=user_data['username'],
                 email=user_data['email'],
                 role=user_data['role'],
-                location=user_data['location']
+                location=user_data['location'],
+                first_name=user_data['first_name'],
+                last_name=user_data['last_name']
             )
             user.set_password(user_data['password'])
             db.session.add(user)
     
-    # Create sample holidays for 2025 (Kenyan public holidays)
-    kenyan_holidays_2025 = [
-        ('New Year\'s Day', '2025-01-01'),
-        ('Good Friday', '2025-04-18'),
-        ('Easter Monday', '2025-04-21'), 
-        ('Labour Day', '2025-05-01'),
-        ('Madaraka Day', '2025-06-01'),
-        ('Mashujaa Day', '2025-10-20'),
-        ('Jamhuri Day', '2025-12-12'),
-        ('Christmas Day', '2025-12-25'),
-        ('Boxing Day', '2025-12-26')
+    # Create default holidays (Kenyan holidays)
+    default_holidays = [
+        {'name': 'New Year Day', 'date': date(2024, 1, 1)},
+        {'name': 'Good Friday', 'date': date(2024, 3, 29)},
+        {'name': 'Easter Monday', 'date': date(2024, 4, 1)},
+        {'name': 'Labour Day', 'date': date(2024, 5, 1)},
+        {'name': 'Madaraka Day', 'date': date(2024, 6, 1)},
+        {'name': 'Mashujaa Day', 'date': date(2024, 10, 20)},
+        {'name': 'Jamhuri Day', 'date': date(2024, 12, 12)},
+        {'name': 'Christmas Day', 'date': date(2024, 12, 25)},
+        {'name': 'Boxing Day', 'date': date(2024, 12, 26)},
     ]
     
-    for holiday_name, holiday_date in kenyan_holidays_2025:
-        holiday_date_obj = datetime.strptime(holiday_date, '%Y-%m-%d').date()
-        # FIXED: Using db.session.get() instead of deprecated Holiday.query.filter_by().first()
+    for holiday_data in default_holidays:
         existing_holiday = db.session.execute(
-            db.select(Holiday).where(Holiday.date == holiday_date_obj)
+            db.select(Holiday).where(Holiday.date == holiday_data['date'])
         ).scalar_one_or_none()
         
         if not existing_holiday:
             holiday = Holiday(
-                name=holiday_name,
-                date=holiday_date_obj
+                name=holiday_data['name'],
+                date=holiday_data['date']
             )
             db.session.add(holiday)
     
     try:
         db.session.commit()
-        print("✅ Professional default users and holidays created successfully!")
+        print("✅ Default users and holidays created successfully")
     except Exception as e:
         db.session.rollback()
-        print(f"⚠️  Error creating defaults: {e}")
+        print(f"⚠️ Error creating defaults: {e}")
 
 if __name__ == '__main__':
+    # Import here to avoid circular imports
+    from models import Holiday
+    
     app = create_app()
     
-    # Professional startup banner
-    print("=" * 80)
-    print("🏢 SAKINA GAS COMPANY - PROFESSIONAL ATTENDANCE SYSTEM")
-    print("=" * 80)
-    print("🌐 Server: http://localhost:5000")
-    print("👤 HR Manager: hr_manager / admin123")
-    print("🏪 Station Manager: dandora_manager / manager123")
-    print("📊 System: Professional Enterprise Edition v2.0")
-    print("🔒 Security: Enhanced with SQLAlchemy 2.0 compatibility")
-    print("=" * 80)
+    print("🚀 Starting Sakina Gas Attendance Management System")
+    print("📍 Access the system at: http://localhost:5000")
+    print("👤 Default Login - HR Manager: hr_manager / admin123")
+    print("👤 Default Login - Station Manager: dandora_manager / manager123")
     
-    # Run with professional settings
-    app.run(
-        debug=True,
-        host='0.0.0.0',
-        port=5000,
-        threaded=True
-    )
+    # Run the application
+    try:
+        app.run(debug=True, host='0.0.0.0', port=5000)
+    except OSError as e:
+        if "Address already in use" in str(e):
+            print("⚠️ Port 5000 is busy, trying port 5001...")
+            app.run(debug=True, host='0.0.0.0', port=5001)
+        else:
+            raise e

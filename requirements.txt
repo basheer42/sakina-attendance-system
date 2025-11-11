@@ -6,3 +6,14 @@ WTForms==3.1.1
 Werkzeug==3.0.1
 python-dotenv==1.0.0
 pytz==2023.3
+
+# Additional dependencies for production
+gunicorn==21.2.0
+python-dateutil==2.8.2
+
+# For email notifications (optional)
+Flask-Mail==0.9.1
+
+# For Excel exports (optional)
+openpyxl==3.1.2
+pandas==2.1.4
