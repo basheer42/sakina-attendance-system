@@ -1,19 +1,44 @@
+# Sakina Gas Attendance System - Python 3.13 Compatible Requirements
+# Core Flask dependencies with compatible versions
 Flask==3.0.0
-Flask-SQLAlchemy==3.1.1
+Flask-SQLAlchemy==3.0.5
 Flask-Login==0.6.3
 Flask-WTF==1.2.1
 WTForms==3.1.1
-Werkzeug==3.0.1
-python-dotenv==1.0.0
-pytz==2023.3
 
-# Additional dependencies for production
-gunicorn==21.2.0
-python-dateutil==2.8.2
-
-# For email notifications (optional)
+# Email functionality (optional)
 Flask-Mail==0.9.1
 
-# For Excel exports (optional)
+# Security and encryption
+Werkzeug==3.0.1
+bcrypt==4.1.2
+
+# Database support - COMPATIBLE VERSION FOR PYTHON 3.13
+SQLAlchemy==2.0.23
+
+# Date and time handling
+python-dateutil==2.8.2
+
+# Environment configuration
+python-dotenv==1.0.0
+
+# Development and testing
+pytest==7.4.4
+pytest-flask==1.3.0
+
+# Excel/CSV export support
 openpyxl==3.1.2
-pandas==2.1.4
+
+# API and JSON handling
+jsonschema==4.20.0
+
+# Utility libraries
+click==8.1.7
+MarkupSafe==2.1.3
+Jinja2==3.1.2
+
+# Production server (optional)
+gunicorn==21.2.0
+
+# For deployment
+requests==2.31.0
