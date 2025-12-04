@@ -1,71 +1,727 @@
 {% extends "base.html" %}
 
-{% block title %}Employees - Sakina Gas Attendance System{% endblock %}
+{% block title %}Employees - Sakina Gas Company{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, var(--sakina-blue) 0%, var(--sakina-light-blue) 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px 30px;
+        margin-bottom: 30px;
+    }
+    
+    .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0;
+    }
+    
+    .page-subtitle {
+        opacity: 0.9;
+        margin: 5px 0 0 0;
+    }
+    
+    .filters-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        padding: 25px;
+        margin-bottom: 25px;
+    }
+    
+    .employee-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        border: none;
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+    
+    .employee-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    }
+    
+    .employee-header {
+        background: linear-gradient(90deg, var(--sakina-gray) 0%, #ffffff 100%);
+        padding: 20px 25px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .employee-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--sakina-orange) 0%, #FF8C5A 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-right: 15px;
+    }
+    
+    .employee-info h5 {
+        margin: 0 0 5px 0;
+        color: var(--sakina-blue);
+        font-weight: 600;
+    }
+    
+    .employee-details {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .employee-body {
+        padding: 20px 25px;
+    }
+    
+    .status-badge {
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 4px 12px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .status-active {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-inactive {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .status-probation {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .employee-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    
+    .btn-action {
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: none;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-view {
+        background: var(--sakina-blue);
+        color: white;
+    }
+    
+    .btn-view:hover {
+        background: var(--sakina-dark-blue);
+        color: white;
+    }
+    
+    .btn-edit {
+        background: var(--sakina-orange);
+        color: white;
+    }
+    
+    .btn-edit:hover {
+        background: #e85a2e;
+        color: white;
+    }
+    
+    .search-container {
+        position: relative;
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+        z-index: 5;
+    }
+    
+    .search-input {
+        padding-left: 45px;
+        border-radius: 25px;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+    
+    .search-input:focus {
+        border-color: var(--sakina-orange);
+        box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.15);
+    }
+    
+    .filter-btn {
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+        background: white;
+        color: var(--sakina-blue);
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .filter-btn:hover,
+    .filter-btn.active {
+        background: var(--sakina-orange);
+        border-color: var(--sakina-orange);
+        color: white;
+    }
+    
+    .stats-row {
+        background: rgba(255, 107, 53, 0.05);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 25px;
+    }
+    
+    .stat-item {
+        text-align: center;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--sakina-orange);
+        margin: 0;
+    }
+    
+    .stat-label {
+        color: var(--sakina-blue);
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .pagination-container {
+        margin-top: 30px;
+    }
+    
+    .page-link {
+        color: var(--sakina-blue);
+        border: 1px solid #dee2e6;
+    }
+    
+    .page-link:hover {
+        background-color: var(--sakina-orange);
+        border-color: var(--sakina-orange);
+        color: white;
+    }
+    
+    .page-item.active .page-link {
+        background-color: var(--sakina-orange);
+        border-color: var(--sakina-orange);
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+    
+    @media (max-width: 768px) {
+        .employee-header {
+            text-align: center;
+        }
+        
+        .employee-actions {
+            justify-content: center;
+        }
+        
+        .filters-card .row > div {
+            margin-bottom: 15px;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5><i class="bi bi-people"></i> Employee Management</h5>
-                    {% if current_user.role == 'hr_manager' %}
-                    <a href="{{ url_for('employees.add_employee') }}" class="btn btn-primary">
-                        <i class="bi bi-plus-circle"></i> Add Employee
-                    </a>
-                    {% endif %}
-                </div>
-                <div class="card-body">
-                    {% if employees %}
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Employee ID</th>
-                                    <th>Name</th>
-                                    <th>Department</th>
-                                    <th>Position</th>
-                                    <th>Location</th>
-                                    <th>Shift</th>
-                                    <th>Hire Date</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for employee in employees %}
-                                <tr>
-                                    <td><strong>{{ employee.employee_id }}</strong></td>
-                                    <td>{{ employee.full_name }}</td>
-                                    <td>{{ employee.department }}</td>
-                                    <td>{{ employee.position }}</td>
-                                    <td>{{ employee.location.replace('_', ' ').title() }}</td>
-                                    <td>
-                                        {% if employee.shift %}
-                                            {{ employee.shift.title() }}
-                                        {% else %}
-                                            <span class="text-muted">N/A</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ employee.hire_date.strftime('%Y-%m-%d') }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="text-center">
-                        <i class="bi bi-info-circle text-info" style="font-size: 3rem;"></i>
-                        <h4 class="mt-3">No employees found</h4>
-                        <p class="text-muted">Start by adding some employees to the system.</p>
-                        {% if current_user.role == 'hr_manager' %}
-                        <a href="{{ url_for('employees.add_employee') }}" class="btn btn-primary">
-                            <i class="bi bi-plus-circle"></i> Add First Employee
-                        </a>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-                </div>
+<!-- Page Header -->
+<div class="page-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="page-title">
+                <i class="bi bi-people"></i> Employee Management
+            </h1>
+            <p class="page-subtitle">Manage and view employee information</p>
+        </div>
+        <div>
+            {% if current_user.role in ['hr_manager', 'admin'] %}
+                <a href="{{ url_for('employees.add_employee') }}" class="btn btn-light btn-lg">
+                    <i class="bi bi-person-plus"></i> Add Employee
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Row -->
+{% if employees.total > 0 %}
+<div class="stats-row">
+    <div class="row">
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-item">
+                <div class="stat-number">{{ employees.total }}</div>
+                <div class="stat-label">Total Employees</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-item">
+                <div class="stat-number">{{ employees.items|selectattr('is_active')|list|length }}</div>
+                <div class="stat-label">Active</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-item">
+                <div class="stat-number">{{ employees.items|rejectattr('is_active')|list|length }}</div>
+                <div class="stat-label">Inactive</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-item">
+                <div class="stat-number">{{ employees.items|selectattr('is_on_probation')|list|length }}</div>
+                <div class="stat-label">On Probation</div>
             </div>
         </div>
     </div>
 </div>
+{% endif %}
+
+<!-- Filters -->
+<div class="filters-card">
+    <form method="GET" action="{{ url_for('employees.list_employees') }}" id="filterForm">
+        <div class="row">
+            <div class="col-md-4 col-sm-6">
+                <div class="search-container">
+                    <i class="bi bi-search search-icon"></i>
+                    <input type="text" 
+                           class="form-control search-input" 
+                           name="search" 
+                           value="{{ search_query }}"
+                           placeholder="Search by name, ID, email..."
+                           id="searchInput">
+                </div>
+            </div>
+            
+            <div class="col-md-2 col-sm-6">
+                <select name="location" class="form-select filter-btn" id="locationFilter">
+                    <option value="">All Locations</option>
+                    {% for location in available_locations %}
+                        <option value="{{ location }}" {% if location_filter == location %}selected{% endif %}>
+                            {{ location|replace('_', ' ')|title }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2 col-sm-6">
+                <select name="department" class="form-select filter-btn" id="departmentFilter">
+                    <option value="">All Departments</option>
+                    {% for department in available_departments %}
+                        <option value="{{ department }}" {% if department_filter == department %}selected{% endif %}>
+                            {{ department|replace('_', ' ')|title }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2 col-sm-6">
+                <select name="status" class="form-select filter-btn" id="statusFilter">
+                    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+                    <option value="probation" {% if status_filter == 'probation' %}selected{% endif %}>On Probation</option>
+                    <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Statuses</option>
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-sakina-primary">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                    <a href="{{ url_for('employees.list_employees') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sort Options -->
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="sort" value="employee_id" id="sortId" {% if sort_by == 'employee_id' %}checked{% endif %}>
+                    <label class="btn btn-outline-primary" for="sortId">
+                        <i class="bi bi-hash"></i> ID
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="sort" value="name" id="sortName" {% if sort_by == 'name' %}checked{% endif %}>
+                    <label class="btn btn-outline-primary" for="sortName">
+                        <i class="bi bi-person"></i> Name
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="sort" value="hire_date" id="sortHireDate" {% if sort_by == 'hire_date' %}checked{% endif %}>
+                    <label class="btn btn-outline-primary" for="sortHireDate">
+                        <i class="bi bi-calendar"></i> Hire Date
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="sort" value="department" id="sortDept" {% if sort_by == 'department' %}checked{% endif %}>
+                    <label class="btn btn-outline-primary" for="sortDept">
+                        <i class="bi bi-building"></i> Department
+                    </label>
+                </div>
+            </div>
+            <div class="col-md-6 text-end">
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="order" value="asc" id="orderAsc" {% if sort_order == 'asc' %}checked{% endif %}>
+                    <label class="btn btn-outline-secondary" for="orderAsc">
+                        <i class="bi bi-sort-alpha-down"></i> Ascending
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="order" value="desc" id="orderDesc" {% if sort_order == 'desc' %}checked{% endif %}>
+                    <label class="btn btn-outline-secondary" for="orderDesc">
+                        <i class="bi bi-sort-alpha-up"></i> Descending
+                    </label>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Employee List -->
+{% if employees.items %}
+    <div class="row">
+        {% for employee in employees.items %}
+            <div class="col-lg-6 col-xl-4">
+                <div class="employee-card">
+                    <div class="employee-header">
+                        <div class="d-flex align-items-center">
+                            <div class="employee-avatar">
+                                {{ employee.get_initials() }}
+                            </div>
+                            <div class="employee-info flex-grow-1">
+                                <h5>{{ employee.get_full_name() }}</h5>
+                                <div class="employee-details">
+                                    <div><strong>ID:</strong> {{ employee.employee_id }}</div>
+                                    <div><strong>Position:</strong> {{ employee.position or 'Not Set' }}</div>
+                                    <div><strong>Department:</strong> {{ employee.get_department_display() }}</div>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                {% if employee.is_active %}
+                                    {% if employee.is_on_probation() %}
+                                        <span class="status-badge status-probation">
+                                            <i class="bi bi-clock"></i> Probation
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge status-active">
+                                            <i class="bi bi-check-circle"></i> Active
+                                        </span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="status-badge status-inactive">
+                                        <i class="bi bi-x-circle"></i> Inactive
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="employee-body">
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <small class="text-muted d-block">Location</small>
+                                <strong>{{ employee.get_location_display() }}</strong>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted d-block">Hire Date</small>
+                                <strong>{{ employee.hire_date.strftime('%d %b %Y') if employee.hire_date else 'Not Set' }}</strong>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <small class="text-muted d-block">Email</small>
+                                <a href="mailto:{{ employee.email }}" class="text-decoration-none">
+                                    {{ employee.email }}
+                                </a>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted d-block">Phone</small>
+                                <a href="tel:{{ employee.phone }}" class="text-decoration-none">
+                                    {{ employee.phone or 'Not Set' }}
+                                </a>
+                            </div>
+                        </div>
+                        
+                        {% if employee.is_on_probation() %}
+                            <div class="alert alert-warning alert-sm mb-3">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <strong>Probation ends:</strong> {{ employee.probation_end_date.strftime('%d %b %Y') if employee.probation_end_date }}
+                                <small>({{ employee.days_until_probation_end() }} days remaining)</small>
+                            </div>
+                        {% endif %}
+                        
+                        <div class="employee-actions">
+                            <a href="{{ url_for('employees.view_employee', id=employee.id) }}" 
+                               class="btn btn-action btn-view">
+                                <i class="bi bi-eye"></i> View Details
+                            </a>
+                            
+                            {% if current_user.role in ['hr_manager', 'admin'] or 
+                                (current_user.role == 'station_manager' and employee.location == current_user.location) %}
+                                <a href="{{ url_for('employees.edit_employee', id=employee.id) }}" 
+                                   class="btn btn-action btn-edit">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </a>
+                            {% endif %}
+                            
+                            {% if current_user.role in ['hr_manager', 'admin'] %}
+                                {% if employee.is_active %}
+                                    <button type="button" 
+                                            class="btn btn-action btn-warning"
+                                            onclick="deactivateEmployee({{ employee.id }}, '{{ employee.get_full_name() }}')">
+                                        <i class="bi bi-pause"></i> Deactivate
+                                    </button>
+                                {% else %}
+                                    <button type="button" 
+                                            class="btn btn-action btn-success"
+                                            onclick="reactivateEmployee({{ employee.id }}, '{{ employee.get_full_name() }}')">
+                                        <i class="bi bi-play"></i> Reactivate
+                                    </button>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Pagination -->
+    {% if employees.pages > 1 %}
+        <div class="pagination-container">
+            {{ render_pagination(employees) }}
+        </div>
+    {% endif %}
+    
+{% else %}
+    <!-- Empty State -->
+    <div class="empty-state">
+        <i class="bi bi-people"></i>
+        <h3>No employees found</h3>
+        <p>
+            {% if search_query or location_filter or department_filter or status_filter != 'active' %}
+                No employees match your current filters. Try adjusting your search criteria.
+            {% else %}
+                No employees have been added yet.
+            {% endif %}
+        </p>
+        {% if current_user.role in ['hr_manager', 'admin'] %}
+            <a href="{{ url_for('employees.add_employee') }}" class="btn btn-sakina-primary btn-lg">
+                <i class="bi bi-person-plus"></i> Add First Employee
+            </a>
+        {% endif %}
+        {% if search_query or location_filter or department_filter or status_filter != 'active' %}
+            <div class="mt-3">
+                <a href="{{ url_for('employees.list_employees') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-clockwise"></i> Clear Filters
+                </a>
+            </div>
+        {% endif %}
+    </div>
+{% endif %}
+
+<!-- Deactivation Modal -->
+<div class="modal fade" id="deactivateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle text-warning"></i> 
+                    Deactivate Employee
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to deactivate <strong id="deactivateEmployeeName"></strong>?</p>
+                <div class="mb-3">
+                    <label for="deactivateReason" class="form-label">Reason for deactivation:</label>
+                    <textarea class="form-control" id="deactivateReason" rows="3" required 
+                              placeholder="Please provide a reason for deactivation..."></textarea>
+                </div>
+                <div class="alert alert-warning">
+                    <i class="bi bi-info-circle"></i>
+                    This will also deactivate the employee's user account and they will no longer be able to log in.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" id="confirmDeactivate">
+                    <i class="bi bi-pause"></i> Deactivate Employee
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-submit form on filter changes
+    const filterElements = document.querySelectorAll('#locationFilter, #departmentFilter, #statusFilter, input[name="sort"], input[name="order"]');
+    
+    filterElements.forEach(element => {
+        element.addEventListener('change', function() {
+            document.getElementById('filterForm').submit();
+        });
+    });
+    
+    // Live search with debounce
+    const searchInput = document.getElementById('searchInput');
+    let searchTimeout;
+    
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            if (this.value.length === 0 || this.value.length >= 2) {
+                document.getElementById('filterForm').submit();
+            }
+        }, 500);
+    });
+    
+    // Employee actions
+    window.deactivateEmployee = function(employeeId, employeeName) {
+        document.getElementById('deactivateEmployeeName').textContent = employeeName;
+        document.getElementById('confirmDeactivate').setAttribute('data-employee-id', employeeId);
+        new bootstrap.Modal(document.getElementById('deactivateModal')).show();
+    };
+    
+    window.reactivateEmployee = function(employeeId, employeeName) {
+        if (confirm(`Are you sure you want to reactivate ${employeeName}?`)) {
+            fetch(`{{ url_for('employees.reactivate_employee', id=0) }}`.replace('0', employeeId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': getCsrfToken()
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showAlert(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showAlert('An error occurred. Please try again.', 'error');
+            });
+        }
+    };
+    
+    // Handle deactivation confirmation
+    document.getElementById('confirmDeactivate').addEventListener('click', function() {
+        const employeeId = this.getAttribute('data-employee-id');
+        const reason = document.getElementById('deactivateReason').value.trim();
+        
+        if (!reason) {
+            showAlert('Please provide a reason for deactivation.', 'warning');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('reason', reason);
+        
+        fetch(`{{ url_for('employees.deactivate_employee', id=0) }}`.replace('0', employeeId), {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            bootstrap.Modal.getInstance(document.getElementById('deactivateModal')).hide();
+            
+            if (data.success) {
+                showAlert(data.message, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            showAlert('An error occurred. Please try again.', 'error');
+        });
+    });
+    
+    // Utility functions
+    function getCsrfToken() {
+        // In a real app, this would get the CSRF token from a meta tag or cookie
+        return document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || '';
+    }
+    
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
+        alertDiv.style.cssText = 'top: 100px; right: 20px; z-index: 9999; min-width: 300px;';
+        alertDiv.innerHTML = `
+            <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'x-circle'}"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+    
+    // Animate employee cards on load
+    const employeeCards = document.querySelectorAll('.employee-card');
+    employeeCards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(30px)';
+        
+        setTimeout(() => {
+            card.style.transition = 'all 0.6s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+});
+
+// Helper function for pagination (if using Flask-SQLAlchemy pagination)
+function renderPagination(pagination) {
+    // This would be implemented based on your pagination needs
+    // You can use Flask-SQLAlchemy's pagination object or custom pagination
+}
+</script>
 {% endblock %}

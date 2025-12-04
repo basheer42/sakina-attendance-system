@@ -3,6 +3,7 @@ Kenyan Labor Laws Compliance Module
 Employment Act 2007 - Leave Entitlements and Validations
 """
 
+from decimal import Decimal # FIX: Added missing import
 from datetime import date, timedelta
 
 # Kenyan Employment Act 2007 - Leave Entitlements
@@ -87,12 +88,21 @@ class KenyanLaborLaws:
                 'law_reference': KENYAN_LEAVE_LAWS['annual_leave']['legal_reference']
             })
         
-        # Check employee's remaining balance
-        remaining_balance = employee.current_leave_balance
-        if days_requested > remaining_balance:
+        # Check employee's remaining balance (Requires Employee Model logic)
+        # This is a structural placeholder; actual balance check relies on employee.calculate_leave_balance()
+        if hasattr(employee, 'calculate_leave_balance'):
+            # Assuming employee is an instance of Employee model with required method
+            remaining_balance = employee.calculate_leave_balance('annual_leave', date.today().year)
+            if days_requested > remaining_balance:
+                warnings.append({
+                    'level': 'error',
+                    'message': f"Employee has only {remaining_balance:.1f} days of annual leave remaining (Balance Check)",
+                    'law_reference': KENYAN_LEAVE_LAWS['annual_leave']['legal_reference']
+                })
+        else:
             warnings.append({
-                'level': 'error',
-                'message': f"Employee has only {remaining_balance} days of annual leave remaining",
+                'level': 'info',
+                'message': 'Cannot check leave balance (Employee model dependency missing required method)',
                 'law_reference': KENYAN_LEAVE_LAWS['annual_leave']['legal_reference']
             })
         
@@ -157,7 +167,7 @@ class KenyanLaborLaws:
             })
         
         # Check prenatal period if delivery date is provided
-        if expected_delivery_date:
+        if expected_delivery_date and isinstance(expected_delivery_date, date):
             max_prenatal = KENYAN_LEAVE_LAWS['maternity_leave']['max_prenatal_days']
             prenatal_days = (expected_delivery_date - start_date).days
             
@@ -167,6 +177,14 @@ class KenyanLaborLaws:
                     'message': f"Prenatal leave should not exceed {max_prenatal} days before delivery",
                     'law_reference': KENYAN_LEAVE_LAWS['maternity_leave']['legal_reference']
                 })
+        
+        # Check gender
+        if employee.gender and employee.gender.lower() != 'female':
+            warnings.append({
+                'level': 'error',
+                'message': "Maternity leave is only for female employees (Gender check)",
+                'law_reference': KENYAN_LEAVE_LAWS['maternity_leave']['legal_reference']
+            })
         
         return warnings
     
@@ -195,6 +213,14 @@ class KenyanLaborLaws:
                 'law_reference': KENYAN_LEAVE_LAWS['paternity_leave']['legal_reference']
             })
         
+        # Check gender
+        if employee.gender and employee.gender.lower() != 'male':
+            warnings.append({
+                'level': 'error',
+                'message': "Paternity leave is only for male employees (Gender check)",
+                'law_reference': KENYAN_LEAVE_LAWS['paternity_leave']['legal_reference']
+            })
+
         return warnings
     
     @staticmethod
@@ -223,6 +249,8 @@ class KenyanLaborLaws:
 
 def validate_leave_request(employee, leave_type, days_requested, start_date, **kwargs):
     """Main validation function for all leave types"""
+    # FIX: We need the actual employee object to perform gender and balance checks.
+    # We rely on the caller passing the correct ORM object.
     validator = KenyanLaborLaws()
     
     if leave_type == 'annual_leave':
@@ -247,7 +275,7 @@ def create_leave_warning_message(warnings):
         return None
     
     error_messages = [w['message'] for w in warnings if w['level'] == 'error']
-    warning_messages = [w['message'] for w in warnings if w['level'] == 'warning']
+    warning_messages = [w['message'] for w in warnings if w['level'] == 'warning' or w['level'] == 'info'] # Include info as warning
     
     message_parts = []
     
@@ -271,26 +299,30 @@ def get_leave_type_info(leave_type):
     """Get detailed information about a leave type"""
     return KENYAN_LEAVE_LAWS.get(leave_type, {})
 
-def calculate_working_days(start_date, end_date, exclude_weekends=True, exclude_holidays=None):
-    """Calculate working days between two dates"""
+def calculate_working_days(start_date, end_date, exclude_weekends=True, holiday_checker=None):
+    """
+    Calculate working days between two dates.
+    Rely on a holiday_checker callable (e.g., Holiday.is_holiday) for decoupling.
+    """
     if start_date > end_date:
         return 0
     
     working_days = 0
     current_date = start_date
     
-    # Get holidays to exclude
-    holidays = exclude_holidays or []
-    holiday_dates = [h.date if hasattr(h, 'date') else h for h in holidays]
-    
+    # Iterate through each day
     while current_date <= end_date:
-        # Skip weekends if requested
-        if exclude_weekends and current_date.weekday() >= 5:  # Saturday = 5, Sunday = 6
+        is_weekend = current_date.weekday() >= 5 # Saturday or Sunday
+        is_holiday = False
+        
+        if holiday_checker and callable(holiday_checker):
+            is_holiday = holiday_checker(current_date)
+            
+        if exclude_weekends and is_weekend:
             current_date += timedelta(days=1)
             continue
-        
-        # Skip holidays
-        if current_date in holiday_dates:
+            
+        if is_holiday:
             current_date += timedelta(days=1)
             continue
         

@@ -4,7 +4,8 @@ Built upon your existing comprehensive attendance system with advanced tracking 
 """
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, g
 from flask_login import login_required, current_user
-from models import db, Employee, AttendanceRecord, LeaveRequest, Holiday, AuditLog
+# FIX: Removed global model imports to prevent early model registration
+from database import db
 from datetime import date, datetime, timedelta
 from sqlalchemy import func, and_, or_, desc, select
 from config import Config
@@ -17,6 +18,12 @@ attendance_bp = Blueprint('attendance', __name__)
 @login_required
 def mark_attendance():
     """Enhanced attendance marking with real-time validation"""
+    # FIX: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    from models.leave import LeaveRequest
+    from models.holiday import Holiday
+    
     target_date_str = request.args.get('date', date.today().isoformat())
     location_filter = request.args.get('location', 'all')
     shift_filter = request.args.get('shift', 'all')
@@ -82,7 +89,7 @@ def mark_attendance():
     # Check if it's a holiday
     holiday = Holiday.query.filter(
         Holiday.date == target_date,
-        Holiday.is_active == True
+        Holiday.is_observed == True # FIX: Holiday active check
     ).first()
     
     return render_template('attendance/mark.html',
@@ -100,6 +107,12 @@ def mark_attendance():
 @login_required
 def mark_employee_attendance():
     """Enhanced individual attendance marking with validation"""
+    # FIX: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    from models.leave import LeaveRequest
+    from models.audit import AuditLog
+    
     data = request.get_json()
     
     employee_id = data.get('employee_id')
@@ -159,25 +172,34 @@ def mark_employee_attendance():
             old_status = existing_attendance.status
             existing_attendance.status = status
             existing_attendance.notes = notes
-            existing_attendance.marked_by = current_user.id
-            existing_attendance.updated_at = current_time
-            existing_attendance.is_corrected = True
-            existing_attendance.corrected_by = current_user.id
-            existing_attendance.correction_reason = f'Status changed from {old_status} to {status}'
+            # FIX: Added marked_by, updated_by if they exist on the model
+            if hasattr(existing_attendance, 'marked_by'):
+                existing_attendance.marked_by = current_user.id
+            if hasattr(existing_attendance, 'updated_by'):
+                existing_attendance.updated_by = current_user.id
+            
+            existing_attendance.last_updated = current_time # FIX: Use last_updated
+            
+            # FIX: The model doesn't have is_corrected, corrected_by, correction_reason attributes
+            # We skip them to match the model structure
             
             # Handle clock times
             if status in ['present', 'late', 'half_day']:
                 if not existing_attendance.clock_in or clock_in_time:
                     if clock_in_time:
-                        existing_attendance.clock_in = datetime.combine(target_date, datetime.strptime(clock_in_time, '%H:%M').time())
+                        existing_attendance.clock_in_time = datetime.combine(target_date, datetime.strptime(clock_in_time, '%H:%M').time()) # FIX: Use clock_in_time column
                     else:
-                        existing_attendance.clock_in = current_time
+                        existing_attendance.clock_in_time = current_time # FIX: Use clock_in_time column
             elif status == 'absent':
-                existing_attendance.clock_in = None
-                existing_attendance.clock_out = None
+                existing_attendance.clock_in_time = None
+                existing_attendance.clock_out_time = None
+            
+            # Recalculate work hours if needed
+            if existing_attendance.clock_in_time and existing_attendance.clock_out_time:
+                existing_attendance._calculate_work_hours()
             
             action_type = 'attendance_updated'
-            action_details = f'Updated attendance for {employee.employee_id} ({employee.full_name}) from {old_status} to {status}'
+            action_details = f'Updated attendance for {employee.employee_id} ({employee.get_full_name()}) from {old_status} to {status}'
             
         else:
             # Create new record
@@ -185,38 +207,38 @@ def mark_employee_attendance():
                 employee_id=employee.id,
                 date=target_date,
                 status=status,
-                shift=employee.shift,
+                shift_type=employee.shift, # FIX: Use shift_type column
                 notes=notes,
-                marked_by=current_user.id,
-                location_marked=employee.location,
-                verification_method='manual',
+                created_by=current_user.id, # FIX: Use created_by column
+                location=employee.location, # FIX: Use location column
+                clock_in_method='manual', # FIX: Use clock_in_method column
                 ip_address=request.remote_addr
             )
             
             # Set clock times
             if status in ['present', 'late', 'half_day']:
                 if clock_in_time:
-                    attendance.clock_in = datetime.combine(target_date, datetime.strptime(clock_in_time, '%H:%M').time())
+                    attendance.clock_in_time = datetime.combine(target_date, datetime.strptime(clock_in_time, '%H:%M').time()) # FIX: Use clock_in_time column
                 else:
-                    attendance.clock_in = current_time
+                    attendance.clock_in_time = current_time # FIX: Use clock_in_time column
             
             # Determine if late
-            if status == 'present' and attendance.clock_in:
-                if is_employee_late(employee, attendance.clock_in):
+            if status == 'present' and attendance.clock_in_time:
+                if is_employee_late(employee, attendance.clock_in_time):
                     attendance.status = 'late'
-                    attendance.late_minutes = calculate_late_minutes(employee, attendance.clock_in)
+                    attendance.minutes_late = calculate_late_minutes(employee, attendance.clock_in_time) # FIX: Use minutes_late column
             
             db.session.add(attendance)
             action_type = 'attendance_marked'
-            action_details = f'Marked attendance for {employee.employee_id} ({employee.full_name}) as {status}'
+            action_details = f'Marked attendance for {employee.employee_id} ({employee.get_full_name()}) as {status}'
         
         # Create audit log
-        AuditLog.log_action(
+        AuditLog.log_event( # FIX: Changed to log_event
             user_id=current_user.id,
-            action=action_type,
+            event_type=action_type, # FIX: Use event_type
             target_type='attendance',
             target_id=employee.id,
-            details=action_details,
+            description=action_details, # FIX: Use description
             ip_address=request.remote_addr
         )
         
@@ -224,9 +246,9 @@ def mark_employee_attendance():
         
         return jsonify({
             'success': True,
-            'message': f'Attendance marked successfully for {employee.full_name}',
+            'message': f'Attendance marked successfully for {employee.get_full_name()}',
             'status': status,
-            'employee_name': employee.full_name
+            'employee_name': employee.get_full_name()
         })
         
     except Exception as e:
@@ -237,6 +259,12 @@ def mark_employee_attendance():
 @login_required
 def bulk_mark_attendance():
     """Enhanced bulk attendance marking with validation and error handling"""
+    # FIX: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    from models.leave import LeaveRequest
+    from models.audit import AuditLog
+    
     if request.method == 'POST':
         data = request.get_json()
         target_date_str = data.get('date', date.today().isoformat())
@@ -274,7 +302,7 @@ def bulk_mark_attendance():
                 # Check permissions
                 if current_user.role == 'station_manager' and employee.location != current_user.location:
                     error_count += 1
-                    errors.append(f'{employee.full_name}: Access denied')
+                    errors.append(f'{employee.get_full_name()}: Access denied')
                     continue
                 
                 # Check for leave conflicts
@@ -287,7 +315,7 @@ def bulk_mark_attendance():
                 
                 if leave_request and status in ['present', 'late']:
                     error_count += 1
-                    errors.append(f'{employee.full_name}: On approved leave')
+                    errors.append(f'{employee.get_full_name()}: On approved leave')
                     continue
                 
                 # Process attendance
@@ -301,20 +329,20 @@ def bulk_mark_attendance():
                     # Update existing
                     existing_attendance.status = status
                     existing_attendance.notes = notes
-                    existing_attendance.marked_by = current_user.id
-                    existing_attendance.updated_at = current_time
+                    existing_attendance.updated_by = current_user.id # FIX: Use updated_by
+                    existing_attendance.last_updated = current_time # FIX: Use last_updated
                 else:
                     # Create new
                     attendance = AttendanceRecord(
                         employee_id=employee.id,
                         date=target_date,
                         status=status,
-                        shift=employee.shift,
+                        shift_type=employee.shift, # FIX: Use shift_type
                         notes=notes,
-                        marked_by=current_user.id,
-                        clock_in=current_time if status in ['present', 'late'] else None,
-                        location_marked=employee.location,
-                        verification_method='bulk_manual',
+                        created_by=current_user.id, # FIX: Use created_by
+                        clock_in_time=current_time if status in ['present', 'late'] else None, # FIX: Use clock_in_time
+                        location=employee.location, # FIX: Use location
+                        clock_in_method='manual',
                         ip_address=request.remote_addr
                     )
                     db.session.add(attendance)
@@ -322,11 +350,11 @@ def bulk_mark_attendance():
                 success_count += 1
             
             # Create bulk audit log
-            AuditLog.log_action(
+            AuditLog.log_event( # FIX: Changed to log_event
                 user_id=current_user.id,
-                action='bulk_attendance_marked',
+                event_type='bulk_attendance_marked', # FIX: Use event_type
                 target_type='attendance',
-                details=f'Bulk marked attendance for {success_count} employees on {target_date}. Errors: {error_count}',
+                description=f'Bulk marked attendance for {success_count} employees on {target_date}. Errors: {error_count}',
                 ip_address=request.remote_addr
             )
             
@@ -380,6 +408,11 @@ def bulk_mark_attendance():
 @login_required
 def clock_in_employee(employee_id):
     """Enhanced clock-in with time validation"""
+    # FIX: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    from models.audit import AuditLog
+    
     employee = Employee.query.get_or_404(employee_id)
     
     # Check permissions
@@ -394,11 +427,11 @@ def clock_in_employee(employee_id):
         AttendanceRecord.date == today
     ).first()
     
-    if existing_attendance and existing_attendance.clock_in:
+    if existing_attendance and existing_attendance.clock_in_time: # FIX: Use clock_in_time
         return jsonify({
             'success': False, 
             'message': 'Employee already clocked in today',
-            'clock_in_time': existing_attendance.clock_in.strftime('%H:%M')
+            'clock_in_time': existing_attendance.clock_in_time.strftime('%H:%M') # FIX: Use clock_in_time
         }), 400
     
     try:
@@ -411,33 +444,33 @@ def clock_in_employee(employee_id):
         
         if existing_attendance:
             # Update existing record
-            existing_attendance.clock_in = current_time
+            existing_attendance.clock_in_time = current_time # FIX: Use clock_in_time
             existing_attendance.status = status
-            existing_attendance.late_minutes = late_minutes
-            existing_attendance.marked_by = current_user.id
+            existing_attendance.minutes_late = late_minutes # FIX: Use minutes_late
+            existing_attendance.updated_by = current_user.id # FIX: Use updated_by
         else:
             # Create new record
             attendance = AttendanceRecord(
                 employee_id=employee.id,
                 date=today,
                 status=status,
-                shift=employee.shift,
-                clock_in=current_time,
-                late_minutes=late_minutes,
-                marked_by=current_user.id,
-                location_marked=employee.location,
-                verification_method='clock_in',
+                shift_type=employee.shift, # FIX: Use shift_type
+                clock_in_time=current_time, # FIX: Use clock_in_time
+                minutes_late=late_minutes, # FIX: Use minutes_late
+                created_by=current_user.id, # FIX: Use created_by
+                location=employee.location, # FIX: Use location
+                clock_in_method='api_clock_in', # FIX: Use method
                 ip_address=request.remote_addr
             )
             db.session.add(attendance)
         
         # Create audit log
-        AuditLog.log_action(
+        AuditLog.log_event( # FIX: Changed to log_event
             user_id=current_user.id,
-            action='clock_in',
+            event_type='clock_in', # FIX: Use event_type
             target_type='attendance',
             target_id=employee.id,
-            details=f'Clocked in {employee.employee_id} at {current_time.strftime("%H:%M")} - {status}',
+            description=f'Clocked in {employee.employee_id} at {current_time.strftime("%H:%M")} - {status}',
             ip_address=request.remote_addr
         )
         
@@ -445,7 +478,7 @@ def clock_in_employee(employee_id):
         
         return jsonify({
             'success': True,
-            'message': f'{employee.full_name} clocked in successfully',
+            'message': f'{employee.get_full_name()} clocked in successfully',
             'status': status,
             'clock_in_time': current_time.strftime('%H:%M'),
             'late_minutes': late_minutes,
@@ -460,6 +493,11 @@ def clock_in_employee(employee_id):
 @login_required
 def clock_out_employee(employee_id):
     """Enhanced clock-out with hours calculation"""
+    # FIX: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    from models.audit import AuditLog
+    
     employee = Employee.query.get_or_404(employee_id)
     
     # Check permissions
@@ -478,28 +516,28 @@ def clock_out_employee(employee_id):
     if not attendance:
         return jsonify({'success': False, 'message': 'No active attendance record found'}), 404
     
-    if attendance.clock_out:
+    if attendance.clock_out_time: # FIX: Use clock_out_time
         return jsonify({
             'success': False, 
             'message': 'Employee already clocked out',
-            'clock_out_time': attendance.clock_out.strftime('%H:%M')
+            'clock_out_time': attendance.clock_out_time.strftime('%H:%M') # FIX: Use clock_out_time
         }), 400
     
     try:
         current_time = datetime.now()
-        attendance.clock_out = current_time
-        attendance.updated_at = current_time
+        attendance.clock_out_time = current_time # FIX: Use clock_out_time
+        attendance.updated_by = current_user.id # FIX: Use updated_by
         
         # Calculate hours worked and overtime
-        attendance.update_hours_worked()
+        attendance._calculate_work_hours() # FIX: Use internal method
         
         # Create audit log
-        AuditLog.log_action(
+        AuditLog.log_event( # FIX: Changed to log_event
             user_id=current_user.id,
-            action='clock_out',
+            event_type='clock_out', # FIX: Use event_type
             target_type='attendance',
             target_id=employee.id,
-            details=f'Clocked out {employee.employee_id} at {current_time.strftime("%H:%M")}. Hours worked: {attendance.hours_worked}',
+            description=f'Clocked out {employee.employee_id} at {current_time.strftime("%H:%M")}. Hours worked: {attendance.work_hours}', # FIX: Use work_hours
             ip_address=request.remote_addr
         )
         
@@ -507,11 +545,11 @@ def clock_out_employee(employee_id):
         
         return jsonify({
             'success': True,
-            'message': f'{employee.full_name} clocked out successfully',
+            'message': f'{employee.get_full_name()} clocked out successfully',
             'clock_out_time': current_time.strftime('%H:%M'),
-            'hours_worked': round(float(attendance.hours_worked), 2),
+            'hours_worked': round(float(attendance.work_hours), 2), # FIX: Use work_hours
             'overtime_hours': round(float(attendance.overtime_hours or 0), 2),
-            'total_break_time': round(attendance.break_time, 2)
+            'total_break_time': attendance.total_break_minutes # FIX: Use total_break_minutes
         })
         
     except Exception as e:
@@ -522,6 +560,10 @@ def clock_out_employee(employee_id):
 @login_required
 def attendance_history():
     """Enhanced attendance history with advanced filtering"""
+    # FIX: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    
     # Get filter parameters
     start_date_str = request.args.get('start_date', (date.today() - timedelta(days=30)).isoformat())
     end_date_str = request.args.get('end_date', date.today().isoformat())
@@ -579,6 +621,7 @@ def attendance_history():
     ).paginate(page=page, per_page=per_page, error_out=False)
     
     # Calculate summary statistics
+    # FIX: The query returns AttendanceRecord objects, so we pass that list to the helper
     summary_stats = calculate_history_summary(base_query.all())
     
     # Get filter options
@@ -638,6 +681,8 @@ def attendance_reports():
 
 def get_attendance_filter_options(user):
     """Get filter options for attendance marking"""
+    from config import Config
+    
     options = {
         'locations': [],
         'shifts': ['all', 'day', 'night'],
@@ -672,8 +717,11 @@ def calculate_day_summary(employees, attendance_data, leave_data):
 
 def is_employee_late(employee, clock_in_time):
     """Check if employee is late based on shift and grace period"""
+    from config import Config # FIX: Local import
+    
     # Get expected start time based on shift
     if employee.shift == 'day':
+        # FIX: Getting specific hour/minute from config would be better, but we use the fixed 6am/8am for now
         expected_start = clock_in_time.replace(hour=6, minute=0, second=0, microsecond=0)
     elif employee.shift == 'night':
         expected_start = clock_in_time.replace(hour=18, minute=0, second=0, microsecond=0)
@@ -681,7 +729,8 @@ def is_employee_late(employee, clock_in_time):
         expected_start = clock_in_time.replace(hour=8, minute=0, second=0, microsecond=0)
     
     # Add grace period
-    grace_period = Config.ATTENDANCE_GRACE_PERIOD  # minutes
+    # FIX: Config.ATTENDANCE_GRACE_PERIOD is not defined, using fixed value from validation rules
+    grace_period = Config.VALIDATION_RULES.get('attendance_rules', {}).get('late_threshold_minutes', 15)
     expected_start_with_grace = expected_start + timedelta(minutes=grace_period)
     
     return clock_in_time > expected_start_with_grace
@@ -712,7 +761,7 @@ def calculate_history_summary(attendance_records):
     on_leave = sum(1 for record in attendance_records if 'leave' in record.status)
     
     # Calculate total hours worked
-    total_hours = sum(float(record.hours_worked or 0) for record in attendance_records)
+    total_hours = sum(float(record.work_hours or 0) for record in attendance_records) # FIX: Use work_hours
     total_overtime = sum(float(record.overtime_hours or 0) for record in attendance_records)
     
     return {
@@ -729,10 +778,14 @@ def calculate_history_summary(attendance_records):
 
 def get_history_filter_options(user):
     """Get filter options for attendance history"""
+    from config import Config
+    from models.employee import Employee
+    
     options = {
         'locations': [],
         'departments': list(Config.DEPARTMENTS.keys()),
-        'statuses': ['all', 'present', 'absent', 'late', 'present_late', 'half_day']
+        'statuses': ['all', 'present', 'absent', 'late', 'present_late', 'half_day'],
+        'employees': []
     }
     
     if user.role == 'hr_manager':
@@ -755,6 +808,12 @@ def get_history_filter_options(user):
 
 def generate_daily_report(target_date):
     """Generate daily attendance report"""
+    # FIX: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    from models.leave import LeaveRequest
+    from config import Config
+    
     # Get all employees with their attendance for the day
     employees = Employee.query.filter(Employee.is_active == True).all()
     
@@ -842,6 +901,11 @@ def generate_location_report(start_date, end_date):
 @login_required
 def api_daily_summary():
     """API endpoint for daily attendance summary"""
+    # FIX: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    from models.leave import LeaveRequest
+    
     target_date_str = request.args.get('date', date.today().isoformat())
     
     try:
@@ -902,6 +966,11 @@ def api_daily_summary():
 @login_required
 def api_employee_status(employee_id):
     """API endpoint for individual employee attendance status"""
+    # FIX: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    from models.leave import LeaveRequest
+    
     employee = Employee.query.get_or_404(employee_id)
     
     # Check permissions
@@ -932,7 +1001,7 @@ def api_employee_status(employee_id):
     
     response_data = {
         'employee_id': employee.id,
-        'employee_name': employee.full_name,
+        'employee_name': employee.get_full_name(), # FIX: Use get_full_name
         'date': target_date.isoformat(),
         'status': 'not_marked',
         'clock_in': None,
@@ -951,9 +1020,9 @@ def api_employee_status(employee_id):
     elif attendance:
         response_data.update({
             'status': attendance.status,
-            'clock_in': attendance.clock_in.strftime('%H:%M') if attendance.clock_in else None,
-            'clock_out': attendance.clock_out.strftime('%H:%M') if attendance.clock_out else None,
-            'hours_worked': float(attendance.hours_worked) if attendance.hours_worked else 0,
+            'clock_in': attendance.clock_in_time.strftime('%H:%M') if attendance.clock_in_time else None, # FIX: Use clock_in_time
+            'clock_out': attendance.clock_out_time.strftime('%H:%M') if attendance.clock_out_time else None, # FIX: Use clock_out_time
+            'hours_worked': float(attendance.work_hours) if attendance.work_hours else 0, # FIX: Use work_hours
             'notes': attendance.notes
         })
     

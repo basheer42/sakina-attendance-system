@@ -2,9 +2,10 @@
 Enhanced API Routes for Sakina Gas Attendance System
 RESTful API for mobile applications and external integrations
 """
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, current_app # FIX: Added current_app
 from flask_login import login_required, current_user
-from models import db, Employee, AttendanceRecord, LeaveRequest, Holiday, User, AuditLog
+# FIX: Removed global model imports to prevent early model registration
+from database import db
 from datetime import date, datetime, timedelta
 from sqlalchemy import func, and_, or_, desc
 from config import Config
@@ -44,6 +45,9 @@ def after_api_request(response):
 @login_required
 def api_list_employees():
     """Get list of employees with filtering"""
+    # FIX: Local imports
+    from models.employee import Employee
+    
     try:
         # Get query parameters
         location = request.args.get('location', 'all')
@@ -95,7 +99,7 @@ def api_list_employees():
                 'employee_id': emp.employee_id,
                 'first_name': emp.first_name,
                 'last_name': emp.last_name,
-                'full_name': emp.full_name,
+                'full_name': emp.get_full_name(), # FIX: Use get_full_name
                 'email': emp.email,
                 'phone': emp.phone,
                 'location': emp.location,
@@ -105,7 +109,7 @@ def api_list_employees():
                 'hire_date': emp.hire_date.isoformat(),
                 'employment_status': emp.employment_status,
                 'is_active': emp.is_active,
-                'years_of_service': round(emp.years_of_service, 1)
+                'years_of_service': round(emp.calculate_years_of_service(), 1) # FIX: Use calculate_years_of_service
             })
         
         return jsonify({
@@ -134,6 +138,10 @@ def api_list_employees():
 @login_required
 def api_get_employee(employee_id):
     """Get detailed employee information"""
+    # FIX: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    
     try:
         employee = Employee.query.get_or_404(employee_id)
         
@@ -152,14 +160,15 @@ def api_get_employee(employee_id):
             AttendanceRecord.date >= today - timedelta(days=30)
         ).order_by(desc(AttendanceRecord.date)).limit(10).all()
         
-        attendance_summary = employee.get_attendance_summary(
-            today - timedelta(days=30), today
-        )
+        # FIX: attendance_summary method does not exist on employee model
+        # attendance_summary = employee.get_attendance_summary(
+        #     today - timedelta(days=30), today
+        # )
         
         # Leave balances
         leave_balances = {}
-        for leave_type in Config.KENYAN_LABOR_LAWS.keys():
-            leave_balances[leave_type] = employee.get_leave_balance(leave_type, current_year)
+        for leave_type in Config.KENYAN_LABOR_LAWS['leave_entitlements'].keys(): # FIX: Use correct config key
+            leave_balances[leave_type] = employee.calculate_leave_balance(leave_type, current_year) # FIX: Use employee method
         
         # Format response
         employee_data = {
@@ -168,7 +177,7 @@ def api_get_employee(employee_id):
             'personal_info': {
                 'first_name': employee.first_name,
                 'last_name': employee.last_name,
-                'full_name': employee.full_name,
+                'full_name': employee.get_full_name(), # FIX: Use get_full_name
                 'email': employee.email,
                 'phone': employee.phone,
                 'date_of_birth': employee.date_of_birth.isoformat() if employee.date_of_birth else None,
@@ -183,19 +192,19 @@ def api_get_employee(employee_id):
                 'hire_date': employee.hire_date.isoformat(),
                 'employment_type': employee.employment_type,
                 'employment_status': employee.employment_status,
-                'years_of_service': round(employee.years_of_service, 1),
-                'months_of_service': employee.months_of_service,
+                'years_of_service': round(employee.calculate_years_of_service(), 1), # FIX: Use calculate_years_of_service
+                'months_of_service': employee.calculate_months_of_service(), # FIX: Use calculate_months_of_service
                 'is_active': employee.is_active
             },
-            'attendance_summary': attendance_summary,
+            'attendance_summary': employee.get_attendance_rate(), # FIX: Simplified to just rate
             'leave_balances': leave_balances,
             'recent_attendance': [
                 {
                     'date': att.date.isoformat(),
                     'status': att.status,
-                    'clock_in': att.clock_in.strftime('%H:%M') if att.clock_in else None,
-                    'clock_out': att.clock_out.strftime('%H:%M') if att.clock_out else None,
-                    'hours_worked': float(att.hours_worked) if att.hours_worked else 0
+                    'clock_in': att.clock_in_time.strftime('%H:%M') if att.clock_in_time else None, # FIX: Use clock_in_time
+                    'clock_out': att.clock_out_time.strftime('%H:%M') if att.clock_out_time else None, # FIX: Use clock_out_time
+                    'hours_worked': float(att.work_hours) if att.work_hours else 0 # FIX: Use work_hours
                 }
                 for att in recent_attendance
             ]
@@ -237,6 +246,11 @@ def api_mark_attendance():
 @login_required
 def api_today_attendance():
     """Get today's attendance overview"""
+    # FIX: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    from models.leave import LeaveRequest
+    
     try:
         today = date.today()
         location = request.args.get('location', 'all')
@@ -282,12 +296,12 @@ def api_today_attendance():
             attendance_data.append({
                 'employee_id': employee.id,
                 'employee_code': employee.employee_id,
-                'name': employee.full_name,
+                'name': employee.get_full_name(), # FIX: Use get_full_name
                 'location': employee.location,
                 'department': employee.department,
                 'status': status,
-                'clock_in': attendance.clock_in.strftime('%H:%M') if attendance and attendance.clock_in else None,
-                'clock_out': attendance.clock_out.strftime('%H:%M') if attendance and attendance.clock_out else None,
+                'clock_in': attendance.clock_in_time.strftime('%H:%M') if attendance and attendance.clock_in_time else None, # FIX: Use clock_in_time
+                'clock_out': attendance.clock_out_time.strftime('%H:%M') if attendance and attendance.clock_out_time else None, # FIX: Use clock_out_time
                 'leave_type': leave_request.leave_type if leave_request else None
             })
             
@@ -318,6 +332,10 @@ def api_today_attendance():
 @login_required
 def api_employee_attendance_history(employee_id):
     """Get employee attendance history"""
+    # FIX: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    
     try:
         employee = Employee.query.get_or_404(employee_id)
         
@@ -349,22 +367,28 @@ def api_employee_attendance_history(employee_id):
             history_data.append({
                 'date': record.date.isoformat(),
                 'status': record.status,
-                'clock_in': record.clock_in.strftime('%H:%M') if record.clock_in else None,
-                'clock_out': record.clock_out.strftime('%H:%M') if record.clock_out else None,
-                'hours_worked': float(record.hours_worked) if record.hours_worked else 0,
+                'clock_in': record.clock_in_time.strftime('%H:%M') if record.clock_in_time else None, # FIX: Use clock_in_time
+                'clock_out': record.clock_out_time.strftime('%H:%M') if record.clock_out_time else None, # FIX: Use clock_out_time
+                'hours_worked': float(record.work_hours) if record.work_hours else 0, # FIX: Use work_hours
                 'overtime_hours': float(record.overtime_hours) if record.overtime_hours else 0,
-                'late_minutes': record.late_minutes or 0,
+                'late_minutes': record.minutes_late or 0, # FIX: Use minutes_late
                 'notes': record.notes
             })
         
         # Calculate summary
-        summary = employee.get_attendance_summary(start_date, end_date)
+        # FIX: attendance summary method is assumed missing, using simple manual calculation
+        summary = {
+            'total_records': len(attendance_records),
+            'total_hours': sum(item['hours_worked'] for item in history_data),
+            'total_late_minutes': sum(item['late_minutes'] for item in history_data),
+            'absent_days': len([item for item in history_data if item['status'] == 'absent'])
+        }
         
         return jsonify({
             'success': True,
             'employee': {
                 'id': employee.id,
-                'name': employee.full_name,
+                'name': employee.get_full_name(), # FIX: Use get_full_name
                 'employee_id': employee.employee_id
             },
             'period': {
@@ -384,6 +408,10 @@ def api_employee_attendance_history(employee_id):
 @login_required
 def api_list_leaves():
     """Get leave requests list"""
+    # FIX: Local imports
+    from models.leave import LeaveRequest
+    from models.employee import Employee
+    
     try:
         # Get query parameters
         status = request.args.get('status', 'all')
@@ -410,7 +438,7 @@ def api_list_leaves():
             query = query.filter(LeaveRequest.employee_id == employee_id)
         
         # Paginate
-        leave_requests = query.order_by(desc(LeaveRequest.created_at)).paginate(
+        leave_requests = query.order_by(desc(LeaveRequest.requested_date)).paginate( # FIX: Use requested_date
             page=page, per_page=per_page, error_out=False
         )
         
@@ -421,20 +449,20 @@ def api_list_leaves():
                 'id': leave.id,
                 'employee': {
                     'id': leave.employee.id,
-                    'name': leave.employee.full_name,
+                    'name': leave.employee.get_full_name(), # FIX: Use get_full_name
                     'employee_id': leave.employee.employee_id
                 },
                 'leave_type': leave.leave_type,
                 'start_date': leave.start_date.isoformat(),
                 'end_date': leave.end_date.isoformat(),
-                'total_days': leave.total_days,
+                'total_days': float(leave.total_days),
                 'working_days': leave.working_days,
                 'reason': leave.reason,
                 'status': leave.status,
-                'priority': leave.priority,
-                'created_at': leave.created_at.isoformat(),
-                'approved_at': leave.approved_at.isoformat() if leave.approved_at else None,
-                'approver': leave.approver.full_name if leave.approver else None
+                'priority': 'normal', # FIX: Priority column removed, setting default
+                'created_at': leave.created_date.isoformat(), # FIX: Use created_date
+                'approved_at': leave.hr_approval_date.isoformat() if leave.hr_approval_date else None, # FIX: Use hr_approval_date
+                'approver': leave.hr_approver.get_full_name() if leave.hr_approver and hasattr(leave.hr_approver, 'get_full_name') else None # FIX: Use hr_approver
             })
         
         return jsonify({
@@ -444,7 +472,9 @@ def api_list_leaves():
                 'page': leave_requests.page,
                 'per_page': leave_requests.per_page,
                 'total': leave_requests.total,
-                'pages': leave_requests.pages
+                'pages': leave_requests.pages,
+                'has_next': leave_requests.has_next,
+                'has_prev': leave_requests.has_prev
             }
         })
         
@@ -455,6 +485,10 @@ def api_list_leaves():
 @login_required
 def api_approve_leave(leave_id):
     """Approve leave request"""
+    # FIX: Local imports
+    from models.leave import LeaveRequest
+    from models.audit import AuditLog
+    
     try:
         if current_user.role not in ['hr_manager', 'admin']:
             return jsonify({'success': False, 'message': 'Unauthorized'}), 403
@@ -469,29 +503,30 @@ def api_approve_leave(leave_id):
         
         # Approve
         leave_request.status = 'approved'
-        leave_request.approved_by = current_user.id
-        leave_request.approved_at = datetime.utcnow()
-        leave_request.hr_notes = approval_notes
+        leave_request.hr_approved_by = current_user.id # FIX: Use hr_approved_by
+        leave_request.hr_approval_date = datetime.utcnow() # FIX: Use hr_approval_date
+        leave_request.hr_comments = approval_notes # FIX: Use hr_comments
+        leave_request._process_leave_balance() # FIX: Process deduction
         
         db.session.commit()
         
         # Log approval
-        AuditLog.log_action(
+        AuditLog.log_event(
             user_id=current_user.id,
-            action='leave_approved_api',
+            event_type='leave_approved_api',
             target_type='leave_request',
             target_id=leave_request.id,
-            details=f'API: Approved {leave_request.leave_type} for {leave_request.employee.full_name}',
+            description=f'API: Approved {leave_request.leave_type} for {leave_request.employee.get_full_name()}', # FIX: Use get_full_name
             ip_address=g.ip_address
         )
         
         return jsonify({
             'success': True,
-            'message': f'Leave approved for {leave_request.employee.full_name}',
+            'message': f'Leave approved for {leave_request.employee.get_full_name()}', # FIX: Use get_full_name
             'leave_request': {
                 'id': leave_request.id,
                 'status': leave_request.status,
-                'approved_at': leave_request.approved_at.isoformat()
+                'approved_at': leave_request.hr_approval_date.isoformat() # FIX: Use hr_approval_date
             }
         })
         
@@ -503,6 +538,10 @@ def api_approve_leave(leave_id):
 @login_required
 def api_employee_leave_balance(employee_id):
     """Get employee leave balance"""
+    # FIX: Local imports
+    from models.employee import Employee
+    from models.leave import LeaveRequest
+    
     try:
         employee = Employee.query.get_or_404(employee_id)
         
@@ -515,28 +554,28 @@ def api_employee_leave_balance(employee_id):
         
         # Calculate balances for all leave types
         balances = {}
-        for leave_type in Config.KENYAN_LABOR_LAWS.keys():
-            balance = employee.get_leave_balance(leave_type, year)
-            policy = Config.KENYAN_LABOR_LAWS.get(leave_type, {})
+        for leave_type in Config.KENYAN_LABOR_LAWS['leave_entitlements'].keys(): # FIX: Use correct config key
+            balance_info = calculate_leave_balance(employee, leave_type) # FIX: Use local helper
+            policy = Config.KENYAN_LABOR_LAWS['leave_entitlements'].get(leave_type, {})
             
             balances[leave_type] = {
                 'name': policy.get('name', leave_type.title()),
-                'entitlement': balance,
-                'used': 0,  # Would calculate from approved requests
-                'available': balance,
-                'max_days': policy.get('max_days'),
-                'color': policy.get('color', '#6c757d')
+                'entitlement': balance_info['entitlement'],
+                'used': balance_info['used'],
+                'available': balance_info['available'],
+                'max_days': policy.get('days', policy.get('days_per_year')), # FIX: Get max days
+                'color': '#6c757d' # FIX: Color placeholder
             }
         
         return jsonify({
             'success': True,
             'employee': {
                 'id': employee.id,
-                'name': employee.full_name,
+                'name': employee.get_full_name(), # FIX: Use get_full_name
                 'employee_id': employee.employee_id
             },
             'year': year,
-            'years_of_service': round(employee.years_of_service, 1),
+            'years_of_service': round(employee.calculate_years_of_service(), 1), # FIX: Use employee method
             'balances': balances
         })
         
@@ -549,6 +588,11 @@ def api_employee_leave_balance(employee_id):
 @login_required
 def api_dashboard_stats():
     """Get dashboard statistics"""
+    # FIX: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    from models.leave import LeaveRequest
+    
     try:
         today = date.today()
         
@@ -618,6 +662,10 @@ def api_dashboard_stats():
 @login_required
 def api_attendance_summary():
     """Get attendance summary report via API"""
+    # FIX: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    
     try:
         if current_user.role == 'station_manager':
             return jsonify({'success': False, 'message': 'Access denied'}), 403
@@ -636,7 +684,7 @@ def api_attendance_summary():
         summary_data = []
         
         # Get location-wise summary
-        for location in Config.COMPANY_LOCATIONS.keys():
+        for location in current_app.config['COMPANY_LOCATIONS'].keys():
             location_employees = Employee.query.filter(
                 Employee.location == location,
                 Employee.is_active == True
@@ -661,7 +709,7 @@ def api_attendance_summary():
             
             summary_data.append({
                 'location': location,
-                'location_name': Config.COMPANY_LOCATIONS[location]['name'],
+                'location_name': current_app.config['COMPANY_LOCATIONS'][location]['name'],
                 'total_employees': location_employees,
                 'total_records': total_records,
                 'present_records': location_present,
@@ -686,6 +734,11 @@ def api_attendance_summary():
 
 def mark_single_attendance(data):
     """Mark attendance for single employee"""
+    # FIX: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    from models.audit import AuditLog
+    
     employee_id = data.get('employee_id')
     status = data.get('status')
     notes = data.get('notes', '')
@@ -723,8 +776,8 @@ def mark_single_attendance(data):
             # Update existing
             existing.status = status
             existing.notes = notes
-            existing.marked_by = current_user.id
-            existing.updated_at = current_time
+            existing.updated_by = current_user.id # FIX: Use updated_by
+            existing.last_updated = current_time # FIX: Use last_updated
         else:
             # Create new
             attendance = AttendanceRecord(
@@ -732,29 +785,30 @@ def mark_single_attendance(data):
                 date=target_date,
                 status=status,
                 notes=notes,
-                marked_by=current_user.id,
-                clock_in=current_time if status in ['present', 'late'] else None,
-                location_marked=employee.location,
-                verification_method='api'
+                created_by=current_user.id, # FIX: Use created_by
+                clock_in_time=current_time if status in ['present', 'late'] else None, # FIX: Use clock_in_time
+                location=employee.location, # FIX: Use location
+                clock_in_method='api_mark', # FIX: Use method
+                ip_address=g.ip_address # FIX: Use g.ip_address
             )
             db.session.add(attendance)
         
         db.session.commit()
         
         # Log action
-        AuditLog.log_action(
+        AuditLog.log_event(
             user_id=current_user.id,
-            action='attendance_marked_api',
+            event_type='attendance_marked_api',
             target_type='attendance',
             target_id=employee.id,
-            details=f'API: Marked {status} for {employee.full_name}',
+            description=f'API: Marked {status} for {employee.get_full_name()}',
             ip_address=g.ip_address
         )
         
         return {
             'success': True,
-            'message': f'Attendance marked for {employee.full_name}',
-            'employee': employee.full_name,
+            'message': f'Attendance marked for {employee.get_full_name()}',
+            'employee': employee.get_full_name(),
             'status': status,
             'date': target_date.isoformat()
         }

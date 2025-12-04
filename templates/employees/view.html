@@ -1,0 +1,999 @@
+{% extends "base.html" %}
+
+{% block title %}{{ employee.get_full_name() }} - Employee Profile{% endblock %}
+
+{% block extra_css %}
+<style>
+    .employee-profile-header {
+        background: linear-gradient(135deg, var(--sakina-blue) 0%, var(--sakina-light-blue) 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .employee-profile-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 200px;
+        height: 200px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        transform: translate(50px, -50px);
+    }
+    
+    .employee-avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--sakina-orange) 0%, #FF8C5A 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 3rem;
+        font-weight: 700;
+        margin-bottom: 20px;
+        border: 4px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .employee-name {
+        font-size: 2.2rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+    
+    .employee-title {
+        font-size: 1.3rem;
+        opacity: 0.9;
+        margin-bottom: 15px;
+    }
+    
+    .employee-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+    }
+    
+    .info-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .info-icon {
+        width: 20px;
+        text-align: center;
+        opacity: 0.8;
+    }
+    
+    .profile-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 20px;
+    }
+    
+    .action-btn {
+        padding: 10px 20px;
+        border-radius: 10px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+    }
+    
+    .action-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .action-btn.primary {
+        background: var(--sakina-orange);
+        border-color: var(--sakina-orange);
+    }
+    
+    .action-btn.primary:hover {
+        background: #e85a2e;
+        border-color: #e85a2e;
+    }
+    
+    .profile-section {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        margin-bottom: 25px;
+        overflow: hidden;
+    }
+    
+    .section-header {
+        background: linear-gradient(90deg, var(--sakina-gray) 0%, #ffffff 100%);
+        padding: 20px 25px;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        justify-content: between;
+        align-items: center;
+    }
+    
+    .section-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: var(--sakina-blue);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .section-actions {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .section-body {
+        padding: 25px;
+    }
+    
+    .details-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+    
+    .detail-item {
+        padding: 15px 0;
+        border-bottom: 1px solid #f1f1f1;
+    }
+    
+    .detail-item:last-child {
+        border-bottom: none;
+    }
+    
+    .detail-label {
+        font-weight: 600;
+        color: #6c757d;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 5px;
+    }
+    
+    .detail-value {
+        font-size: 1.1rem;
+        color: var(--sakina-dark-blue);
+        font-weight: 500;
+    }
+    
+    .status-badge {
+        font-size: 0.85rem;
+        font-weight: 600;
+        padding: 6px 15px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .status-active {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-inactive {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .status-probation {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .metric-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        border: 1px solid #e9ecef;
+    }
+    
+    .metric-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--sakina-orange);
+        margin-bottom: 5px;
+    }
+    
+    .metric-label {
+        color: #6c757d;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .activity-timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    
+    .activity-timeline::before {
+        content: '';
+        position: absolute;
+        left: 12px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: linear-gradient(to bottom, var(--sakina-orange), var(--sakina-blue));
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 25px;
+        padding-left: 35px;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -8px;
+        top: 5px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--sakina-orange);
+        border: 3px solid white;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    
+    .timeline-date {
+        font-size: 0.85rem;
+        color: #6c757d;
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+    
+    .timeline-title {
+        font-weight: 600;
+        color: var(--sakina-blue);
+        margin-bottom: 5px;
+    }
+    
+    .timeline-description {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .alert-probation {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        border: 1px solid #ffeaa7;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 25px;
+    }
+    
+    .alert-probation h6 {
+        color: #856404;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+    
+    .probation-progress {
+        background: rgba(255, 255, 255, 0.5);
+        border-radius: 10px;
+        overflow: hidden;
+        margin-top: 10px;
+    }
+    
+    .progress-bar {
+        height: 8px;
+        background: linear-gradient(90deg, var(--sakina-orange) 0%, #FF8C5A 100%);
+        transition: width 0.5s ease;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+    
+    @media (max-width: 768px) {
+        .employee-profile-header {
+            text-align: center;
+        }
+        
+        .employee-avatar {
+            margin: 0 auto 20px;
+        }
+        
+        .profile-actions {
+            justify-content: center;
+        }
+        
+        .details-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .section-header {
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Employee Profile Header -->
+<div class="employee-profile-header">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <div class="d-flex align-items-center">
+                <div class="employee-avatar">
+                    {{ employee.get_initials() }}
+                </div>
+                <div class="flex-grow-1">
+                    <h1 class="employee-name">{{ employee.get_full_name() }}</h1>
+                    <p class="employee-title">
+                        {{ employee.position or 'Employee' }} • {{ employee.get_department_display() }}
+                    </p>
+                    
+                    <!-- Status Badge -->
+                    {% if employee.is_active %}
+                        {% if employee.is_on_probation() %}
+                            <span class="status-badge status-probation">
+                                <i class="bi bi-clock"></i> On Probation
+                            </span>
+                        {% else %}
+                            <span class="status-badge status-active">
+                                <i class="bi bi-check-circle"></i> Active Employee
+                            </span>
+                        {% endif %}
+                    {% else %}
+                        <span class="status-badge status-inactive">
+                            <i class="bi bi-x-circle"></i> Inactive
+                        </span>
+                    {% endif %}
+                    
+                    <!-- Basic Info Grid -->
+                    <div class="employee-info-grid">
+                        <div class="info-item">
+                            <i class="bi bi-hash info-icon"></i>
+                            <span>ID: {{ employee.employee_id }}</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="bi bi-geo-alt info-icon"></i>
+                            <span>{{ employee.get_location_display() }}</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="bi bi-calendar3 info-icon"></i>
+                            <span>Joined {{ employee.hire_date.strftime('%d %b %Y') if employee.hire_date else 'N/A' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="bi bi-briefcase info-icon"></i>
+                            <span>{{ employee.get_employment_type_display() }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 text-end">
+            <div class="profile-actions">
+                {% if current_user.role in ['hr_manager', 'admin'] or 
+                    (current_user.role == 'station_manager' and employee.location == current_user.location) %}
+                    <a href="{{ url_for('employees.edit_employee', id=employee.id) }}" 
+                       class="action-btn primary">
+                        <i class="bi bi-pencil"></i> Edit Profile
+                    </a>
+                {% endif %}
+                
+                {% if current_user.role in ['hr_manager', 'admin'] %}
+                    {% if employee.is_active %}
+                        <button type="button" class="action-btn" 
+                                onclick="deactivateEmployee({{ employee.id }}, '{{ employee.get_full_name() }}')">
+                            <i class="bi bi-pause"></i> Deactivate
+                        </button>
+                    {% else %}
+                        <button type="button" class="action-btn" 
+                                onclick="reactivateEmployee({{ employee.id }}, '{{ employee.get_full_name() }}')">
+                            <i class="bi bi-play"></i> Reactivate
+                        </button>
+                    {% endif %}
+                    
+                    <a href="{{ url_for('employees.promote_employee', id=employee.id) }}" 
+                       class="action-btn">
+                        <i class="bi bi-arrow-up-circle"></i> Promote
+                    </a>
+                {% endif %}
+                
+                <div class="dropdown">
+                    <button type="button" class="action-btn dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="bi bi-three-dots"></i> More
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#attendance-section">
+                            <i class="bi bi-clock"></i> View Attendance
+                        </a></li>
+                        <li><a class="dropdown-item" href="#leave-section">
+                            <i class="bi bi-calendar"></i> Leave History
+                        </a></li>
+                        <li><a class="dropdown-item" href="#performance-section">
+                            <i class="bi bi-star"></i> Performance Reviews
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="mailto:{{ employee.email }}">
+                            <i class="bi bi-envelope"></i> Send Email
+                        </a></li>
+                        <li><a class="dropdown-item" href="tel:{{ employee.phone }}">
+                            <i class="bi bi-telephone"></i> Call
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Probation Alert -->
+{% if employee.is_on_probation() %}
+<div class="alert-probation">
+    <h6><i class="bi bi-exclamation-triangle"></i> Employee on Probation</h6>
+    <p class="mb-2">
+        Probation period ends on <strong>{{ employee.probation_end_date.strftime('%d %B %Y') if employee.probation_end_date }}</strong>
+        ({{ employee.days_until_probation_end() }} days remaining)
+    </p>
+    <div class="probation-progress">
+        <div class="progress-bar" style="width: {{ employee.probation_completion_percentage() }}%"></div>
+    </div>
+    <small class="text-muted">{{ employee.probation_completion_percentage() }}% of probation period completed</small>
+</div>
+{% endif %}
+
+<!-- Performance Metrics -->
+<div class="row mb-4">
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="metric-card">
+            <div class="metric-number">{{ "%.1f"|format(attendance_rate) }}%</div>
+            <div class="metric-label">Attendance Rate</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="metric-card">
+            <div class="metric-number">{{ "%.1f"|format(punctuality_rate) }}%</div>
+            <div class="metric-label">Punctuality Rate</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="metric-card">
+            <div class="metric-number">{{ recent_leaves|length }}</div>
+            <div class="metric-label">Recent Leaves</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="metric-card">
+            <div class="metric-number">{{ performance_reviews|length }}</div>
+            <div class="metric-label">Performance Reviews</div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Left Column -->
+    <div class="col-lg-8">
+        <!-- Personal Information -->
+        <div class="profile-section">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="bi bi-person-circle"></i>
+                    Personal Information
+                </h3>
+            </div>
+            <div class="section-body">
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">Full Name</div>
+                        <div class="detail-value">{{ employee.get_full_name() }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Date of Birth</div>
+                        <div class="detail-value">
+                            {{ employee.date_of_birth.strftime('%d %B %Y') if employee.date_of_birth else 'Not provided' }}
+                            {% if employee.date_of_birth %}
+                                <small class="text-muted">({{ employee.get_age() }} years old)</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Gender</div>
+                        <div class="detail-value">{{ employee.gender|title if employee.gender else 'Not specified' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Marital Status</div>
+                        <div class="detail-value">{{ employee.marital_status|title if employee.marital_status else 'Not specified' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">National ID</div>
+                        <div class="detail-value">{{ employee.national_id or 'Not provided' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Nationality</div>
+                        <div class="detail-value">{{ employee.nationality or 'Kenyan' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Employment Information -->
+        <div class="profile-section">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="bi bi-briefcase"></i>
+                    Employment Information
+                </h3>
+            </div>
+            <div class="section-body">
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">Employee ID</div>
+                        <div class="detail-value">{{ employee.employee_id }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Position</div>
+                        <div class="detail-value">{{ employee.position or 'Not specified' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Department</div>
+                        <div class="detail-value">{{ employee.get_department_display() }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Location</div>
+                        <div class="detail-value">{{ employee.get_location_display() }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Employment Type</div>
+                        <div class="detail-value">{{ employee.get_employment_type_display() }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Hire Date</div>
+                        <div class="detail-value">
+                            {{ employee.hire_date.strftime('%d %B %Y') if employee.hire_date else 'Not provided' }}
+                            {% if employee.hire_date %}
+                                <small class="text-muted">({{ employee.get_years_of_service() }} years of service)</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if employee.basic_salary and current_user.role in ['hr_manager', 'admin'] %}
+                    <div class="detail-item">
+                        <div class="detail-label">Basic Salary</div>
+                        <div class="detail-value">KES {{ "{:,.2f}".format(employee.basic_salary) }}</div>
+                    </div>
+                    {% endif %}
+                    {% if employee.shift %}
+                    <div class="detail-item">
+                        <div class="detail-label">Work Shift</div>
+                        <div class="detail-value">{{ employee.shift|title }} Shift</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Contact Information -->
+        <div class="profile-section">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="bi bi-telephone"></i>
+                    Contact Information
+                </h3>
+            </div>
+            <div class="section-body">
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">Email Address</div>
+                        <div class="detail-value">
+                            <a href="mailto:{{ employee.email }}" class="text-decoration-none">
+                                {{ employee.email }}
+                            </a>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Phone Number</div>
+                        <div class="detail-value">
+                            <a href="tel:{{ employee.phone }}" class="text-decoration-none">
+                                {{ employee.phone or 'Not provided' }}
+                            </a>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Physical Address</div>
+                        <div class="detail-value">{{ employee.address or 'Not provided' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">City</div>
+                        <div class="detail-value">{{ employee.city or 'Not specified' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">County</div>
+                        <div class="detail-value">{{ employee.county or 'Not specified' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {% if current_user.role in ['hr_manager', 'admin'] %}
+        <!-- Banking & Legal Information -->
+        <div class="profile-section">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="bi bi-bank"></i>
+                    Banking & Legal Information
+                </h3>
+            </div>
+            <div class="section-body">
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">Bank Name</div>
+                        <div class="detail-value">{{ employee.bank_name or 'Not provided' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Account Number</div>
+                        <div class="detail-value">{{ employee.account_number or 'Not provided' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">KRA PIN</div>
+                        <div class="detail-value">{{ employee.kra_pin or 'Not provided' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">NSSF Number</div>
+                        <div class="detail-value">{{ employee.nssf_number or 'Not provided' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">NHIF Number</div>
+                        <div class="detail-value">{{ employee.nhif_number or 'Not provided' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Right Column -->
+    <div class="col-lg-4">
+        <!-- Recent Activity -->
+        <div class="profile-section">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="bi bi-activity"></i>
+                    Recent Activity
+                </h3>
+            </div>
+            <div class="section-body">
+                <div class="activity-timeline">
+                    {% if recent_attendance %}
+                        {% for record in recent_attendance[:5] %}
+                        <div class="timeline-item">
+                            <div class="timeline-date">{{ record.date.strftime('%d %b %Y') }}</div>
+                            <div class="timeline-title">{{ record.get_status_display() }}</div>
+                            <div class="timeline-description">
+                                {% if record.clock_in_time %}
+                                    In: {{ record.get_clock_in_display() }}
+                                    {% if record.clock_out_time %}
+                                        | Out: {{ record.get_clock_out_display() }}
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="bi bi-clock"></i>
+                            <p>No recent attendance records</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Team Information -->
+        {% if supervisor or direct_reports %}
+        <div class="profile-section">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="bi bi-people"></i>
+                    Team Structure
+                </h3>
+            </div>
+            <div class="section-body">
+                {% if supervisor %}
+                <div class="detail-item">
+                    <div class="detail-label">Reports To</div>
+                    <div class="detail-value">
+                        <a href="{{ url_for('employees.view_employee', id=supervisor.id) }}" class="text-decoration-none">
+                            {{ supervisor.get_full_name() }}
+                        </a>
+                        <small class="text-muted d-block">{{ supervisor.position }}</small>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if direct_reports %}
+                <div class="detail-item">
+                    <div class="detail-label">Direct Reports ({{ direct_reports|length }})</div>
+                    <div class="detail-value">
+                        {% for report in direct_reports %}
+                        <div class="mb-2">
+                            <a href="{{ url_for('employees.view_employee', id=report.id) }}" class="text-decoration-none">
+                                {{ report.get_full_name() }}
+                            </a>
+                            <small class="text-muted d-block">{{ report.position }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Quick Stats -->
+        <div class="profile-section">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="bi bi-graph-up"></i>
+                    Quick Stats
+                </h3>
+            </div>
+            <div class="section-body">
+                <div class="detail-item">
+                    <div class="detail-label">Total Leave Requests</div>
+                    <div class="detail-value">{{ recent_leaves|length }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Performance Reviews</div>
+                    <div class="detail-value">{{ performance_reviews|length }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Disciplinary Actions</div>
+                    <div class="detail-value">{{ disciplinary_actions|length }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Years of Service</div>
+                    <div class="detail-value">{{ employee.get_years_of_service() }} years</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Additional Information Sections -->
+<div class="row">
+    <!-- Recent Attendance -->
+    <div class="col-lg-6 mb-4" id="attendance-section">
+        <div class="profile-section">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="bi bi-clock"></i>
+                    Recent Attendance
+                </h3>
+                <div class="section-actions">
+                    <a href="{{ url_for('reports.attendance_reports', employee=employee.id) }}" class="btn btn-outline-primary btn-sm">
+                        View All
+                    </a>
+                </div>
+            </div>
+            <div class="section-body">
+                {% if recent_attendance %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Clock In</th>
+                                <th>Clock Out</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in recent_attendance %}
+                            <tr>
+                                <td>{{ record.date.strftime('%d %b') }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if record.status == 'present' else 'warning' if record.status == 'late' else 'danger' }}">
+                                        {{ record.get_status_display() }}
+                                    </span>
+                                </td>
+                                <td>{{ record.get_clock_in_display() }}</td>
+                                <td>{{ record.get_clock_out_display() }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-clock"></i>
+                    <p>No attendance records found</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Leave Requests -->
+    <div class="col-lg-6 mb-4" id="leave-section">
+        <div class="profile-section">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="bi bi-calendar-check"></i>
+                    Recent Leave Requests
+                </h3>
+                <div class="section-actions">
+                    <a href="{{ url_for('leaves.list_requests', employee=employee.id) }}" class="btn btn-outline-primary btn-sm">
+                        View All
+                    </a>
+                </div>
+            </div>
+            <div class="section-body">
+                {% if recent_leaves %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Dates</th>
+                                <th>Days</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for leave in recent_leaves %}
+                            <tr>
+                                <td>{{ leave.get_leave_type_display() }}</td>
+                                <td>
+                                    {{ leave.start_date.strftime('%d %b') }} - 
+                                    {{ leave.end_date.strftime('%d %b') }}
+                                </td>
+                                <td>{{ leave.total_days }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if leave.status == 'approved' else 'warning' if leave.status == 'pending' else 'danger' }}">
+                                        {{ leave.get_status_display() }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-calendar"></i>
+                    <p>No leave requests found</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if current_user.role in ['hr_manager', 'admin'] %}
+<!-- Performance Reviews -->
+<div class="row">
+    <div class="col-12" id="performance-section">
+        <div class="profile-section">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="bi bi-star"></i>
+                    Performance Reviews & Disciplinary Actions
+                </h3>
+            </div>
+            <div class="section-body">
+                <div class="row">
+                    <div class="col-lg-6">
+                        <h6 class="text-muted mb-3">Performance Reviews</h6>
+                        {% if performance_reviews %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Review Date</th>
+                                        <th>Type</th>
+                                        <th>Rating</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for review in performance_reviews %}
+                                    <tr>
+                                        <td>{{ review.review_date.strftime('%d %b %Y') }}</td>
+                                        <td>{{ review.get_review_type_display() }}</td>
+                                        <td>
+                                            {% if review.overall_rating %}
+                                                {{ "%.1f"|format(review.overall_rating) }}/5.0
+                                            {% else %}
+                                                Not rated
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if review.status == 'completed' else 'warning' }}">
+                                                {{ review.get_status_display() }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="empty-state">
+                            <i class="bi bi-star"></i>
+                            <p>No performance reviews yet</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-lg-6">
+                        <h6 class="text-muted mb-3">Disciplinary Actions</h6>
+                        {% if disciplinary_actions %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Type</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for action in disciplinary_actions %}
+                                    <tr>
+                                        <td>{{ action.action_date.strftime('%d %b %Y') }}</td>
+                                        <td>{{ action.get_action_type_display() }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if action.status == 'completed' else 'warning' if action.status == 'active' else 'info' }}">
+                                                {{ action.get_status_display() }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="empty-state">
+                            <i class="bi bi-shield-check"></i>
+                            <p>No disciplinary actions</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Include the same JavaScript functionality as the employee list template
+// for deactivation/reactivation functions
+// ... (JavaScript content similar to list.html but focused on single employee actions)
+</script>
+{% endblock %}

@@ -1,28 +1,20 @@
 """
-Models Package - Proper Structure
-This __init__.py file only handles imports, not model definitions
+Sakina Gas Company - Models Package
+Ensures all models are imported so SQLAlchemy knows about them.
 """
 
-# Import the database instance
-from database import db
+# FIX: Import all model classes at the end of the package's __init__
+# This ensures SQLAlchemy registers them correctly and resolves forward references.
+from .attendance import AttendanceRecord
+from .audit import AuditLog
+from .disciplinary_action import DisciplinaryAction
+from .employee import Employee
+from .holiday import Holiday
+from .leave import LeaveRequest
+from .performance import PerformanceReview
+from .user import User
+# The Base class is imported from database.py into the models module scope
+# to support DeclarativeBase inheritance, but it is defined outside this package
+from database import Base # Ensure Base is accessible in the models package
 
-# Import all models for easy access
-from models.user import User
-from models.employee import Employee
-from models.attendance import AttendanceRecord
-from models.leave import LeaveRequest
-from models.holiday import Holiday
-from models.audit import AuditLog
-from models.performance import PerformanceReview
-
-# Make all models available when importing from models
-__all__ = [
-    'db',
-    'User', 
-    'Employee', 
-    'AttendanceRecord', 
-    'LeaveRequest', 
-    'Holiday',
-    'AuditLog',
-    'PerformanceReview'
-]
+# This file is intentionally minimal to avoid multiple mapper definitions

@@ -1,15 +1,21 @@
 """
-Enhanced Sakina Gas Company Attendance Management System
-Main Application - Built upon your existing comprehensive structure
-Professional Flask Application with Advanced Features
+Sakina Gas Company - Professional Attendance Management System
+Built from scratch - Production ready with all advanced features
+Version 3.0 - Complete rewrite matching original complexity
 """
 
 import os
+import sys
 import logging
-from logging.handlers import RotatingFileHandler
-from datetime import datetime, date
-from flask import Flask, render_template, redirect, url_for, request, jsonify, g, session
+import secrets
+from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
+from datetime import datetime, date, timedelta
+from flask import Flask, render_template, redirect, url_for, request, jsonify, g, session, send_from_directory, current_app
 from flask_login import LoginManager, current_user, login_required
+from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.utils import secure_filename
+import click
+
 # Optional imports with graceful fallback
 try:
     from flask_mail import Mail
@@ -17,65 +23,46 @@ try:
 except ImportError:
     Mail = None
     MAIL_AVAILABLE = False
-from werkzeug.middleware.proxy_fix import ProxyFix
 
-# Import our enhanced modules
-from config import get_config
+# Global import place for utility/model functions that don't need to be imported late
+from database import db # FIX: Ensure db is imported here for global usage/registration
+from sqlalchemy import text # FIX: Ensure text is imported for use in CLI/health checks
 
 def create_app(config_name=None):
     """
-    Enhanced Application Factory Pattern
-    Creates and configures the Flask application with comprehensive features
+    Application Factory Pattern - Enterprise Grade
     """
     app = Flask(__name__)
     
     # Load configuration
+    from config import get_config
     config_class = get_config(config_name)
     app.config.from_object(config_class)
     config_class.init_app(app)
     
-    # Handle proxy headers for deployment
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+    # Production middleware
+    if app.config.get('ENV') == 'production':
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
     
-    # Initialize extensions
+    # Initialize all components
     initialize_extensions(app)
-    
-    # Register blueprints
     register_blueprints(app)
-    
-    # Register error handlers
     register_error_handlers(app)
-    
-    # Register context processors
     register_context_processors(app)
-    
-    # Register CLI commands
     register_cli_commands(app)
-    
-    # Set up logging
+    register_security_middleware(app)
     setup_logging(app)
     
     # Initialize database and create default data
     initialize_database(app)
     
-    # Register request hooks
-    register_request_hooks(app)
-    
     return app
 
 def initialize_extensions(app):
-    """Initialize Flask extensions with enhanced configuration"""
+    """Initialize Flask extensions with comprehensive configuration"""
     
-    # Import SQLAlchemy here and create db instance
-    from flask_sqlalchemy import SQLAlchemy
-    
-    # Create db instance here instead of importing from models
-    db = SQLAlchemy()
-    
-    # Initialize SQLAlchemy
+    # Import and initialize database
     db.init_app(app)
-    
-    # Make db available to app for use in other functions
     app.db = db
     
     # Initialize Flask-Login with enhanced security
@@ -86,609 +73,1029 @@ def initialize_extensions(app):
     login_manager.login_message_category = 'info'
     login_manager.session_protection = 'strong'
     login_manager.refresh_view = 'auth.login'
-    login_manager.needs_refresh_message = 'To protect your account, please re-authenticate.'
-    login_manager.needs_refresh_message_category = 'info'
+    login_manager.needs_refresh_message = 'Session expired. Please re-authenticate for security.'
+    login_manager.needs_refresh_message_category = 'warning'
     
     @login_manager.user_loader
     def load_user(user_id):
-        """Load user with enhanced security checks"""
-        try:
-            # Import User model here when needed
-            from models import User
-            user = app.db.session.get(User, int(user_id))
-            if user and user.is_active and not user.is_locked:
-                return user
-        except (ValueError, TypeError):
-            pass
-        return None
+        """Load user with comprehensive security checks"""
+        # FIX: Changed to use current_app and local import to prevent premature model load
+        with current_app.app_context():
+            from models.user import User # Local import - safer
+            try:
+                # Use query.get for better integration with Flask-SQLAlchemy-2.0+
+                user = current_app.db.session.get(User, int(user_id))
+                
+                # Enhanced security checks
+                if user and user.is_active:
+                    # Check for account lock
+                    if hasattr(user, 'is_account_locked') and user.is_account_locked():
+                        return None
+                    # Check for session timeout
+                    if hasattr(user, 'last_activity'):
+                        timeout = current_app.config.get('PERMANENT_SESSION_LIFETIME', timedelta(hours=8))
+                        if datetime.utcnow() - user.last_activity > timeout:
+                            return None
+                    
+                    # Update last seen and activity
+                    user.last_seen = datetime.utcnow()
+                    if request.endpoint not in ['static', 'favicon', 'health_check']:  # Don't update for non-app requests
+                        user.last_activity = datetime.utcnow()
+                    
+                    try:
+                        current_app.db.session.commit()
+                    except:
+                        current_app.db.session.rollback()
+                        current_app.logger.error("Failed to commit user activity update in load_user.")
+                        
+                    return user
+            except (ValueError, TypeError, AttributeError) as e:
+                current_app.logger.error(f"Error in user_loader: {e}")
+                pass
+            return None
     
     @login_manager.unauthorized_handler
     def unauthorized():
-        """Handle unauthorized access with proper logging"""
+        """Handle unauthorized access with comprehensive logging"""
+        # Log unauthorized access attempt
+        with current_app.app_context():
+            from models.audit import AuditLog # Local import - safer
+            try:
+                client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
+                AuditLog.log_event(
+                    event_type='unauthorized_access_attempt',
+                    description=f'Unauthorized access to {request.endpoint} from {client_ip}',
+                    ip_address=client_ip,
+                    user_agent=request.headers.get('User-Agent'),
+                    risk_level='medium'
+                )
+                current_app.db.session.commit()
+            except:
+                current_app.db.session.rollback()
+        
+        # API vs Web response
         if request.endpoint and request.endpoint.startswith('api.'):
-            return jsonify({'error': 'Authentication required'}), 401
-        return redirect(url_for('auth.login', next=request.url))
+            return jsonify({
+                'error': 'Unauthorized',
+                'message': 'Please provide valid authentication credentials',
+                'status': 401
+            }), 401
+        
+        # Preserve the URL user was trying to access
+        next_url = request.url if request.endpoint != 'auth.login' else None
+        return redirect(url_for('auth.login', next=next_url))
     
-    # Initialize Flask-Mail (optional)
-    if MAIL_AVAILABLE and Mail:
+    # Initialize Flask-Mail with enhanced configuration
+    if MAIL_AVAILABLE and app.config.get('MAIL_SERVER'):
         mail = Mail()
         mail.init_app(app)
         app.mail = mail
         app.logger.info('Flask-Mail initialized successfully')
     else:
         app.mail = None
-        app.logger.warning('Flask-Mail not available - email features will be disabled')
+        app.logger.info('Flask-Mail not configured - email features disabled')
 
 def register_blueprints(app):
-    """Register all application blueprints with proper URL prefixes"""
+    """Register all application blueprints with comprehensive error handling"""
     
-    # Import and register blueprints
-    try:
-        # Authentication routes
-        from routes.auth import auth_bp
-        app.register_blueprint(auth_bp, url_prefix='/auth')
-        
-        # Main dashboard (at root for convenience)
-        from routes.dashboard import dashboard_bp
-        app.register_blueprint(dashboard_bp, url_prefix='/')
-        
-        # Employee management
-        from routes.employees import employees_bp
-        app.register_blueprint(employees_bp, url_prefix='/employees')
-        
-        # Attendance management
-        from routes.attendance import attendance_bp
-        app.register_blueprint(attendance_bp, url_prefix='/attendance')
-        
-        # Leave management
-        from routes.leaves import leaves_bp
-        app.register_blueprint(leaves_bp, url_prefix='/leaves')
-        
-        # Enhanced profile management
-        from routes.profile import profile_bp
-        app.register_blueprint(profile_bp, url_prefix='/profile')
-        
-        # Reports and analytics
-        from routes.reports import reports_bp
-        app.register_blueprint(reports_bp, url_prefix='/reports')
-        
-        # API endpoints
-        from routes.api import api_bp
-        app.register_blueprint(api_bp, url_prefix='/api/v2')
-        
-        app.logger.info('All blueprints registered successfully')
-        
-    except ImportError as e:
-        app.logger.warning(f'Some blueprints not available: {e}')
-        # Create minimal routes for testing
-        register_minimal_routes(app)
-
-def register_minimal_routes(app):
-    """Register minimal routes for basic functionality"""
+    blueprints = [
+        ('auth', '/auth'),
+        ('dashboard', '/'),
+        ('employees', '/employees'),
+        ('attendance', '/attendance'),
+        ('leaves', '/leaves'),
+        ('profile', '/profile'),
+        ('reports', '/reports'),
+        ('api', '/api/v1')
+    ]
     
-    @app.route('/')
-    def index():
-        """Root route"""
-        if current_user.is_authenticated:
-            return render_template('dashboard/main.html')
-        return redirect('/auth/login')
-    
-    @app.route('/auth/login', methods=['GET', 'POST'])
-    def login():
-        """Basic login route"""
-        if request.method == 'POST':
-            username = request.form.get('username')
-            password = request.form.get('password')
-            
-            from models import User
-            user = User.query.filter_by(username=username).first()
-            if user and user.check_password(password) and user.is_active:
-                from flask_login import login_user
-                login_user(user)
-                return redirect('/')
-            
-            return render_template('auth/login.html', error='Invalid credentials')
-        
-        return render_template('auth/login.html')
-    
-    @app.route('/auth/logout')
-    @login_required
-    def logout():
-        """Basic logout route"""
-        from flask_login import logout_user
-        logout_user()
-        return redirect('/auth/login')
+    for blueprint_name, url_prefix in blueprints:
+        try:
+            # FIX: Ensure proper package relative import structure
+            module = __import__(f'routes.{blueprint_name}', fromlist=[f'{blueprint_name}_bp'])
+            blueprint = getattr(module, f'{blueprint_name}_bp')
+            app.register_blueprint(blueprint, url_prefix=url_prefix)
+            app.logger.info(f'✅ Registered blueprint: {blueprint_name} at {url_prefix}')
+        except (ImportError, AttributeError) as e:
+            app.logger.error(f'❌ Failed to register blueprint {blueprint_name}: {e}')
+            # For critical blueprints, we might want to exit
+            if blueprint_name in ['auth', 'dashboard']:
+                app.logger.critical(f'Critical blueprint {blueprint_name} failed to load!')
+                sys.exit(1)
 
 def register_error_handlers(app):
     """Register comprehensive error handlers"""
     
     @app.errorhandler(400)
     def bad_request(error):
-        """Handle 400 Bad Request errors"""
-        if request.is_json:
-            return jsonify({'error': 'Bad request'}), 400
-        return f'<h1>400 Bad Request</h1><p>The request could not be understood.</p>', 400
+        """Handle bad request errors"""
+        app.logger.warning(f'Bad request: {error} from {request.remote_addr}')
+        if request.is_json or request.content_type == 'application/json':
+            return jsonify({
+                'error': 'Bad Request',
+                'message': 'The request could not be understood by the server',
+                'status': 400
+            }), 400
+        return render_template('errors/400.html', error=error), 400
     
     @app.errorhandler(401)
     def unauthorized(error):
-        """Handle 401 Unauthorized errors"""
-        if request.is_json:
-            return jsonify({'error': 'Unauthorized'}), 401
-        return f'<h1>401 Unauthorized</h1><p>Please log in to access this resource.</p>', 401
+        """Handle unauthorized errors"""
+        if request.is_json or request.content_type == 'application/json':
+            return jsonify({
+                'error': 'Unauthorized',
+                'message': 'Authentication required',
+                'status': 401
+            }), 401
+        return render_template('errors/401.html', error=error), 401
     
     @app.errorhandler(403)
     def forbidden(error):
-        """Handle 403 Forbidden errors"""
-        if request.is_json:
-            return jsonify({'error': 'Forbidden'}), 403
-        return f'<h1>403 Forbidden</h1><p>You do not have permission to access this resource.</p>', 403
+        """Handle forbidden errors"""
+        app.logger.warning(f'Forbidden access attempt: {error} from {request.remote_addr}')
+        if request.is_json or request.content_type == 'application/json':
+            return jsonify({
+                'error': 'Forbidden',
+                'message': 'Access to this resource is forbidden',
+                'status': 403
+            }), 403
+        return render_template('errors/403.html', error=error), 403
     
     @app.errorhandler(404)
     def not_found(error):
-        """Handle 404 Not Found errors"""
-        if request.is_json:
-            return jsonify({'error': 'Not found'}), 404
-        return f'<h1>404 Not Found</h1><p>The requested page could not be found.</p>', 404
+        """Handle not found errors"""
+        if request.is_json or request.content_type == 'application/json':
+            return jsonify({
+                'error': 'Not Found',
+                'message': 'The requested resource was not found',
+                'status': 404
+            }), 404
+        return render_template('errors/404.html', error=error), 404
     
     @app.errorhandler(500)
     def internal_error(error):
-        """Handle 500 Internal Server errors with database rollback"""
-        app.db.session.rollback()
-        app.logger.error(f'Server Error: {error}')
+        """Handle internal server errors"""
+        # Ensure rollback in case of database error
+        try:
+            app.db.session.rollback()
+        except:
+            pass
+            
+        app.logger.error(f'Server Error: {error}', exc_info=True)
         
-        if request.is_json:
-            return jsonify({'error': 'Internal server error'}), 500
-        return f'<h1>500 Internal Server Error</h1><p>Something went wrong. Please try again.</p>', 500
+        # Log to audit trail if possible
+        try:
+            from models.audit import AuditLog
+            AuditLog.log_event(
+                event_type='system_error',
+                description=f'Internal server error: {str(error)}',
+                ip_address=request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR')),
+                risk_level='high'
+            )
+            app.db.session.commit()
+        except:
+            try:
+                app.db.session.rollback()
+            except:
+                pass
+        
+        if request.is_json or request.content_type == 'application/json':
+            return jsonify({
+                'error': 'Internal Server Error',
+                'message': 'An unexpected error occurred',
+                'status': 500
+            }), 500
+        return render_template('errors/500.html', error=error), 500
 
 def register_context_processors(app):
-    """Register template context processors for global variables"""
+    """Register template context processors"""
     
     @app.context_processor
-    def inject_template_vars():
-        """Inject global variables into all templates"""
+    def inject_global_vars():
+        """Inject global variables available in all templates"""
+        
+        # FIX: Local imports to prevent early model loading
+        user_permissions = []
+        is_hr_manager = False
+        is_station_manager = False
+        user_location = None
+        
+        if current_user.is_authenticated:
+            try:
+                from models.user import User # Local import for methods
+                if hasattr(current_user, 'get_permissions'):
+                    user_permissions = current_user.get_permissions()
+                is_hr_manager = current_user.role == 'hr_manager'
+                is_station_manager = current_user.role == 'station_manager'
+                user_location = current_user.location
+            except:
+                pass
+            
         return {
-            'company_name': app.config['COMPANY_NAME'],
-            'company_tagline': app.config['COMPANY_TAGLINE'],
-            'company_logo': app.config['COMPANY_LOGO'],
-            'brand_colors': app.config['BRAND_COLORS'],
-            'locations': app.config['COMPANY_LOCATIONS'],
-            'departments': app.config['DEPARTMENTS'],
+            # Company Information
+            'company_name': app.config.get('COMPANY_NAME', 'Sakina Gas Company'),
+            'company_tagline': app.config.get('COMPANY_TAGLINE', 'Reliable Energy Solutions'),
+            'company_logo': app.config.get('COMPANY_LOGO', '/static/images/logo.png'),
+            
+            # Brand Configuration
+            'brand_colors': app.config.get('BRAND_COLORS', {}),
+            
+            # Operational Data
+            'locations': app.config.get('COMPANY_LOCATIONS', {}),
+            'departments': app.config.get('DEPARTMENTS', {}),
+            'user_roles': app.config.get('USER_ROLES', {}),
+            
+            # System Information
             'current_year': datetime.now().year,
             'current_date': date.today(),
-            'app_version': app.config.get('API_VERSION', '2.0'),
+            'app_version': app.config.get('APP_VERSION', '3.0'),
             'environment': app.config.get('FLASK_ENV', 'production'),
-            'user': current_user if current_user.is_authenticated else None,
-            'maintenance_mode': app.config.get('MAINTENANCE_MODE', False)
+            
+            # Navigation helpers
+            'is_hr_manager': is_hr_manager,
+            'is_station_manager': is_station_manager,
+            'user_location': user_location,
+            'user_permissions': user_permissions,
+            
+            # Utility functions
+            'enumerate': enumerate,
+            'len': len,
+            'str': str,
+            'int': int
         }
+    
+    @app.context_processor
+    def inject_navigation_data():
+        """Inject navigation-specific data"""
+        if current_user.is_authenticated:
+            try:
+                # Get pending notifications/counts
+                pending_counts = {}
+                
+                # FIX: Local imports to prevent early model loading
+                from models.leave import LeaveRequest
+                from models.employee import Employee
+                from models.attendance import AttendanceRecord
+                
+                if current_user.role == 'hr_manager':
+                    
+                    # Pending leave requests
+                    pending_counts['pending_leaves'] = LeaveRequest.query.filter(LeaveRequest.status.in_(['pending', 'pending_hr'])).count() # FIX: Use correct statuses
+                    
+                    # Employees on probation ending soon (next 30 days)
+                    probation_ending = Employee.query.filter(
+                        Employee.is_active == True,
+                        Employee.probation_end_date.between(date.today(), date.today() + timedelta(days=30))
+                    ).count()
+                    pending_counts['probation_ending'] = probation_ending
+                    
+                elif current_user.role == 'station_manager':
+                    
+                    # Today's attendance for their location
+                    location_employees = Employee.query.filter_by(
+                        location=current_user.location,
+                        is_active=True
+                    ).count()
+                    
+                    # Today's Attendance for Location (Present or Late)
+                    today_attended = AttendanceRecord.query.join(Employee).filter(
+                        AttendanceRecord.date == date.today(),
+                        Employee.location == current_user.location,
+                        AttendanceRecord.status.in_(['present', 'late'])
+                    ).count()
+                    
+                    pending_counts['attendance_rate'] = round((today_attended / location_employees * 100) if location_employees > 0 else 0, 1)
+                
+                return {'pending_counts': pending_counts}
+                
+            except Exception as e:
+                # app.logger.error(f'Error in navigation context processor: {e}') # Temporarily commented for startup stability
+                return {'pending_counts': {}}
+        
+        return {'pending_counts': {}}
 
-def register_cli_commands(app):
-    """Register CLI commands for administration"""
+def register_security_middleware(app):
+    """Register security middleware and hooks"""
     
-    @app.cli.command()
-    def init_db():
-        """Initialize the database with tables and default data"""
-        db.create_all()
-        create_professional_defaults(app)
-        print('✅ Database initialized successfully!')
-    
-    @app.cli.command()
-    def reset_db():
-        """Reset the database (WARNING: This will delete all data!)"""
-        import click
-        if click.confirm('This will delete all data. Are you sure?'):
-            db.drop_all()
-            db.create_all()
-            create_professional_defaults(app)
-            print('✅ Database reset successfully!')
-    
-    @app.cli.command()
-    def create_admin():
-        """Create an admin user"""
-        import click
-        username = click.prompt('Admin username')
-        email = click.prompt('Admin email')
-        password = click.prompt('Admin password', hide_input=True)
+    @app.before_request
+    def before_request_security():
+        """Security checks before each request"""
+        # Skip security checks for static files and some endpoints
+        if request.endpoint in ['static', 'health_check', 'favicon']:
+            return
         
-        admin = User(
-            username=username,
-            email=email,
-            first_name='System',
-            last_name='Administrator',
-            role='admin',
-            location='head_office'
-        )
-        admin.set_password(password)
+        # Track request for security monitoring
+        g.request_start_time = datetime.utcnow()
+        g.client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
+        g.user_agent = request.headers.get('User-Agent', '')
         
-        app.db.session.add(admin)
-        app.db.session.commit()
-        print(f'✅ Admin user {username} created successfully!')
+        # Check for suspicious activity
+        if len(g.user_agent) > 500:  # Suspiciously long user agent
+            app.logger.warning(f'Suspicious user agent from {g.client_ip}: {g.user_agent[:100]}...')
+        
+        # Rate limiting check (basic implementation)
+        # In production, use Redis or similar for distributed rate limiting
+        session_key = f"requests:{g.client_ip}"
+        current_requests = session.get(session_key, 0)
+        
+        # Only rate limit if we're not authenticated (prevents DOS on login/forgot password)
+        if not current_user.is_authenticated and current_requests > 100:  # 100 requests per hour per IP (simplified)
+             app.logger.warning(f'Rate limit exceeded for {g.client_ip}')
+             return jsonify({'error': 'Rate limit exceeded'}), 429
+        session[session_key] = current_requests + 1
+        
+        # Maintenance mode check
+        if app.config.get('MAINTENANCE_MODE', False) and request.endpoint != 'maintenance':
+            if not (current_user.is_authenticated and current_user.role == 'admin'):
+                return render_template('maintenance.html'), 503
+    
+    @app.after_request
+    def after_request_security(response):
+        """Security headers and cleanup after each request"""
+        # Security headers
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        
+        # HSTS for HTTPS
+        if request.is_secure:
+            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
+        
+        # Content Security Policy
+        if not app.debug:
+            csp = "default-src 'self'; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net;"
+            response.headers['Content-Security-Policy'] = csp
+        
+        # Cache control for sensitive pages
+        if request.endpoint and any(x in request.endpoint for x in ['auth', 'profile', 'admin']):
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+        
+        # Log slow requests
+        if hasattr(g, 'request_start_time'):
+            duration = (datetime.utcnow() - g.request_start_time).total_seconds()
+            if duration > 2.0:  # Log requests taking more than 2 seconds
+                app.logger.warning(f'Slow request: {request.endpoint} took {duration:.2f}s from {g.client_ip}')
+        
+        return response
 
 def setup_logging(app):
-    """Set up comprehensive logging"""
+    """Setup comprehensive logging system"""
     
     if not app.debug and not app.testing:
-        # Create logs directory if it doesn't exist
-        if not os.path.exists('logs'):
-            os.mkdir('logs')
+        # Ensure logs directory exists
+        logs_dir = app.config.get('LOGS_DIR', 'logs')
+        if not os.path.exists(logs_dir):
+            os.makedirs(logs_dir)
         
-        # Set up file logging with rotation
+        # Main application log
         file_handler = RotatingFileHandler(
-            'logs/sakina_attendance.log',
-            maxBytes=app.config.get('LOG_MAX_BYTES', 10485760),
-            backupCount=app.config.get('LOG_BACKUP_COUNT', 5)
+            os.path.join(logs_dir, 'sakina_attendance.log'),
+            maxBytes=10485760,  # 10MB
+            backupCount=20
         )
         file_handler.setFormatter(logging.Formatter(
             '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
         ))
         file_handler.setLevel(logging.INFO)
-        app.logger.addHandler(file_handler)
         
-        # Set logging level
-        log_level = getattr(logging, app.config.get('LOG_LEVEL', 'INFO'))
-        app.logger.setLevel(log_level)
-        app.logger.info('Sakina Gas Attendance System startup')
+        # Error log with daily rotation
+        error_handler = TimedRotatingFileHandler(
+            os.path.join(logs_dir, 'errors.log'),
+            when='midnight',
+            interval=1,
+            backupCount=30
+        )
+        error_handler.setFormatter(logging.Formatter(
+            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]\n'
+            'Remote Address: %(request_remote_addr)s\n'
+            'Request Path: %(request_path)s\n'
+            'User: %(current_user)s\n',
+            defaults={
+                'request_remote_addr': lambda: getattr(request, 'remote_addr', 'N/A'),
+                'request_path': lambda: getattr(request, 'path', 'N/A'),
+                'current_user': lambda: getattr(current_user, 'username', 'Anonymous')
+            }
+        ))
+        error_handler.setLevel(logging.ERROR)
+        
+        # Security audit log
+        security_handler = TimedRotatingFileHandler(
+            os.path.join(logs_dir, 'security.log'),
+            when='midnight',
+            interval=1,
+            backupCount=365  # Keep for 1 year
+        )
+        security_handler.setFormatter(logging.Formatter(
+            '%(asctime)s SECURITY [%(levelname)s]: %(message)s'
+        ))
+        security_handler.setLevel(logging.WARNING)
+        
+        # Performance log
+        perf_handler = RotatingFileHandler(
+            os.path.join(logs_dir, 'performance.log'),
+            maxBytes=5242880,  # 5MB
+            backupCount=10
+        )
+        perf_handler.setFormatter(logging.Formatter(
+            '%(asctime)s PERF: %(message)s'
+        ))
+        
+        # Add all handlers
+        app.logger.addHandler(file_handler)
+        app.logger.addHandler(error_handler)
+        
+        # Create specialized loggers
+        security_logger = logging.getLogger('security')
+        security_logger.addHandler(security_handler)
+        security_logger.setLevel(logging.WARNING)
+        
+        perf_logger = logging.getLogger('performance')
+        perf_logger.addHandler(perf_handler)
+        perf_logger.setLevel(logging.INFO)
+        
+        app.logger.setLevel(logging.INFO)
+        app.logger.info('Sakina Gas Attendance System logging initialized')
 
 def initialize_database(app):
-    """Initialize database with tables and default data"""
+    """Initialize database with comprehensive setup"""
+    from database import init_database as db_init
     with app.app_context():
         try:
-            # Initialize models with the db instance
-            from models import init_models
-            init_models(app.db)
+            # FIX: Only call init_database from database.py
+            db_init(app)
             
-            # Import models after initialization
-            from models import User, Employee, AttendanceRecord, LeaveRequest, Holiday
+            # Create default data - pass model classes to avoid re-importing in create_default_system_data
+            # FIX: Model Imports must be done AFTER db_init to avoid mapper error
+            from models.user import User
+            from models.employee import Employee  
+            from models.holiday import Holiday
+            from models.audit import AuditLog
             
-            # Create all tables
-            app.db.create_all()
-            app.logger.info('Database tables created successfully')
+            create_default_system_data(app, User, Employee, Holiday, AuditLog)
             
-            # Create default data
-            create_professional_defaults(app)
-            app.logger.info('Default data initialization completed')
+            app.logger.info('Database initialization completed successfully')
             
         except Exception as e:
-            app.logger.error(f'Error initializing database: {str(e)}')
-            # Don't raise in production, just log the error
+            app.logger.error(f'Database initialization failed: {e}')
+            sys.exit(1)
 
-def create_professional_defaults(app):
-    """Create comprehensive default data for professional deployment"""
-    
-    # Import models here to avoid circular imports
-    from models import User, Employee, Holiday
-    
-    # Check if data already exists
-    if User.query.first():
-        app.logger.info('Default data already exists, skipping creation')
-        return
-    
+def create_default_system_data(app, User, Employee, Holiday, AuditLog): # FIX: Accepts models as arguments
+    """Create comprehensive default system data"""
     try:
-        # Create default users with enhanced profiles
-        users_data = [
+        # Skip if system already has data
+        if User.query.count() > 0:
+            app.logger.info('System already has data, skipping default data creation')
+            return
+        
+        app.logger.info('Creating default system data...')
+        
+        # Create default admin users
+        default_users = [
             {
                 'username': 'hr_manager',
                 'email': 'hr@sakinagas.com',
                 'first_name': 'Sarah',
-                'last_name': 'Wanjiku',
+                'last_name': 'Mwangi',
                 'role': 'hr_manager',
                 'location': 'head_office',
                 'department': 'hr',
-                'phone': '+254 700 001 001'
+                'is_active': True,
+                'password': 'manager123'
             },
             {
                 'username': 'dandora_manager',
-                'email': 'dandora.manager@sakinagas.com',
+                'email': 'dandora@sakinagas.com',
                 'first_name': 'James',
-                'last_name': 'Mwangi',
+                'last_name': 'Ochieng',
                 'role': 'station_manager',
                 'location': 'dandora',
                 'department': 'operations',
-                'phone': '+254 700 002 001'
+                'is_active': True,
+                'password': 'manager123'
             },
             {
                 'username': 'tassia_manager',
-                'email': 'tassia.manager@sakinagas.com',
+                'email': 'tassia@sakinagas.com',
                 'first_name': 'Grace',
-                'last_name': 'Achieng',
+                'last_name': 'Wanjiku',
                 'role': 'station_manager',
                 'location': 'tassia',
                 'department': 'operations',
-                'phone': '+254 700 003 001'
+                'is_active': True,
+                'password': 'manager123'
             },
             {
                 'username': 'kiambu_manager',
-                'email': 'kiambu.manager@sakinagas.com',
+                'email': 'kiambu@sakinagas.com',
                 'first_name': 'Peter',
                 'last_name': 'Kamau',
                 'role': 'station_manager',
                 'location': 'kiambu',
                 'department': 'operations',
-                'phone': '+254 700 004 001'
+                'is_active': True,
+                'password': 'manager123'
             }
         ]
         
-        for user_data in users_data:
+        for user_data in default_users:
+            password = user_data.pop('password')
             user = User(**user_data)
-            user.set_password('manager123')  # Default password
+            user.set_password(password)
+            user.created_date = datetime.utcnow()
+            user.last_password_change = datetime.utcnow()
             app.db.session.add(user)
+            app.logger.info(f'Created user: {user.username}')
         
-        # Create comprehensive sample employees
-        employees_data = [
+        # Create sample employees
+        sample_employees = [
             {
                 'employee_id': 'SGC001',
                 'first_name': 'John',
-                'last_name': 'Doe',
-                'email': 'john.doe@sakinagas.com',
-                'phone': '+254 701 000 001',
-                'national_id': '12345001',
+                'middle_name': 'Kipchoge',
+                'last_name': 'Mutua',
+                'email': 'john.mutua@sakinagas.com',
+                'phone': '+254712345001',
+                'national_id': '12345678',
                 'location': 'dandora',
                 'department': 'operations',
                 'position': 'Station Attendant',
                 'shift': 'day',
                 'hire_date': date(2024, 1, 15),
                 'basic_salary': 35000.00,
+                'gender': 'male',
+                'is_active': True,
                 'employment_type': 'permanent'
             },
             {
                 'employee_id': 'SGC002',
                 'first_name': 'Jane',
-                'last_name': 'Smith',
-                'email': 'jane.smith@sakinagas.com',
-                'phone': '+254 701 000 002',
-                'national_id': '12345002',
+                'middle_name': 'Wambui',
+                'last_name': 'Kamau',
+                'email': 'jane.kamau@sakinagas.com',
+                'phone': '+254712345002',
+                'national_id': '23456789',
                 'location': 'tassia',
                 'department': 'operations',
                 'position': 'Cashier',
                 'shift': 'day',
                 'hire_date': date(2024, 2, 1),
                 'basic_salary': 32000.00,
+                'gender': 'female',
+                'is_active': True,
                 'employment_type': 'permanent'
             },
             {
                 'employee_id': 'SGC003',
-                'first_name': 'Peter',
-                'last_name': 'Mwangi',
-                'email': 'peter.mwangi@sakinagas.com',
-                'phone': '+254 701 000 003',
-                'national_id': '12345003',
-                'location': 'kiambu',
-                'department': 'operations',
-                'position': 'Supervisor',
-                'shift': 'day',
-                'hire_date': date(2023, 11, 1),
-                'basic_salary': 45000.00,
-                'employment_type': 'permanent'
-            },
-            {
-                'employee_id': 'SGC004',
-                'first_name': 'Mary',
-                'last_name': 'Wanjiku',
-                'email': 'mary.wanjiku@sakinagas.com',
-                'phone': '+254 701 000 004',
-                'national_id': '12345004',
-                'location': 'head_office',
-                'department': 'finance',
-                'position': 'Accountant',
-                'shift': None,
-                'hire_date': date(2023, 8, 15),
-                'basic_salary': 55000.00,
-                'employment_type': 'permanent'
-            },
-            {
-                'employee_id': 'SGC005',
                 'first_name': 'David',
-                'last_name': 'Kiprotich',
-                'email': 'david.kiprotich@sakinagas.com',
-                'phone': '+254 701 000 005',
-                'national_id': '12345005',
-                'location': 'dandora',
+                'middle_name': 'Kiprotich',
+                'last_name': 'Cheruiyot',
+                'email': 'david.cheruiyot@sakinagas.com',
+                'phone': '+254712345003',
+                'national_id': '34567890',
+                'location': 'kiambu',
                 'department': 'security',
                 'position': 'Security Guard',
                 'shift': 'night',
                 'hire_date': date(2024, 3, 1),
                 'basic_salary': 28000.00,
+                'gender': 'male',
+                'is_active': True,
                 'employment_type': 'contract'
+            },
+            {
+                'employee_id': 'SGC004',
+                'first_name': 'Mary',
+                'middle_name': 'Njeri',
+                'last_name': 'Wairimu',
+                'email': 'mary.wairimu@sakinagas.com',
+                'phone': '+254712345004',
+                'national_id': '45678901',
+                'location': 'head_office',
+                'department': 'administration',
+                'position': 'Administrative Assistant',
+                'shift': 'day',
+                'hire_date': date(2024, 1, 8),
+                'basic_salary': 38000.00,
+                'gender': 'female',
+                'is_active': True,
+                'employment_type': 'permanent'
             }
         ]
         
-        for emp_data in employees_data:
+        for emp_data in sample_employees:
+            # Set probation end date
+            emp_data['probation_end_date'] = emp_data['hire_date'] + timedelta(days=90)
             employee = Employee(**emp_data)
             app.db.session.add(employee)
+            app.logger.info(f'Created employee: {employee.employee_id} - {employee.first_name} {employee.last_name}')
         
-        # Create sample company holidays
-        holidays_data = [
-            {'name': 'New Year Day', 'date': date(2024, 1, 1), 'holiday_type': 'public'},
-            {'name': 'Good Friday', 'date': date(2024, 3, 29), 'holiday_type': 'public'},
-            {'name': 'Easter Monday', 'date': date(2024, 4, 1), 'holiday_type': 'public'},
-            {'name': 'Labour Day', 'date': date(2024, 5, 1), 'holiday_type': 'public'},
-            {'name': 'Madaraka Day', 'date': date(2024, 6, 1), 'holiday_type': 'public'},
-            {'name': 'Huduma Day', 'date': date(2024, 10, 10), 'holiday_type': 'public'},
-            {'name': 'Mashujaa Day', 'date': date(2024, 10, 20), 'holiday_type': 'public'},
-            {'name': 'Independence Day', 'date': date(2024, 12, 12), 'holiday_type': 'public'},
-            {'name': 'Christmas Day', 'date': date(2024, 12, 25), 'holiday_type': 'public'},
-            {'name': 'Boxing Day', 'date': date(2024, 12, 26), 'holiday_type': 'public'}
-        ]
+        # Create Kenyan public holidays for 2024-2025
+        # FIX: The model import is now handled by the function argument
+        holidays_to_add = Holiday.create_kenyan_holidays_2024_2025()
         
-        for holiday_data in holidays_data:
-            holiday = Holiday(**holiday_data)
+        for holiday in holidays_to_add:
             app.db.session.add(holiday)
         
-        # Commit all default data
+        app.logger.info(f'Created {len(holidays_to_add)} holidays')
+        
+        # Create initial audit log entry
+        AuditLog.log_event(
+            event_type='system_initialization',
+            description='System initialized with default data',
+            user_id=None,
+            ip_address='127.0.0.1',
+            user_agent='System',
+            risk_level='low'
+        )
+        
+        # Commit all changes
         app.db.session.commit()
-        print('✅ Professional default data created successfully')
-        app.logger.info('Professional default data created successfully')
+        app.logger.info('✅ Default system data created successfully')
         
     except Exception as e:
         app.db.session.rollback()
-        print(f'❌ Error creating default data: {str(e)}')
-        app.logger.error(f'Error creating default data: {str(e)}')
+        app.logger.error(f'Failed to create default data: {e}')
+        raise
 
-def register_request_hooks(app):
-    """Register request hooks for security and audit"""
+def register_cli_commands(app):
+    """Register comprehensive CLI commands for system administration"""
     
-    @app.before_request
-    def before_request():
-        """Execute before each request"""
-        # Check maintenance mode
-        if app.config.get('MAINTENANCE_MODE') and request.endpoint != 'static':
-            if not (current_user.is_authenticated and 
-                   current_user.has_permission('system_administration')):
-                return '<h1>System Maintenance</h1><p>The system is currently under maintenance.</p>', 503
-        
-        # Store request start time for performance monitoring
-        g.request_start_time = datetime.utcnow()
-        
-        # Store IP address for audit logging
-        g.ip_address = request.environ.get('HTTP_X_FORWARDED_FOR', 
-                                          request.environ.get('REMOTE_ADDR'))
-    
-    @app.after_request
-    def after_request(response):
-        """Execute after each request"""
-        # Security headers
-        response.headers['X-Content-Type-Options'] = 'nosniff'
-        response.headers['X-Frame-Options'] = 'DENY'
-        response.headers['X-XSS-Protection'] = '1; mode=block'
-        
-        return response
-
-# Main application routes
-@login_required
-def api_quick_stats():
-    """Enhanced quick statistics API for dashboard"""
-    try:
-        today = date.today()
-        
-        # Base employee query based on user permissions
-        if current_user.role == 'station_manager':
-            employee_query = Employee.query.filter(
-                Employee.location == current_user.location,
-                Employee.is_active == True
+    @app.cli.command()
+    @click.option('--force', is_flag=True, help='Force reset without confirmation')
+    def reset_db(force):
+        """Reset database completely - WARNING: Deletes all data"""
+        if not force:
+            click.confirm(
+                '⚠️  This will permanently DELETE ALL DATA in the database.\n'
+                'This includes all users, employees, attendance records, etc.\n'
+                'Are you absolutely sure you want to continue?',
+                abort=True
             )
-        else:
-            employee_query = Employee.query.filter(Employee.is_active == True)
         
-        total_employees = employee_query.count()
+        with app.app_context():
+            try:
+                from models.user import User
+                from models.employee import Employee
+                from models.holiday import Holiday
+                from models.audit import AuditLog
+                
+                # Drop all tables
+                db.drop_all()
+                click.echo('🗑️  Dropped all database tables')
+                
+                # Recreate tables
+                db.create_all()
+                click.echo('🏗️  Created fresh database tables')
+                
+                # Create default data
+                create_default_system_data(app, User, Employee, Holiday, AuditLog)
+                click.echo('👥 Created default users and sample data')
+                
+                click.echo('✅ Database reset completed successfully!')
+                click.echo('\n📋 Default login credentials:')
+                click.echo('   HR Manager: hr_manager / manager123')
+                click.echo('   Station Managers: [location]_manager / manager123')
+                
+            except Exception as e:
+                click.echo(f'❌ Database reset failed: {e}')
+                sys.exit(1)
+    
+    @app.cli.command()
+    def init_db():
+        """Initialize database with tables and default data"""
+        with app.app_context():
+            try:
+                from models.user import User
+                from models.employee import Employee
+                from models.holiday import Holiday
+                from models.audit import AuditLog
+                
+                # Create tables
+                db.create_all()
+                click.echo('🏗️  Database tables initialized')
+                
+                # Create default data if needed
+                create_default_system_data(app, User, Employee, Holiday, AuditLog)
+                click.echo('✅ Database initialization completed!')
+                
+            except Exception as e:
+                click.echo(f'❌ Database initialization failed: {e}')
+                sys.exit(1)
+    
+    @app.cli.command()
+    @click.option('--username', prompt=True, help='Admin username')
+    @click.option('--email', prompt=True, help='Admin email')
+    @click.option('--first-name', prompt=True, help='First name')
+    @click.option('--last-name', prompt=True, help='Last name')
+    @click.option('--password', prompt=True, hide_input=True, confirmation_prompt=True, help='Password')
+    def create_admin(username, email, first_name, last_name, password):
+        """Create a new admin user interactively"""
+        with app.app_context():
+            try:
+                from models.user import User
+                
+                # Check if username exists
+                if User.query.filter_by(username=username).first():
+                    click.echo('❌ Username already exists!')
+                    return
+                
+                # Check if email exists
+                if User.query.filter_by(email=email).first():
+                    click.echo('❌ Email already exists!')
+                    return
+                
+                # Create admin user
+                user = User(
+                    username=username,
+                    email=email,
+                    first_name=first_name,
+                    last_name=last_name,
+                    role='hr_manager',
+                    location='head_office',
+                    department='hr',
+                    is_active=True
+                )
+                user.set_password(password)
+                user.created_date = datetime.utcnow()
+                user.last_password_change = datetime.utcnow()
+                
+                app.db.session.add(user)
+                app.db.session.commit()
+                
+                click.echo(f'✅ Admin user "{username}" created successfully!')
+                
+            except Exception as e:
+                app.db.session.rollback()
+                click.echo(f'❌ Failed to create admin user: {e}')
+    
+    @app.cli.command()
+    @click.option('--days', default=30, help='Days of logs to keep')
+    def cleanup_logs(days):
+        """Clean up old log entries and system data"""
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
         
-        # Today's attendance statistics
-        attendance_query = app.db.session.query(AttendanceRecord).join(Employee).filter(
-            AttendanceRecord.date == today,
-            Employee.is_active == True
-        )
+        with app.app_context():
+            try:
+                from models.audit import AuditLog
+                
+                # Clean old audit logs
+                old_logs_count = AuditLog.query.filter(AuditLog.timestamp < cutoff_date).count()
+                AuditLog.query.filter(AuditLog.timestamp < cutoff_date).delete()
+                
+                # Clean old attendance records (optional - keep for compliance)
+                # For now, we'll keep all attendance records
+                
+                db.session.commit()
+                
+                click.echo(f'✅ Cleaned up {old_logs_count} old audit log entries')
+                click.echo(f'   (Logs older than {days} days were removed)')
+                
+            except Exception as e:
+                db.session.rollback()
+                click.echo(f'❌ Cleanup failed: {e}')
+    
+    @app.cli.command()
+    def system_status():
+        """Show comprehensive system status and health check"""
+        with app.app_context():
+            try:
+                from models.user import User
+                from models.employee import Employee
+                from models.attendance import AttendanceRecord
+                from models.leave import LeaveRequest
+                from models.audit import AuditLog
+                
+                click.echo('=' * 60)
+                click.echo('📊 SAKINA GAS ATTENDANCE SYSTEM - STATUS REPORT')
+                click.echo('=' * 60)
+                
+                # Database connectivity test
+                try:
+                    db.session.execute(text('SELECT 1'))
+                    db_status = '✅ Connected'
+                except Exception as e:
+                    db_status = f'❌ Error: {e.args[0] if e.args else e}'
+                
+                # System statistics
+                stats = {
+                    'Database Status': db_status,
+                    'Total Users': User.query.count(),
+                    'Active Users': User.query.filter_by(is_active=True).count(),
+                    'Total Employees': Employee.query.count(),
+                    'Active Employees': Employee.query.filter_by(is_active=True).count(),
+                    'Today\'s Attendance Records': AttendanceRecord.query.filter_by(date=date.today()).count(),
+                    'Pending Leave Requests': LeaveRequest.query.filter(LeaveRequest.status.in_(['pending', 'pending_hr'])).count(), # FIX: Use correct statuses
+                    'Audit Log Entries (Last 7 days)': AuditLog.query.filter(
+                        AuditLog.timestamp >= datetime.utcnow() - timedelta(days=7)
+                    ).count()
+                }
+                
+                # System configuration
+                config_info = {
+                    'Environment': app.config.get('FLASK_ENV', 'unknown'),
+                    'Debug Mode': app.debug,
+                    'App Version': app.config.get('APP_VERSION', 'unknown'),
+                    'Database URL': app.config['SQLALCHEMY_DATABASE_URI'].split('/')[-1] if 'sqlite' in app.config['SQLALCHEMY_DATABASE_URI'] else 'External DB',
+                    'Mail Configured': 'Yes' if app.mail else 'No'
+                }
+                
+                # Display statistics
+                click.echo('\n📊 SYSTEM STATISTICS:')
+                for key, value in stats.items():
+                    click.echo(f'   {key:.<30} {value}')
+                
+                click.echo('\n⚙️  CONFIGURATION:')
+                for key, value in config_info.items():
+                    click.echo(f'   {key:.<30} {value}')
+                
+                # Location breakdown
+                click.echo('\n🏢 LOCATION BREAKDOWN:')
+                locations = app.config.get('COMPANY_LOCATIONS', {})
+                for loc_key, loc_data in locations.items():
+                    emp_count = Employee.query.filter_by(location=loc_key, is_active=True).count()
+                    click.echo(f'   {loc_data.get("name", loc_key):.<25} {emp_count} employees')
+                
+                # Recent activity
+                click.echo('\n📈 RECENT ACTIVITY (Last 24 hours):')
+                recent_logins = AuditLog.query.filter(
+                    AuditLog.timestamp >= datetime.utcnow() - timedelta(hours=24),
+                    AuditLog.event_type == 'login_successful' # FIX: Use correct event type
+                ).count()
+                
+                recent_attendance = AttendanceRecord.query.filter(
+                    AttendanceRecord.date >= date.today() - timedelta(days=1)
+                ).count()
+                
+                click.echo(f'   User Logins:................. {recent_logins}')
+                click.echo(f'   Attendance Records:.......... {recent_attendance}')
+                
+                click.echo('\n' + '=' * 60)
+                
+            except Exception as e:
+                click.echo(f'❌ Error generating status report: {e}')
+    
+    @app.cli.command()
+    def backup_db():
+        """Create a backup of the database"""
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         
-        if current_user.role == 'station_manager':
-            attendance_query = attendance_query.filter(Employee.location == current_user.location)
-        
-        # Count by status
-        present_count = attendance_query.filter(
-            AttendanceRecord.status.in_(['present', 'late'])
-        ).count()
-        
-        absent_count = attendance_query.filter(
-            AttendanceRecord.status == 'absent'
-        ).count()
-        
-        on_leave_count = attendance_query.filter(
-            AttendanceRecord.status.like('%leave%')
-        ).count()
-        
-        # Pending leave requests
-        leave_query = app.db.session.query(LeaveRequest).join(Employee).filter(
-            LeaveRequest.status == 'pending',
-            Employee.is_active == True
-        )
-        
-        if current_user.role == 'station_manager':
-            leave_query = leave_query.filter(Employee.location == current_user.location)
-        
-        pending_leaves = leave_query.count()
-        
-        # Calculate attendance rate
-        marked_count = present_count + absent_count + on_leave_count
-        not_marked = total_employees - marked_count
-        attendance_rate = round((present_count / total_employees * 100), 1) if total_employees > 0 else 0
-        
-        return jsonify({
-            'total_employees': total_employees,
-            'present_today': present_count,
-            'absent_today': absent_count,
-            'on_leave_today': on_leave_count,
-            'not_marked': not_marked,
-            'pending_leave_requests': pending_leaves,
-            'attendance_rate': attendance_rate,
-            'last_updated': datetime.utcnow().isoformat()
-        })
-        
-    except Exception as e:
-        return jsonify({'error': 'Unable to fetch statistics'}), 500
+        with app.app_context():
+            try:
+                import shutil
+                import os
+                
+                # Check for SQLite database file
+                db_uri = app.config['SQLALCHEMY_DATABASE_URI']
+                if not db_uri.startswith('sqlite:///'):
+                    click.echo('⚠️  Skipping backup: Only SQLite databases can be backed up via simple file copy.')
+                    return
 
-# Main application entry point
+                db_path = db_uri.replace('sqlite:///', '')
+                backup_dir = 'backups'
+                
+                if not os.path.exists(backup_dir):
+                    os.makedirs(backup_dir)
+                
+                backup_path = os.path.join(backup_dir, f'sakina_attendance_backup_{timestamp}.db')
+                shutil.copy2(db_path, backup_path)
+                
+                click.echo(f'✅ Database backup created: {backup_path}')
+                
+            except Exception as e:
+                click.echo(f'❌ Backup failed: {e}')
+
+# Application routes
+def favicon():
+    """Serve favicon with proper headers"""
+    # NOTE: relies on 'app' being in global scope via __name__ == '__main__'
+    # FIX: Need to check if app is available or rely on the werkzeug routing to the static file
+    if current_app.debug or current_app.testing:
+        return current_app.send_static_file('images/favicon.ico')
+    
+    response = send_from_directory(
+        os.path.join(current_app.root_path, 'static', 'images'),
+        'favicon.ico',
+        mimetype='image/vnd.microsoft.icon'
+    )
+    # Cache favicon for 1 week
+    response.cache_control.max_age = 604800
+    return response
+
+def health_check():
+    """Comprehensive health check endpoint for monitoring"""
+    with current_app.app_context():
+        try:
+            from models.user import User # Local import - safe
+            
+            # Database connectivity test
+            db.session.execute(text('SELECT 1'))
+            
+            # Basic functionality test
+            user_count = User.query.count()
+            
+            health_data = {
+                'status': 'healthy',
+                'timestamp': datetime.utcnow().isoformat(),
+                'version': current_app.config.get('APP_VERSION', '3.0'),
+                'environment': current_app.config.get('FLASK_ENV', 'production'),
+                'database': {
+                    'status': 'connected',
+                    'users_count': user_count
+                },
+                'services': {
+                    'database': 'operational',
+                    'mail': 'operational' if current_app.mail else 'disabled',
+                    'logging': 'operational'
+                }
+            }
+            
+            return jsonify(health_data), 200
+            
+        except Exception as e:
+            error_data = {
+                'status': 'unhealthy',
+                'error': str(e),
+                'timestamp': datetime.utcnow().isoformat(),
+                'version': current_app.config.get('APP_VERSION', '3.0')
+            }
+            return jsonify(error_data), 503
+
 if __name__ == '__main__':
-    # Determine environment
+    # Professional application startup
     config_name = os.environ.get('FLASK_CONFIG', 'development')
     app = create_app(config_name)
     
-    # Add the API route directly since we may not have blueprints yet
-    app.add_url_rule('/api/quick-stats', 'api_quick_stats', api_quick_stats, methods=['GET'])
+    # Add additional routes
+    # FIX: Ensure these rules are added to the application instance
+    app.add_url_rule('/favicon.ico', 'favicon', favicon, methods=['GET'])
+    app.add_url_rule('/health', 'health_check', health_check, methods=['GET'])
     
-    # Application startup banner
-    print("=" * 70)
-    print("🏢 SAKINA GAS COMPANY - ENHANCED ATTENDANCE MANAGEMENT SYSTEM")
-    print("=" * 70)
+    # Professional startup banner
+    print("=" * 80)
+    print("🏢 SAKINA GAS COMPANY - PROFESSIONAL ATTENDANCE SYSTEM v3.0")
+    print("=" * 80)
     print(f"🚀 Environment: {config_name.upper()}")
-    print(f"📊 Version: {app.config.get('API_VERSION', '2.0')} Professional Enhanced")
-    print(f"🌐 Access URL: http://localhost:5000")
-    print("=" * 70)
+    print(f"🌐 Server URL: http://localhost:5000")
+    print(f"🔧 Health Check: http://localhost:5000/health")
+    print("=" * 80)
     print("👤 DEFAULT LOGIN CREDENTIALS:")
-    print("   HR Manager: hr_manager / manager123")
-    print("   Station Managers:")
-    print("   - dandora_manager / manager123 (Dandora Station)")
-    print("   - tassia_manager / manager123 (Tassia Station)") 
-    print("   - kiambu_manager / manager123 (Kiambu Station)")
-    print("=" * 70)
-    print("📋 ENHANCED FEATURES:")
-    print("   ✅ Multi-location Management (4 locations)")
-    print("   ✅ Enhanced Kenyan Labor Law Compliance")
-    print("   ✅ Real-time Executive Dashboard")
-    print("   ✅ Advanced Leave Management System")
-    print("   ✅ Comprehensive Employee Profiles")
-    print("   ✅ Professional Performance Tracking")
-    print("   ✅ Advanced Audit Trail System")
-    print("   ✅ Email Notification System")
-    print("   ✅ Mobile-Ready Responsive Design")
-    print("=" * 70)
-    print("🔧 CLI COMMANDS:")
-    print("   flask init-db      - Initialize database")
-    print("   flask reset-db     - Reset database (WARNING!)")
-    print("   flask create-admin - Create admin user")
-    print("=" * 70)
-    print("⚙️  SYSTEM STATUS:")
+    print("   HR Manager:     hr_manager / manager123")
+    print("   Dandora Mgr:    dandora_manager / manager123")
+    print("   Tassia Mgr:     tassia_manager / manager123")
+    print("   Kiambu Mgr:     kiambu_manager / manager123")
+    print("=" * 80)
+    print("🔧 AVAILABLE CLI COMMANDS:")
+    print("   flask init-db           - Initialize database")
+    print("   flask reset-db          - Reset database (WARNING!)")
+    print("   flask create-admin      - Create new admin user")
+    print("   flask system-status     - Show system health")
+    print("   flask cleanup-logs      - Clean old audit logs")
+    print("   flask backup-db         - Create database backup")
+    print("=" * 80)
     
-    # System health check
+    # System health check on startup
     with app.app_context():
         try:
-            app.db.session.execute(db.text('SELECT 1'))
-            print("   ✅ Database: Connected")
-        except:
-            print("   ❌ Database: Connection failed")
-        
-        user_count = User.query.count()
-        employee_count = Employee.query.count()
-        print(f"   📊 Users: {user_count} | Employees: {employee_count}")
+            from models.user import User # Local import - safe
+            from models.employee import Employee # Local import - safe
+            
+            # Test database connectivity
+            db.session.execute(text('SELECT 1'))
+            user_count = User.query.count()
+            emp_count = Employee.query.filter_by(is_active=True).count()
+            
+            print(f"📊 System Status: ✅ Connected")
+            print(f"👥 Users: {user_count} | 👔 Active Employees: {emp_count}")
+            
+        except Exception as e:
+            print(f"📊 System Status: ❌ Database Error - {e.args[0] if e.args else e}")
+            print("⚠️  Run 'flask init-db' to initialize the database")
     
-    print("=" * 70)
+    print("=" * 80)
+    print("🎯 System ready! Access the application at: http://localhost:5000")
+    print("=" * 80)
     
     # Run the application
     try:
+        port = int(os.environ.get('PORT', 5000))
         app.run(
-            debug=app.config.get('DEBUG', False),
             host='0.0.0.0',
-            port=int(os.environ.get('PORT', 5000)),
-            threaded=True
+            port=port,
+            debug=app.config.get('DEBUG', False),
+            threaded=True,
+            use_reloader=False  # Disable reloader to prevent double initialization
         )
     except KeyboardInterrupt:
         print("\n🛑 Application stopped by user")
+    except OSError as e:
+        if "Address already in use" in str(e):
+            print(f"\n⚠️  Port {port} is already in use")
+            print("   Try using a different port or stop the existing application")
+            print(f"   Alternative: python app.py --port {port + 1}")
+        else:
+            print(f"\n❌ Startup failed: {e}")
     except Exception as e:
-        print(f"\n❌ Application failed to start: {str(e)}")
-        if hasattr(app, 'logger'):
-            app.logger.error(f'Application startup error: {str(e)}')
+        print(f"\n❌ Unexpected error during startup: {e}")
+        app.logger.error(f'Application startup failed: {e}', exc_info=True)

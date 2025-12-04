@@ -1,188 +1,459 @@
 {% extends "base.html" %}
 
-{% block title %}Login - Sakina Gas Attendance System{% endblock %}
+{% block title %}Login - Sakina Gas Company{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        /* Using Sakina Brand Colors from base.html */
+        background: linear-gradient(135deg, var(--sakina-blue) 0%, var(--sakina-light-blue) 50%, var(--sakina-orange) 100%);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .login-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        /* Using pure white for the subtle background circles */
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><defs><radialGradient id="a" cx="50%" cy="50%"><stop offset="0%" style="stop-color:rgba(255,255,255,0.1)"/><stop offset="100%" style="stop-color:rgba(255,255,255,0)"/></radialGradient></defs><circle cx="200" cy="300" r="150" fill="url(%23a)"/><circle cx="800" cy="700" r="200" fill="url(%23a)"/><circle cx="600" cy="200" r="100" fill="url(%23a)"/></svg>');
+        opacity: 0.5;
+    }
+    
+    .login-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 25px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        overflow: hidden;
+        z-index: 1;
+        position: relative;
+        max-width: 450px;
+        width: 100%;
+    }
+    
+    .login-header {
+        /* Using Sakina Brand Colors */
+        background: linear-gradient(135deg, var(--sakina-orange) 0%, #FF8C5A 100%);
+        color: white;
+        text-align: center;
+        padding: 30px 20px;
+        margin: 0;
+    }
+    
+    .login-header h2 {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    
+    .login-header p {
+        margin: 10px 0 0 0;
+        opacity: 0.9;
+        font-size: 1.1rem;
+    }
+    
+    .company-logo {
+        font-size: 3rem;
+        margin-bottom: 10px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .login-body {
+        padding: 40px 30px;
+    }
+    
+    .form-floating label {
+        color: var(--sakina-blue);
+        font-weight: 500;
+    }
+    
+    .form-control {
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 15px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus {
+        border-color: var(--sakina-orange);
+        box-shadow: 0 0 0 0.25rem rgba(255, 107, 53, 0.15);
+        transform: translateY(-2px);
+    }
+    
+    .login-btn {
+        /* Using Sakina Brand Colors */
+        background: linear-gradient(135deg, var(--sakina-orange) 0%, #FF8C5A 100%);
+        border: none;
+        border-radius: 12px;
+        padding: 15px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .login-btn:hover {
+        background: linear-gradient(135deg, #e85a2e 0%, #e67a4d 100%);
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px rgba(255, 107, 53, 0.3);
+    }
+    
+    .login-btn:active {
+        transform: translateY(-1px);
+    }
+    
+    .login-btn::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+    
+    .login-btn:active::after {
+        width: 300px;
+        height: 300px;
+    }
+    
+    .forgot-password {
+        color: var(--sakina-blue);
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.3s ease;
+    }
+    
+    .forgot-password:hover {
+        color: var(--sakina-orange);
+        text-decoration: underline;
+    }
+    
+    .system-info {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 15px;
+        padding: 20px;
+        margin-top: 20px;
+        border: 1px solid #dee2e6;
+    }
+    
+    .system-info h6 {
+        color: var(--sakina-blue);
+        margin-bottom: 15px;
+        font-weight: 600;
+    }
+    
+    .feature-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .feature-list li {
+        padding: 5px 0;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .feature-list li i {
+        color: var(--sakina-orange);
+        margin-right: 8px;
+        width: 16px;
+    }
+    
+    .default-credentials {
+        background: rgba(255, 193, 7, 0.1);
+        border: 1px solid rgba(255, 193, 7, 0.3);
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .default-credentials h6 {
+        color: #856404;
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
+    
+    .credential-item {
+        background: white;
+        border-radius: 8px;
+        padding: 8px 12px;
+        margin: 5px 0;
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+        border: 1px solid rgba(255, 193, 7, 0.2);
+    }
+    
+    @media (max-width: 768px) {
+        .login-container {
+            padding: 20px;
+        }
+        
+        .login-card {
+            margin: 0;
+        }
+        
+        .login-header {
+            padding: 25px 15px;
+        }
+        
+        .login-body {
+            padding: 30px 20px;
+        }
+        
+        .company-logo {
+            font-size: 2.5rem;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="min-vh-100 d-flex align-items-center" style="background: linear-gradient(135deg, #1976D2 0%, #FF5722 100%);">
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-lg-5 col-md-7">
-                <!-- Login Card -->
-                <div class="card card-sakina border-0 shadow-lg">
-                    <!-- Header with Logo and Branding -->
-                    <div class="card-header text-center bg-white border-0 py-4">
-                        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Sakina Gas Logo" 
-                             class="mb-3" style="height: 80px;">
-                        <h3 class="text-primary fw-bold mb-1">Sakina Gas Company</h3>
-                        <p class="text-muted mb-0">Attendance Management System</p>
-                    </div>
-                    
-                    <!-- Login Form -->
-                    <div class="card-body px-5 py-4">
-                        <form method="POST" action="{{ url_for('auth.login') }}" class="needs-validation" novalidate>
-                            <!-- Username Field -->
-                            <div class="mb-4">
-                                <label for="username" class="form-label fw-medium text-dark">
-                                    <i class="bi bi-person-circle me-2 text-primary"></i>Username
-                                </label>
-                                <input type="text" 
-                                       class="form-control form-control-lg form-control-sakina" 
-                                       id="username" 
-                                       name="username" 
-                                       placeholder="Enter your username"
-                                       required>
-                                <div class="invalid-feedback">
-                                    Please enter your username.
-                                </div>
-                            </div>
-                            
-                            <!-- Password Field -->
-                            <div class="mb-4">
-                                <label for="password" class="form-label fw-medium text-dark">
-                                    <i class="bi bi-shield-lock me-2 text-primary"></i>Password
-                                </label>
-                                <div class="position-relative">
-                                    <input type="password" 
-                                           class="form-control form-control-lg form-control-sakina" 
-                                           id="password" 
-                                           name="password" 
-                                           placeholder="Enter your password"
-                                           required>
-                                    <button type="button" 
-                                            class="btn btn-link position-absolute end-0 top-50 translate-middle-y pe-3 text-muted"
-                                            onclick="togglePassword()"
-                                            style="border: none; background: none;">
-                                        <i class="bi bi-eye" id="toggleIcon"></i>
-                                    </button>
-                                </div>
-                                <div class="invalid-feedback">
-                                    Please enter your password.
-                                </div>
-                            </div>
-                            
-                            <!-- Remember Me -->
-                            <div class="mb-4">
-                                <div class="form-check">
-                                    <input type="checkbox" 
-                                           class="form-check-input" 
-                                           id="remember_me" 
-                                           name="remember_me">
-                                    <label class="form-check-label fw-medium" for="remember_me">
-                                        Remember me for 8 hours
-                                    </label>
-                                </div>
-                            </div>
-                            
-                            <!-- Login Button -->
-                            <div class="d-grid mb-4">
-                                <button type="submit" class="btn btn-sakina-primary btn-lg fw-medium py-3">
-                                    <i class="bi bi-box-arrow-in-right me-2"></i>Sign In to Dashboard
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                    
-                    <!-- Default Credentials Info -->
-                    <div class="card-footer bg-light text-center py-4">
-                        <div class="row">
-                            <div class="col-12">
-                                <h6 class="text-muted fw-bold mb-3">Default Login Credentials</h6>
-                            </div>
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="company-logo">
+                <i class="bi bi-fire"></i>
+            </div>
+            <h2>Sakina Gas Company</h2>
+            <p>Attendance Management System</p>
+        </div>
+        
+        <div class="login-body">
+            <!-- Flash Messages - IMPORTANT for login errors -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                         </div>
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <div class="bg-white rounded-3 p-3 shadow-sm">
-                                    <div class="text-primary fw-bold mb-1">
-                                        <i class="bi bi-person-badge me-2"></i>HR Manager
-                                    </div>
-                                    <code class="small text-dark">hr_manager</code><br>
-                                    <code class="small text-dark">admin123</code>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="bg-white rounded-3 p-3 shadow-sm">
-                                    <div class="text-secondary fw-bold mb-1">
-                                        <i class="bi bi-geo-alt me-2"></i>Station Manager
-                                    </div>
-                                    <code class="small text-dark">dandora_manager</code><br>
-                                    <code class="small text-dark">manager123</code>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mt-3">
-                            <small class="text-muted">
-                                <i class="bi bi-info-circle me-1"></i>
-                                Change these credentials after first login for security.
-                            </small>
-                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Default Credentials Info -->
+            <div class="default-credentials">
+                <h6><i class="bi bi-key"></i> Default Login Credentials</h6>
+                <div class="credential-item">
+                    <strong>HR Manager:</strong> hr_manager / manager123
+                </div>
+                <div class="credential-item">
+                    <strong>Station Manager:</strong> dandora_manager / manager123
+                </div>
+                <small class="text-muted">
+                    <i class="bi bi-info-circle"></i> 
+                    Please change passwords after first login
+                </small>
+            </div>
+            
+            <!-- Login Form -->
+            <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm" novalidate>
+                <div class="form-floating mb-3">
+                    <input type="text" 
+                           class="form-control" 
+                           id="username" 
+                           name="username" 
+                           placeholder="Username or Email"
+                           value="{{ request.form.username if request.form else '' }}"
+                           required>
+                    <label for="username">
+                        <i class="bi bi-person"></i> Username or Email
+                    </label>
+                    <div class="invalid-feedback">
+                        Please enter your username or email.
                     </div>
                 </div>
                 
-                <!-- System Status -->
-                <div class="text-center mt-4">
-                    <div class="bg-white bg-opacity-25 rounded-3 p-3">
-                        <div class="d-flex align-items-center justify-content-center text-white">
-                            <div class="bg-success rounded-circle p-1 me-3">
-                                <i class="bi bi-check-lg"></i>
-                            </div>
-                            <div class="text-start">
-                                <div class="fw-bold">System Online</div>
-                                <small class="opacity-75">All services operational</small>
-                            </div>
-                        </div>
+                <div class="form-floating mb-3">
+                    <input type="password" 
+                           class="form-control" 
+                           id="password" 
+                           name="password" 
+                           placeholder="Password"
+                           required>
+                    <label for="password">
+                        <i class="bi bi-lock"></i> Password
+                    </label>
+                    <div class="invalid-feedback">
+                        Please enter your password.
                     </div>
                 </div>
+                
+                <div class="form-check mb-3">
+                    <input type="checkbox" 
+                           class="form-check-input" 
+                           id="remember_me" 
+                           name="remember_me">
+                    <label class="form-check-label" for="remember_me">
+                        Remember me for 30 days
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn login-btn w-100 mb-3">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    Sign In
+                </button>
+                
+                <div class="text-center">
+                    <a href="{{ url_for('auth.forgot_password') }}" class="forgot-password">
+                        <i class="bi bi-question-circle"></i>
+                        Forgot your password?
+                    </a>
+                </div>
+            </form>
+            
+            <!-- System Information -->
+            <div class="system-info">
+                <h6><i class="bi bi-gear"></i> System Features</h6>
+                <ul class="feature-list">
+                    <li><i class="bi bi-check"></i> Multi-location attendance tracking</li>
+                    <li><i class="bi bi-check"></i> Kenyan labor law compliance</li>
+                    <li><i class="bi bi-check"></i> Advanced leave management</li>
+                    <li><i class="bi bi-check"></i> Real-time reporting & analytics</li>
+                    <li><i class="bi bi-check"></i> Role-based access control</li>
+                    <li><i class="bi bi-check"></i> Enterprise-grade security</li>
+                </ul>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-// Form validation
-(function() {
-    'use strict';
-    window.addEventListener('load', function() {
-        const forms = document.getElementsByClassName('needs-validation');
-        Array.prototype.filter.call(forms, function(form) {
-            form.addEventListener('submit', function(event) {
-                if (form.checkValidity() === false) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                }
-                form.classList.add('was-validated');
-            }, false);
-        });
-    }, false);
-})();
-
-// Password toggle
-function togglePassword() {
-    const passwordField = document.getElementById('password');
-    const toggleIcon = document.getElementById('toggleIcon');
-    
-    if (passwordField.type === 'password') {
-        passwordField.type = 'text';
-        toggleIcon.className = 'bi bi-eye-slash';
-    } else {
-        passwordField.type = 'password';
-        toggleIcon.className = 'bi bi-eye';
-    }
-}
-
-// Auto-focus username field
-document.getElementById('username').focus();
-
-// Add subtle animations
+// IMPORTANT: Need to disable the base.html's navbar and sidebar on the login page
 document.addEventListener('DOMContentLoaded', function() {
-    const card = document.querySelector('.card');
-    card.style.opacity = '0';
-    card.style.transform = 'translateY(30px)';
+    const navbar = document.querySelector('.navbar');
+    const sidebar = document.querySelector('.sidebar');
+    
+    if (navbar) navbar.style.display = 'none';
+    if (sidebar) sidebar.style.display = 'none';
+
+    const loginForm = document.getElementById('loginForm');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    
+    // Form validation
+    loginForm.addEventListener('submit', function(event) {
+        let isValid = true;
+        
+        // Reset previous validation states
+        [usernameInput, passwordInput].forEach(input => {
+            input.classList.remove('is-invalid', 'is-valid');
+        });
+        
+        // Validate username/email
+        if (!usernameInput.value.trim()) {
+            usernameInput.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            usernameInput.classList.add('is-valid');
+        }
+        
+        // Validate password
+        if (!passwordInput.value.trim()) {
+            passwordInput.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            passwordInput.classList.add('is-valid');
+        }
+        
+        if (!isValid) {
+            event.preventDefault();
+            event.stopPropagation();
+        } else {
+            // Show loading state
+            const submitBtn = loginForm.querySelector('button[type="submit"]');
+            submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Signing In...';
+            submitBtn.disabled = true;
+        }
+    });
+    
+    // Real-time validation feedback
+    usernameInput.addEventListener('input', function() {
+        if (this.value.trim()) {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        } else {
+            this.classList.remove('is-valid');
+            this.classList.add('is-invalid');
+        }
+    });
+    
+    passwordInput.addEventListener('input', function() {
+        if (this.value.trim()) {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        } else {
+            this.classList.remove('is-valid');
+            this.classList.add('is-invalid');
+        }
+    });
+    
+    // Quick login buttons for demo
+    document.addEventListener('keydown', function(event) {
+        // Press F1 for HR Manager login
+        if (event.key === 'F1') {
+            event.preventDefault();
+            usernameInput.value = 'hr_manager';
+            passwordInput.value = 'manager123';
+            usernameInput.classList.add('is-valid');
+            passwordInput.classList.add('is-valid');
+        }
+        
+        // Press F2 for Station Manager login
+        if (event.key === 'F2') {
+            event.preventDefault();
+            usernameInput.value = 'dandora_manager';
+            passwordInput.value = 'manager123';
+            usernameInput.classList.add('is-valid');
+            passwordInput.classList.add('is-valid');
+        }
+    });
+    
+    // Auto-focus on username field
+    usernameInput.focus();
+    
+    // Add entrance animation
+    const loginCard = document.querySelector('.login-card');
+    loginCard.style.opacity = '0';
+    loginCard.style.transform = 'translateY(50px)';
     
     setTimeout(function() {
-        card.style.transition = 'all 0.6s ease';
-        card.style.opacity = '1';
-        card.style.transform = 'translateY(0)';
+        loginCard.style.transition = 'all 0.6s ease';
+        loginCard.style.opacity = '1';
+        loginCard.style.transform = 'translateY(0)';
     }, 100);
 });
+
+// Password strength indicator for registration (if needed)
+function checkPasswordStrength(password) {
+    let strength = 0;
+    if (password.length >= 8) strength++;
+    if (/[a-z]/.test(password)) strength++;
+    if (/[A-Z]/.test(password)) strength++;
+    if (/[0-9]/.test(password)) strength++;
+    if (/[^a-zA-Z0-9]/.test(password)) strength++;
+    
+    return strength;
+}
 </script>
 {% endblock %}

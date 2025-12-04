@@ -5,100 +5,168 @@
 <div class="container-fluid main-content">
     <div class="row">
         <div class="col-md-8">
-            <div class="dashboard-card">
+            <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
-                        <i class="icon icon-profile me-2"></i>
+                        <i class="bi bi-person-circle me-2"></i>
                         My Profile
                     </h5>
-                    <a href="{{ url_for('profile.edit_profile') }}" class="btn btn-primary btn-sm">
-                        <i class="icon icon-edit me-1"></i>
+                    <a href="{{ url_for('profile.edit_profile') }}" class="btn btn-sm btn-light">
+                        <i class="bi bi-pencil me-1"></i>
                         Edit Profile
                     </a>
                 </div>
                 <div class="card-body">
+                    <!-- Basic Information -->
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label fw-semibold text-gray-600">Username</label>
+                                <label class="form-label fw-semibold text-muted">Username</label>
                                 <p class="form-control-plaintext">{{ user.username }}</p>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label fw-semibold text-gray-600">Email</label>
-                                <p class="form-control-plaintext">{{ user.email or 'Not provided' }}</p>
+                                <label class="form-label fw-semibold text-muted">Full Name</label>
+                                <p class="form-control-plaintext">{{ user.get_full_name() }}</p>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label fw-semibold text-gray-600">Role</label>
-                                <span class="status-badge 
-                                    {% if user.role == 'hr_manager' %}status-present
-                                    {% else %}status-late
-                                    {% endif %}">
-                                    {{ user.role.replace('_', ' ').title() }}
-                                </span>
+                                <label class="form-label fw-semibold text-muted">Email</label>
+                                <p class="form-control-plaintext">{{ user.email or 'Not provided' }}</p>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            {% if user.location %}
                             <div class="mb-3">
-                                <label class="form-label fw-semibold text-gray-600">Location</label>
-                                <p class="form-control-plaintext">{{ user.location.replace('_', ' ').title() }}</p>
-                            </div>
-                            {% endif %}
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold text-gray-600">Account Status</label>
-                                <span class="status-badge status-present">Active</span>
+                                <label class="form-label fw-semibold text-muted">Role</label>
+                                <span class="badge rounded-pill bg-{{ 'danger' if user.role == 'admin' else 'info' if user.role == 'hr_manager' else 'primary' }}">
+                                    {{ user.get_role_display() }}
+                                </span>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label fw-semibold text-gray-600">Member Since</label>
-                                <p class="form-control-plaintext">{{ user.created_at.strftime('%B %d, %Y') }}</p>
+                                <label class="form-label fw-semibold text-muted">Location</label>
+                                <p class="form-control-plaintext">{{ user.location.replace('_', ' ').title() if user.location else 'N/A' }}</p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold text-muted">Member Since</label>
+                                <p class="form-control-plaintext">{{ profile_data.account_created.strftime('%B %d, %Y') if profile_data.account_created else 'N/A' }}</p>
                             </div>
                         </div>
                     </div>
+
+                    <hr>
+                    
+                    <!-- Security Summary -->
+                    <h5 class="mt-4 mb-3"><i class="bi bi-shield-check me-2"></i> Security & Account Summary</h5>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="p-3 border rounded">
+                                <small class="text-muted d-block">Password Status</small>
+                                <strong class="text-{{ 'success' if security_summary.password_age_days < 90 else 'warning' }}">
+                                    {{ security_summary.password_strength }}
+                                </strong>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="p-3 border rounded">
+                                <small class="text-muted d-block">Last Login</small>
+                                <strong>{{ security_summary.last_login.strftime('%Y-%m-%d %H:%M') if security_summary.last_login else 'N/A' }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="p-3 border rounded">
+                                <small class="text-muted d-block">2FA Status</small>
+                                <strong class="text-{{ 'success' if security_summary.two_factor_enabled else 'danger' }}">
+                                    {{ 'Enabled' if security_summary.two_factor_enabled else 'Disabled' }}
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Associated Employee Information -->
+                    {% if associated_employee %}
+                    <h5 class="mt-4 mb-3"><i class="bi bi-briefcase me-2"></i> Associated Employee Record</h5>
+                    <div class="alert alert-success">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Employee ID:</strong> {{ associated_employee.employee_id }}<br>
+                                <strong>Position:</strong> {{ associated_employee.position }}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Hire Date:</strong> {{ associated_employee.hire_date.strftime('%Y-%m-%d') }}<br>
+                                <strong>Status:</strong> <span class="text-{{ 'success' if associated_employee.is_active else 'danger' }}">{{ associated_employee.get_employment_status_display() }}</span>
+                            </div>
+                        </div>
+                        <a href="{{ url_for('employees.view_employee', id=associated_employee.id) }}" class="btn btn-sm btn-outline-success mt-2">
+                            <i class="bi bi-eye"></i> View Full Employee File
+                        </a>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> No formal employee record found associated with this user.
+                    </div>
+                    {% endif %}
+
                 </div>
             </div>
         </div>
         
         <div class="col-md-4">
-            <div class="dashboard-card">
+            <!-- Quick Actions -->
+            <div class="card mb-3">
                 <div class="card-header">
                     <h6 class="mb-0">
-                        <i class="icon icon-settings me-2"></i>
+                        <i class="bi bi-lightning me-2"></i>
                         Quick Actions
                     </h6>
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
                         <a href="{{ url_for('profile.change_password') }}" class="btn btn-outline-primary">
-                            <i class="icon icon-settings me-2"></i>
-                            Change Password
+                            <i class="bi bi-key"></i> Change Password
                         </a>
-                        <a href="{{ url_for('profile.edit_profile') }}" class="btn btn-outline-secondary">
-                            <i class="icon icon-edit me-2"></i>
-                            Edit Information
+                        <a href="{{ url_for('profile.preferences') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-gear"></i> Preferences
                         </a>
-                        <a href="{{ url_for('profile.settings') }}" class="btn btn-outline-info">
-                            <i class="icon icon-settings me-2"></i>
-                            Settings
+                        <!-- FIX: Corrected url_for to the correct route -->
+                        <a href="{{ url_for('profile.security_dashboard') }}" class="btn btn-outline-info">
+                            <i class="bi bi-shield-check"></i> Security Dashboard
+                        </a>
+                        <a href="{{ url_for('profile.activity_log') }}" class="btn btn-outline-dark">
+                            <i class="bi bi-list-ul"></i> Activity Log
                         </a>
                     </div>
                 </div>
             </div>
             
-            <div class="dashboard-card mt-3">
+            <!-- Recent Activity -->
+            <div class="card">
                 <div class="card-header">
                     <h6 class="mb-0">
-                        <i class="icon icon-info me-2"></i>
-                        Account Security
+                        <i class="bi bi-activity me-2"></i>
+                        Recent Activity
                     </h6>
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-info">
-                        <strong>Security Tip:</strong> Change your password regularly and never share your login credentials.
+                    <div class="list-group list-group-flush">
+                        {% if recent_activities %}
+                            {% for activity in recent_activities %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <div class="me-auto">
+                                    <small class="fw-bold">{{ activity.event_type.replace('_', ' ').title() }}</small><br>
+                                    <small class="text-muted">{{ activity.description[:50] }}...</small>
+                                </div>
+                                <small class="text-muted text-end">
+                                    {{ (datetime.utcnow() - activity.timestamp).total_seconds() | int // 3600 }}h ago
+                                </small>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                        <div class="text-center text-muted py-3">
+                            <i class="bi bi-clock-history d-block mb-2"></i>
+                            No recent activity found.
+                        </div>
+                        {% endif %}
                     </div>
-                    <small class="text-muted">
-                        Last login: Today<br>
-                        Account created: {{ user.created_at.strftime('%B %d, %Y') }}
-                    </small>
                 </div>
             </div>
         </div>

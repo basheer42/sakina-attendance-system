@@ -1,142 +1,990 @@
 {% extends "base.html" %}
 
-{% block title %}Add Employee - Sakina Gas Attendance System{% endblock %}
+{% block title %}Add Employee - Sakina Gas Company{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-wizard {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+    
+    .wizard-header {
+        background: linear-gradient(135deg, var(--sakina-orange) 0%, #FF8C5A 100%);
+        color: white;
+        padding: 25px 30px;
+    }
+    
+    .wizard-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 0;
+    }
+    
+    .wizard-subtitle {
+        opacity: 0.9;
+        margin: 5px 0 0 0;
+    }
+    
+    .wizard-steps {
+        background: #f8f9fa;
+        padding: 20px 30px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .step-indicator {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+    
+    .step {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 20px;
+        border-radius: 25px;
+        background: white;
+        color: #6c757d;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        min-width: 150px;
+        justify-content: center;
+    }
+    
+    .step.active {
+        background: var(--sakina-orange);
+        color: white;
+        transform: scale(1.05);
+    }
+    
+    .step.completed {
+        background: #28A745;
+        color: white;
+    }
+    
+    .step-number {
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+        font-weight: 700;
+    }
+    
+    .wizard-body {
+        padding: 30px;
+    }
+    
+    .step-content {
+        display: none;
+    }
+    
+    .step-content.active {
+        display: block;
+        animation: fadeIn 0.5s ease;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .section-title {
+        color: var(--sakina-blue);
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: var(--sakina-blue);
+        margin-bottom: 8px;
+    }
+    
+    .required {
+        color: #dc3545;
+    }
+    
+    .form-control,
+    .form-select {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 12px 15px;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--sakina-orange);
+        box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.15);
+    }
+    
+    .form-control.is-valid {
+        border-color: #28A745;
+        background-image: none;
+    }
+    
+    .form-control.is-invalid {
+        border-color: #dc3545;
+        background-image: none;
+    }
+    
+    .help-text {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+    
+    .wizard-actions {
+        background: #f8f9fa;
+        padding: 20px 30px;
+        border-top: 1px solid #e9ecef;
+        display: flex;
+        justify-content: between;
+        gap: 15px;
+    }
+    
+    .btn-wizard {
+        padding: 12px 30px;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-prev {
+        background: #6c757d;
+        color: white;
+        border: none;
+    }
+    
+    .btn-prev:hover {
+        background: #5a6268;
+        color: white;
+    }
+    
+    .btn-next,
+    .btn-submit {
+        background: linear-gradient(135deg, var(--sakina-orange) 0%, #FF8C5A 100%);
+        color: white;
+        border: none;
+    }
+    
+    .btn-next:hover,
+    .btn-submit:hover {
+        background: linear-gradient(135deg, #e85a2e 0%, #e67a4d 100%);
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .preview-card {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+    }
+    
+    .preview-section {
+        margin-bottom: 25px;
+    }
+    
+    .preview-section h6 {
+        color: var(--sakina-blue);
+        font-weight: 600;
+        margin-bottom: 15px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid var(--sakina-orange);
+    }
+    
+    .preview-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .preview-item:last-child {
+        border-bottom: none;
+    }
+    
+    .preview-label {
+        font-weight: 500;
+        color: #6c757d;
+    }
+    
+    .preview-value {
+        font-weight: 600;
+        color: var(--sakina-dark-blue);
+    }
+    
+    .avatar-preview {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--sakina-orange) 0%, #FF8C5A 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0 auto 15px;
+    }
+    
+    @media (max-width: 768px) {
+        .step-indicator {
+            gap: 10px;
+        }
+        
+        .step {
+            min-width: 120px;
+            padding: 8px 15px;
+        }
+        
+        .wizard-body {
+            padding: 20px;
+        }
+        
+        .wizard-actions {
+            padding: 15px 20px;
+            flex-direction: column;
+        }
+        
+        .btn-wizard {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container-fluid">
     <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="card">
-                <div class="card-header">
-                    <h5><i class="bi bi-person-plus"></i> Add New Employee</h5>
+        <div class="col-xl-10">
+            <form method="POST" action="{{ url_for('employees.add_employee') }}" id="addEmployeeForm" novalidate>
+                <div class="form-wizard">
+                    <!-- Wizard Header -->
+                    <div class="wizard-header">
+                        <h1 class="wizard-title">
+                            <i class="bi bi-person-plus"></i> Add New Employee
+                        </h1>
+                        <p class="wizard-subtitle">Complete all steps to add a new employee to the system</p>
+                    </div>
+                    
+                    <!-- Step Indicators -->
+                    <div class="wizard-steps">
+                        <div class="step-indicator">
+                            <div class="step active" data-step="1">
+                                <div class="step-number">1</div>
+                                <span>Personal Info</span>
+                            </div>
+                            <div class="step" data-step="2">
+                                <div class="step-number">2</div>
+                                <span>Employment</span>
+                            </div>
+                            <div class="step" data-step="3">
+                                <div class="step-number">3</div>
+                                <span>Contact & Address</span>
+                            </div>
+                            <div class="step" data-step="4">
+                                <div class="step-number">4</div>
+                                <span>Banking & Legal</span>
+                            </div>
+                            <div class="step" data-step="5">
+                                <div class="step-number">5</div>
+                                <span>Review & Submit</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Wizard Body -->
+                    <div class="wizard-body">
+                        <!-- Step 1: Personal Information -->
+                        <div class="step-content active" id="step1">
+                            <div class="section-title">
+                                <i class="bi bi-person-circle"></i>
+                                Personal Information
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">First Name <span class="required">*</span></label>
+                                        <input type="text" class="form-control" name="first_name" required
+                                               value="{{ form_data.first_name if form_data else '' }}"
+                                               placeholder="Enter first name">
+                                        <div class="invalid-feedback">Please provide a valid first name.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Middle Name</label>
+                                        <input type="text" class="form-control" name="middle_name"
+                                               value="{{ form_data.middle_name if form_data else '' }}"
+                                               placeholder="Enter middle name (optional)">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Last Name <span class="required">*</span></label>
+                                        <input type="text" class="form-control" name="last_name" required
+                                               value="{{ form_data.last_name if form_data else '' }}"
+                                               placeholder="Enter last name">
+                                        <div class="invalid-feedback">Please provide a valid last name.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Date of Birth</label>
+                                        <input type="date" class="form-control" name="date_of_birth"
+                                               value="{{ form_data.date_of_birth if form_data else '' }}"
+                                               max="{{ (moment().subtract(18, 'years').format('YYYY-MM-DD')) if moment else '2006-01-01' }}">
+                                        <div class="help-text">Employee must be at least 18 years old</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Gender</label>
+                                        <select class="form-select" name="gender">
+                                            <option value="">Select Gender</option>
+                                            <option value="male" {% if form_data and form_data.gender == 'male' %}selected{% endif %}>Male</option>
+                                            <option value="female" {% if form_data and form_data.gender == 'female' %}selected{% endif %}>Female</option>
+                                            <option value="other" {% if form_data and form_data.gender == 'other' %}selected{% endif %}>Other</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Marital Status</label>
+                                        <select class="form-select" name="marital_status">
+                                            <option value="">Select Status</option>
+                                            <option value="single" {% if form_data and form_data.marital_status == 'single' %}selected{% endif %}>Single</option>
+                                            <option value="married" {% if form_data and form_data.marital_status == 'married' %}selected{% endif %}>Married</option>
+                                            <option value="divorced" {% if form_data and form_data.marital_status == 'divorced' %}selected{% endif %}>Divorced</option>
+                                            <option value="widowed" {% if form_data and form_data.marital_status == 'widowed' %}selected{% endif %}>Widowed</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label class="form-label">National ID <span class="required">*</span></label>
+                                        <input type="text" class="form-control" name="national_id" required
+                                               value="{{ form_data.national_id if form_data else '' }}"
+                                               placeholder="Enter National ID number">
+                                        <div class="help-text">Valid Kenyan National ID (7-8 digits)</div>
+                                        <div class="invalid-feedback">Please provide a valid National ID.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label class="form-label">Nationality</label>
+                                        <input type="text" class="form-control" name="nationality" 
+                                               value="{{ form_data.nationality if form_data else 'Kenyan' }}"
+                                               placeholder="Enter nationality">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 2: Employment Information -->
+                        <div class="step-content" id="step2">
+                            <div class="section-title">
+                                <i class="bi bi-briefcase"></i>
+                                Employment Information
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Location <span class="required">*</span></label>
+                                        <select class="form-select" name="location" required>
+                                            <option value="">Select Location</option>
+                                            {% for location in locations %}
+                                                <option value="{{ location }}" {% if form_data and form_data.location == location %}selected{% endif %}>
+                                                    {{ location|replace('_', ' ')|title }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="invalid-feedback">Please select a location.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Department <span class="required">*</span></label>
+                                        <select class="form-select" name="department" required>
+                                            <option value="">Select Department</option>
+                                            {% for department in departments %}
+                                                <option value="{{ department }}" {% if form_data and form_data.department == department %}selected{% endif %}>
+                                                    {{ department|replace('_', ' ')|title }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="invalid-feedback">Please select a department.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Employment Type</label>
+                                        <select class="form-select" name="employment_type">
+                                            <option value="permanent" {% if form_data and form_data.employment_type == 'permanent' %}selected{% endif %}>Permanent</option>
+                                            <option value="contract" {% if form_data and form_data.employment_type == 'contract' %}selected{% endif %}>Contract</option>
+                                            <option value="casual" {% if form_data and form_data.employment_type == 'casual' %}selected{% endif %}>Casual</option>
+                                            <option value="intern" {% if form_data and form_data.employment_type == 'intern' %}selected{% endif %}>Intern</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label class="form-label">Position/Job Title <span class="required">*</span></label>
+                                        <input type="text" class="form-control" name="position" required
+                                               value="{{ form_data.position if form_data else '' }}"
+                                               placeholder="e.g., Sales Manager, Attendant, Security Guard">
+                                        <div class="invalid-feedback">Please provide a job position.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label class="form-label">Official Job Title</label>
+                                        <input type="text" class="form-control" name="job_title"
+                                               value="{{ form_data.job_title if form_data else '' }}"
+                                               placeholder="Official title as per contract">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Hire Date <span class="required">*</span></label>
+                                        <input type="date" class="form-control" name="hire_date" required
+                                               value="{{ form_data.hire_date if form_data else '' }}"
+                                               max="{{ moment().format('YYYY-MM-DD') if moment else '2024-12-31' }}">
+                                        <div class="invalid-feedback">Please provide a valid hire date.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Basic Salary (KES)</label>
+                                        <input type="number" class="form-control" name="basic_salary" min="0" step="0.01"
+                                               value="{{ form_data.basic_salary if form_data else '' }}"
+                                               placeholder="0.00">
+                                        <div class="help-text">Monthly basic salary in Kenyan Shillings</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Shift (for stations)</label>
+                                        <select class="form-select" name="shift">
+                                            <option value="day" {% if form_data and form_data.shift == 'day' %}selected{% endif %}>Day Shift</option>
+                                            <option value="night" {% if form_data and form_data.shift == 'night' %}selected{% endif %}>Night Shift</option>
+                                            <option value="rotating" {% if form_data and form_data.shift == 'rotating' %}selected{% endif %}>Rotating</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 3: Contact & Address -->
+                        <div class="step-content" id="step3">
+                            <div class="section-title">
+                                <i class="bi bi-telephone"></i>
+                                Contact & Address Information
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label class="form-label">Email Address <span class="required">*</span></label>
+                                        <input type="email" class="form-control" name="email" required
+                                               value="{{ form_data.email if form_data else '' }}"
+                                               placeholder="employee@sakinagas.com">
+                                        <div class="invalid-feedback">Please provide a valid email address.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label class="form-label">Phone Number <span class="required">*</span></label>
+                                        <input type="tel" class="form-control" name="phone" required
+                                               value="{{ form_data.phone if form_data else '' }}"
+                                               placeholder="+254 700 000 000">
+                                        <div class="help-text">Include country code (+254)</div>
+                                        <div class="invalid-feedback">Please provide a valid phone number.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label class="form-label">Physical Address</label>
+                                        <textarea class="form-control" name="address" rows="3"
+                                                  placeholder="Enter full physical address">{{ form_data.address if form_data else '' }}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">City</label>
+                                        <input type="text" class="form-control" name="city"
+                                               value="{{ form_data.city if form_data else '' }}"
+                                               placeholder="e.g., Nairobi">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">County</label>
+                                        <input type="text" class="form-control" name="county"
+                                               value="{{ form_data.county if form_data else '' }}"
+                                               placeholder="e.g., Nairobi County">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Postal Code</label>
+                                        <input type="text" class="form-control" name="postal_code"
+                                               value="{{ form_data.postal_code if form_data else '' }}"
+                                               placeholder="e.g., 00100">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 4: Banking & Legal -->
+                        <div class="step-content" id="step4">
+                            <div class="section-title">
+                                <i class="bi bi-bank"></i>
+                                Banking & Legal Information
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label class="form-label">Bank Name</label>
+                                        <input type="text" class="form-control" name="bank_name"
+                                               value="{{ form_data.bank_name if form_data else '' }}"
+                                               placeholder="e.g., KCB Bank">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label class="form-label">Account Number</label>
+                                        <input type="text" class="form-control" name="account_number"
+                                               value="{{ form_data.account_number if form_data else '' }}"
+                                               placeholder="Bank account number">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">KRA PIN</label>
+                                        <input type="text" class="form-control" name="kra_pin"
+                                               value="{{ form_data.kra_pin if form_data else '' }}"
+                                               placeholder="A000000000A"
+                                               pattern="^[A-Z][0-9]{9}[A-Z]$">
+                                        <div class="help-text">Format: A000000000A</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">NSSF Number</label>
+                                        <input type="text" class="form-control" name="nssf_number"
+                                               value="{{ form_data.nssf_number if form_data else '' }}"
+                                               placeholder="NSSF membership number">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">NHIF Number</label>
+                                        <input type="text" class="form-control" name="nhif_number"
+                                               value="{{ form_data.nhif_number if form_data else '' }}"
+                                               placeholder="NHIF membership number">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i>
+                                <strong>Note:</strong> All statutory information (KRA PIN, NSSF, NHIF) can be added later if not immediately available. 
+                                However, they are required for payroll processing.
+                            </div>
+                        </div>
+                        
+                        <!-- Step 5: Review & Submit -->
+                        <div class="step-content" id="step5">
+                            <div class="section-title">
+                                <i class="bi bi-check-circle"></i>
+                                Review & Submit
+                            </div>
+                            
+                            <div class="preview-card">
+                                <div class="text-center mb-4">
+                                    <div class="avatar-preview" id="avatarPreview">
+                                        JD
+                                    </div>
+                                    <h4 id="previewName">Employee Name</h4>
+                                    <p class="text-muted" id="previewPosition">Position • Department</p>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="preview-section">
+                                            <h6>Personal Information</h6>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Full Name:</span>
+                                                <span class="preview-value" id="preview-full-name">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Date of Birth:</span>
+                                                <span class="preview-value" id="preview-dob">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Gender:</span>
+                                                <span class="preview-value" id="preview-gender">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">National ID:</span>
+                                                <span class="preview-value" id="preview-national-id">-</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="preview-section">
+                                            <h6>Contact Information</h6>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Email:</span>
+                                                <span class="preview-value" id="preview-email">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Phone:</span>
+                                                <span class="preview-value" id="preview-phone">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Address:</span>
+                                                <span class="preview-value" id="preview-address">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="preview-section">
+                                            <h6>Employment Information</h6>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Location:</span>
+                                                <span class="preview-value" id="preview-location">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Department:</span>
+                                                <span class="preview-value" id="preview-department">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Position:</span>
+                                                <span class="preview-value" id="preview-position-detail">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Hire Date:</span>
+                                                <span class="preview-value" id="preview-hire-date">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Employment Type:</span>
+                                                <span class="preview-value" id="preview-emp-type">-</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="preview-section">
+                                            <h6>Banking & Legal</h6>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Bank:</span>
+                                                <span class="preview-value" id="preview-bank">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">KRA PIN:</span>
+                                                <span class="preview-value" id="preview-kra">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">NSSF:</span>
+                                                <span class="preview-value" id="preview-nssf">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">NHIF:</span>
+                                                <span class="preview-value" id="preview-nhif">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-circle"></i>
+                                <strong>Ready to submit!</strong> Please review all information above. Once submitted, 
+                                an employee ID will be automatically generated and the employee will be added to the system.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Wizard Actions -->
+                    <div class="wizard-actions">
+                        <div class="flex-grow-1">
+                            <button type="button" class="btn btn-wizard btn-prev" id="prevBtn" style="display: none;">
+                                <i class="bi bi-arrow-left"></i> Previous
+                            </button>
+                        </div>
+                        <div>
+                            <a href="{{ url_for('employees.list_employees') }}" class="btn btn-outline-secondary btn-wizard">
+                                <i class="bi bi-x"></i> Cancel
+                            </a>
+                            <button type="button" class="btn btn-wizard btn-next" id="nextBtn">
+                                Next <i class="bi bi-arrow-right"></i>
+                            </button>
+                            <button type="submit" class="btn btn-wizard btn-submit" id="submitBtn" style="display: none;">
+                                <i class="bi bi-check-circle"></i> Add Employee
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <form method="POST" action="{{ url_for('employees.add_employee') }}">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="employee_id" class="form-label">Employee ID *</label>
-                                <input type="text" class="form-control" id="employee_id" name="employee_id" 
-                                       placeholder="e.g. EMP001" required>
-                                <div class="form-text">Must be unique</div>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="hire_date" class="form-label">Hire Date</label>
-                                <input type="date" class="form-control" id="hire_date" name="hire_date">
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="first_name" class="form-label">First Name *</label>
-                                <input type="text" class="form-control" id="first_name" name="first_name" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="last_name" class="form-label">Last Name *</label>
-                                <input type="text" class="form-control" id="last_name" name="last_name" required>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="phone" class="form-label">Phone</label>
-                                <input type="tel" class="form-control" id="phone" name="phone" 
-                                       placeholder="0712345678">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="department" class="form-label">Department *</label>
-                                <select class="form-control" id="department" name="department" required>
-                                    <option value="">Select Department</option>
-                                    <option value="Operations">Operations</option>
-                                    <option value="Administration">Administration</option>
-                                    <option value="Finance">Finance</option>
-                                    <option value="HR">Human Resources</option>
-                                    <option value="Security">Security</option>
-                                    <option value="Maintenance">Maintenance</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="position" class="form-label">Position *</label>
-                                <input type="text" class="form-control" id="position" name="position" 
-                                       placeholder="e.g. Station Attendant, Manager" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="location" class="form-label">Location *</label>
-                                <select class="form-control" id="location" name="location" required>
-                                    <option value="">Select Location</option>
-                                    <option value="head_office">Head Office</option>
-                                    <option value="dandora">Dandora Station</option>
-                                    <option value="tassia">Tassia Station</option>
-                                    <option value="kiambu">Kiambu Station</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6 mb-3" id="shift-group" style="display: none;">
-                                <label for="shift" class="form-label">Shift *</label>
-                                <select class="form-control" id="shift" name="shift">
-                                    <option value="">Select Shift</option>
-                                    <option value="day">Day Shift (06:00 - 18:00)</option>
-                                    <option value="night">Night Shift (18:00 - 06:00)</option>
-                                </select>
-                                <div class="form-text">Required for station employees</div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-12">
-                                <button type="submit" class="btn btn-primary me-2">
-                                    <i class="bi bi-save"></i> Add Employee
-                                </button>
-                                <a href="{{ url_for('employees.list_employees') }}" class="btn btn-secondary">
-                                    <i class="bi bi-arrow-left"></i> Cancel
-                                </a>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
+            </form>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-// Set today's date as default for hire date
 document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('hire_date').value = new Date().toISOString().split('T')[0];
-});
-
-// Handle location change to show/hide shift selection
-document.getElementById('location').addEventListener('change', function() {
-    const shiftGroup = document.getElementById('shift-group');
-    const shiftSelect = document.getElementById('shift');
+    const form = document.getElementById('addEmployeeForm');
+    const steps = document.querySelectorAll('.step-content');
+    const stepIndicators = document.querySelectorAll('.step');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const submitBtn = document.getElementById('submitBtn');
     
-    if (this.value === 'head_office') {
-        shiftGroup.style.display = 'none';
-        shiftSelect.value = '';
-        shiftSelect.removeAttribute('required');
-    } else if (this.value) {
-        shiftGroup.style.display = 'block';
-        shiftSelect.setAttribute('required', 'required');
-    } else {
-        shiftGroup.style.display = 'none';
-        shiftSelect.removeAttribute('required');
+    let currentStep = 1;
+    const totalSteps = 5;
+    
+    // Navigation functions
+    function showStep(step) {
+        // Hide all steps
+        steps.forEach(s => s.classList.remove('active'));
+        
+        // Show current step
+        document.getElementById(`step${step}`).classList.add('active');
+        
+        // Update step indicators
+        stepIndicators.forEach((indicator, index) => {
+            const stepNum = index + 1;
+            indicator.classList.remove('active', 'completed');
+            
+            if (stepNum < step) {
+                indicator.classList.add('completed');
+            } else if (stepNum === step) {
+                indicator.classList.add('active');
+            }
+        });
+        
+        // Update navigation buttons
+        prevBtn.style.display = step > 1 ? 'inline-block' : 'none';
+        nextBtn.style.display = step < totalSteps ? 'inline-block' : 'none';
+        submitBtn.style.display = step === totalSteps ? 'inline-block' : 'none';
+        
+        // Update preview if on last step
+        if (step === totalSteps) {
+            updatePreview();
+        }
     }
-});
-
-// Form validation
-document.querySelector('form').addEventListener('submit', function(e) {
-    const location = document.getElementById('location').value;
-    const shift = document.getElementById('shift').value;
     
-    if (location && location !== 'head_office' && !shift) {
+    function validateStep(step) {
+        const currentStepElement = document.getElementById(`step${step}`);
+        const requiredInputs = currentStepElement.querySelectorAll('[required]');
+        let isValid = true;
+        
+        requiredInputs.forEach(input => {
+            if (!input.value.trim()) {
+                input.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                input.classList.remove('is-invalid');
+                input.classList.add('is-valid');
+            }
+        });
+        
+        // Additional validations
+        if (step === 1) {
+            const nationalId = document.querySelector('[name="national_id"]');
+            if (nationalId.value && !/^\d{7,8}$/.test(nationalId.value)) {
+                nationalId.classList.add('is-invalid');
+                isValid = false;
+            }
+        }
+        
+        if (step === 3) {
+            const email = document.querySelector('[name="email"]');
+            const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (email.value && !emailPattern.test(email.value)) {
+                email.classList.add('is-invalid');
+                isValid = false;
+            }
+            
+            const phone = document.querySelector('[name="phone"]');
+            const phonePattern = /^\+254[17]\d{8}$/;
+            if (phone.value && !phonePattern.test(phone.value)) {
+                phone.classList.add('is-invalid');
+                isValid = false;
+            }
+        }
+        
+        return isValid;
+    }
+    
+    function updatePreview() {
+        // Get form values
+        const firstName = document.querySelector('[name="first_name"]').value || '';
+        const middleName = document.querySelector('[name="middle_name"]').value || '';
+        const lastName = document.querySelector('[name="last_name"]').value || '';
+        const position = document.querySelector('[name="position"]').value || '';
+        const department = document.querySelector('[name="department"]').value || '';
+        
+        // Update avatar initials
+        const initials = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase() || 'EE';
+        document.getElementById('avatarPreview').textContent = initials;
+        
+        // Update name and position
+        const fullName = `${firstName} ${middleName} ${lastName}`.replace(/\s+/g, ' ').trim() || 'Employee Name';
+        document.getElementById('previewName').textContent = fullName;
+        document.getElementById('previewPosition').textContent = `${position} • ${department.replace('_', ' ')}`;
+        
+        // Update all preview fields
+        const previewMappings = {
+            'preview-full-name': fullName,
+            'preview-dob': document.querySelector('[name="date_of_birth"]').value || '-',
+            'preview-gender': document.querySelector('[name="gender"]').value || '-',
+            'preview-national-id': document.querySelector('[name="national_id"]').value || '-',
+            'preview-email': document.querySelector('[name="email"]').value || '-',
+            'preview-phone': document.querySelector('[name="phone"]').value || '-',
+            'preview-address': document.querySelector('[name="address"]').value || '-',
+            'preview-location': document.querySelector('[name="location"]').value.replace('_', ' ') || '-',
+            'preview-department': department.replace('_', ' ') || '-',
+            'preview-position-detail': position || '-',
+            'preview-hire-date': document.querySelector('[name="hire_date"]').value || '-',
+            'preview-emp-type': document.querySelector('[name="employment_type"]').value.replace('_', ' ') || '-',
+            'preview-bank': document.querySelector('[name="bank_name"]').value || '-',
+            'preview-kra': document.querySelector('[name="kra_pin"]').value || '-',
+            'preview-nssf': document.querySelector('[name="nssf_number"]').value || '-',
+            'preview-nhif': document.querySelector('[name="nhif_number"]').value || '-'
+        };
+        
+        Object.entries(previewMappings).forEach(([id, value]) => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = value || '-';
+            }
+        });
+    }
+    
+    // Event listeners
+    nextBtn.addEventListener('click', function() {
+        if (validateStep(currentStep)) {
+            if (currentStep < totalSteps) {
+                currentStep++;
+                showStep(currentStep);
+            }
+        }
+    });
+    
+    prevBtn.addEventListener('click', function() {
+        if (currentStep > 1) {
+            currentStep--;
+            showStep(currentStep);
+        }
+    });
+    
+    // Step indicator clicks
+    stepIndicators.forEach((indicator, index) => {
+        indicator.addEventListener('click', function() {
+            const targetStep = index + 1;
+            if (targetStep <= currentStep) {
+                currentStep = targetStep;
+                showStep(currentStep);
+            }
+        });
+    });
+    
+    // Real-time validation
+    const formInputs = form.querySelectorAll('input, select, textarea');
+    formInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            if (this.hasAttribute('required') && this.value.trim()) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            }
+        });
+        
+        input.addEventListener('blur', function() {
+            if (this.hasAttribute('required') && !this.value.trim()) {
+                this.classList.add('is-invalid');
+            }
+        });
+    });
+    
+    // Form submission
+    form.addEventListener('submit', function(e) {
         e.preventDefault();
-        alert('Please select a shift for station employees');
-        return false;
-    }
+        
+        if (validateStep(currentStep)) {
+            // Show loading state
+            submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Adding Employee...';
+            submitBtn.disabled = true;
+            
+            // Submit form
+            this.submit();
+        }
+    });
+    
+    // Auto-format phone number
+    const phoneInput = document.querySelector('[name="phone"]');
+    phoneInput.addEventListener('input', function() {
+        let value = this.value.replace(/\D/g, '');
+        if (value.startsWith('254')) {
+            value = '+' + value;
+        } else if (value.startsWith('7') || value.startsWith('1')) {
+            value = '+254' + value;
+        }
+        this.value = value;
+    });
+    
+    // Auto-format KRA PIN
+    const kraInput = document.querySelector('[name="kra_pin"]');
+    kraInput.addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
+    });
+    
+    // Initialize first step
+    showStep(currentStep);
 });
 </script>
 {% endblock %}

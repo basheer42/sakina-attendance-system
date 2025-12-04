@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block title %}{{ location.replace('_', ' ').title() }} Station Overview - Sakina Gas{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 text-sakina-dark fw-bold mb-0">
+                        <i class="bi bi-geo-alt text-sakina-primary me-2"></i>
+                        {{ location.replace('_', ' ').title() }} Station Dashboard
+                    </h1>
+                    <p class="text-muted mb-0">Station overview for {{ today.strftime('%A, %B %d, %Y') }}</p>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-success fs-6 px-3 py-2">
+                        <i class="bi bi-person-check me-1"></i>
+                        {{ current_user.full_name }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-lg-6">
+            <div class="card card-sakina h-100 border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="bg-primary bg-gradient rounded-circle p-3">
+                            <i class="bi bi-people text-white fs-4"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="text-muted text-uppercase mb-1">Station Employees</h6>
+                        <h2 class="mb-0 fw-bold text-sakina-dark">{{ location_employees }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-lg-6">
+            <div class="card card-sakina h-100 border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="bg-success bg-gradient rounded-circle p-3">
+                            <i class="bi bi-check-circle text-white fs-4"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="text-muted text-uppercase mb-1">Present Today</h6>
+                        <h2 class="mb-0 fw-bold text-success">{{ location_attendance.present }}</h2>
+                        <small class="text-muted">{{ location_attendance.attendance_rate }}% rate</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-lg-6">
+            <div class="card card-sakina h-100 border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="bg-warning bg-gradient rounded-circle p-3">
+                            <i class="bi bi-exclamation-triangle text-white fs-4"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="text-muted text-uppercase mb-1">Absent Today</h6>
+                        <h2 class="mb-0 fw-bold text-warning">{{ location_attendance.absent }}</h2>
+                        <small class="text-muted">{{ location_attendance.not_marked }} not marked</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-lg-6">
+            <div class="card card-sakina h-100 border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="bg-info bg-gradient rounded-circle p-3">
+                            <i class="bi bi-calendar-check text-white fs-4"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="text-muted text-uppercase mb-1">Pending Requests</h6>
+                        <h2 class="mb-0 fw-bold text-info">{{ location_leave_requests|length }}</h2>
+                        <small class="text-muted">Leave requests</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Left Column -->
+        <div class="col-lg-8">
+            <!-- Shift Overview (if applicable) -->
+            {% if shift_overview.has_shifts %}
+            <div class="card card-sakina mb-4 border-0 shadow-sm">
+                <div class="card-header-sakina">
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="bi bi-clock text-sakina-primary me-2"></i>
+                        Shift Overview
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-6">
+                            <div class="border-end">
+                                <h6 class="fw-semibold mb-2">Day Shift (06:00 - 18:00)</h6>
+                                <div class="d-flex justify-content-around">
+                                    <div>
+                                        <h4 class="text-success fw-bold">{{ shift_overview.day_shift.present }}</h4>
+                                        <small class="text-muted">Present</small>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-danger fw-bold">{{ shift_overview.day_shift.absent }}</h4>
+                                        <small class="text-muted">Absent</small>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-primary fw-bold">{{ shift_overview.day_shift.total }}</h4>
+                                        <small class="text-muted">Total</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-semibold mb-2">Night Shift (18:00 - 06:00)</h6>
+                            <div class="d-flex justify-content-around">
+                                <div>
+                                    <h4 class="text-success fw-bold">{{ shift_overview.night_shift.present }}</h4>
+                                    <small class="text-muted">Present</small>
+                                </div>
+                                <div>
+                                    <h4 class="text-danger fw-bold">{{ shift_overview.night_shift.absent }}</h4>
+                                    <small class="text-muted">Absent</small>
+                                </div>
+                                <div>
+                                    <h4 class="text-primary fw-bold">{{ shift_overview.night_shift.total }}</h4>
+                                    <small class="text-muted">Total</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Attendance Details -->
+            <div class="card card-sakina mb-4 border-0 shadow-sm">
+                <div class="card-header-sakina">
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="bi bi-clock-history text-sakina-primary me-2"></i>
+                        Today's Attendance Details
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="border-end">
+                                <h4 class="text-success fw-bold">{{ location_attendance.present }}</h4>
+                                <small class="text-muted">Present</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border-end">
+                                <h4 class="text-warning fw-bold">{{ location_attendance.late }}</h4>
+                                <small class="text-muted">Late</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border-end">
+                                <h4 class="text-danger fw-bold">{{ location_attendance.absent }}</h4>
+                                <small class="text-muted">Absent</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <h4 class="text-info fw-bold">{{ location_attendance.on_leave }}</h4>
+                            <small class="text-muted">On Leave</small>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <div class="progress" style="height: 10px;">
+                            {% set total = location_attendance.total_expected or 1 %}
+                            <div class="progress-bar bg-success" style="width: {{ (location_attendance.present / total * 100) }}%"></div>
+                            <div class="progress-bar bg-warning" style="width: {{ (location_attendance.late / total * 100) }}%"></div>
+                            <div class="progress-bar bg-danger" style="width: {{ (location_attendance.absent / total * 100) }}%"></div>
+                            <div class="progress-bar bg-info" style="width: {{ (location_attendance.on_leave / total * 100) }}%"></div>
+                        </div>
+                        <small class="text-muted mt-2 d-block">
+                            <a href="{{ url_for('dashboard.attendance_details') }}" class="text-decoration-none">
+                                <i class="bi bi-arrow-right me-1"></i>View detailed attendance
+                            </a>
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Station Performance Metrics -->
+            <div class="card card-sakina border-0 shadow-sm">
+                <div class="card-header-sakina">
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="bi bi-graph-up text-sakina-primary me-2"></i>
+                        Station Performance
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center mb-3">
+                            <h3 class="text-primary fw-bold">{{ location_metrics.week_attendance_rate }}%</h3>
+                            <small class="text-muted">Weekly Attendance Rate</small>
+                        </div>
+                        <div class="col-md-4 text-center mb-3">
+                            <h3 class="text-success fw-bold">{{ location_metrics.month_attendance_rate }}%</h3>
+                            <small class="text-muted">Monthly Attendance Rate</small>
+                        </div>
+                        <div class="col-md-4 text-center mb-3">
+                            <h3 class="text-info fw-bold">{{ location_metrics.approved_leaves_month }}</h3>
+                            <small class="text-muted">Approved Leaves (Month)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-lg-4">
+            <!-- Pending Leave Requests -->
+            <div class="card card-sakina mb-4 border-0 shadow-sm">
+                <div class="card-header-sakina">
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="bi bi-calendar-check text-sakina-primary me-2"></i>
+                        Pending Leave Requests
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if location_leave_requests %}
+                        {% for request, employee in location_leave_requests[:5] %}
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <div>
+                                <strong>{{ employee.first_name }} {{ employee.last_name }}</strong><br>
+                                <small class="text-muted">{{ request.leave_type }} - {{ request.start_date.strftime('%b %d') }}</small>
+                            </div>
+                            <span class="badge bg-warning">Pending</span>
+                        </div>
+                        {% endfor %}
+                        
+                        {% if location_leave_requests|length > 5 %}
+                        <small class="text-muted">{{ location_leave_requests|length - 5 }} more requests...</small>
+                        {% endif %}
+                        
+                        <div class="mt-3 pt-3 border-top">
+                            <a href="{{ url_for('leaves.list_requests') }}" class="btn btn-sakina-primary btn-sm w-100">
+                                <i class="bi bi-arrow-right me-1"></i>Manage All Requests
+                            </a>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">No pending leave requests</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Station Alerts -->
+            {% if location_alerts %}
+            <div class="card card-sakina mb-4 border-0 shadow-sm">
+                <div class="card-header-sakina">
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                        Station Alerts
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% for alert in location_alerts %}
+                    <div class="alert alert-{{ alert.type }} alert-sm mb-2" role="alert">
+                        <strong>{{ alert.title }}:</strong><br>
+                        <small>{{ alert.message }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Quick Actions -->
+            <div class="card card-sakina border-0 shadow-sm">
+                <div class="card-header-sakina">
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="bi bi-lightning text-sakina-primary me-2"></i>
+                        Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('attendance.mark_attendance') }}" class="btn btn-sakina-primary btn-sm">
+                            <i class="bi bi-clock me-2"></i>Mark Attendance
+                        </a>
+                        <a href="{{ url_for('leaves.request_leave') }}" class="btn btn-sakina-secondary btn-sm">
+                            <i class="bi bi-calendar-plus me-2"></i>Request Leave
+                        </a>
+                        <a href="{{ url_for('employees.list_employees') }}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-people me-2"></i>View Employees
+                        </a>
+                        <a href="{{ url_for('dashboard.attendance_details') }}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-clipboard-data me-2"></i>Attendance Report
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Auto-refresh functionality -->
+<script>
+// Auto-refresh attendance data every 30 seconds
+setInterval(function() {
+    fetch('/api/quick-stats')
+        .then(response => response.json())
+        .then(data => {
+            // Update stats if elements exist
+            console.log('Station stats updated');
+        })
+        .catch(error => console.log('Auto-refresh failed:', error));
+}, 30000);
+</script>
+{% endblock %}
