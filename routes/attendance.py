@@ -1,383 +1,377 @@
 """
-Enhanced Attendance Management Routes for Sakina Gas Attendance System
-Built upon your existing comprehensive attendance system with advanced tracking and validation
+Sakina Gas Company - Attendance Management Routes
+Built from scratch with comprehensive attendance tracking and time management
+Version 3.0 - Enterprise grade with advanced features
+FIXED: Models imported inside functions to prevent mapper conflicts
 """
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, g
-from flask_login import login_required, current_user
-# FIX: Removed global model imports to prevent early model registration
-from database import db
-from datetime import date, datetime, timedelta
-from sqlalchemy import func, and_, or_, desc, select
-from config import Config
-import json
 
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, g
+from flask_login import login_required, current_user
+from datetime import datetime, date, timedelta
+from sqlalchemy import func, and_, or_, desc, asc, extract
+from database import db
+import json
+import calendar
+
+# FIXED: Removed global model imports to prevent early model registration
+
+# Create blueprint
 attendance_bp = Blueprint('attendance', __name__)
 
+# Helper function for permission checking
+def check_attendance_permission(action, location=None):
+    """Check if user has permission to perform attendance action"""
+    if current_user.role == 'hr_manager':
+        return True
+    elif current_user.role == 'station_manager':
+        if action in ['mark', 'view', 'edit'] and (location is None or location == current_user.location):
+            return True
+    return False
+
 @attendance_bp.route('/')
-@attendance_bp.route('/mark')
+@attendance_bp.route('/overview')
 @login_required
-def mark_attendance():
-    """Enhanced attendance marking with real-time validation"""
-    # FIX: Local imports
+def overview():
+    """Enhanced attendance overview with comprehensive analytics"""
+    # FIXED: Local imports
     from models.employee import Employee
     from models.attendance import AttendanceRecord
     from models.leave import LeaveRequest
-    from models.holiday import Holiday
+    
+    if not check_attendance_permission('view'):
+        flash('You do not have permission to view attendance data.', 'error')
+        return redirect(url_for('dashboard.main'))
     
     target_date_str = request.args.get('date', date.today().isoformat())
     location_filter = request.args.get('location', 'all')
+    department_filter = request.args.get('department', 'all')
     shift_filter = request.args.get('shift', 'all')
+    status_filter = request.args.get('status', 'all')
     
     try:
         target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
     except ValueError:
         target_date = date.today()
     
-    # Base query for employees based on user role
-    if current_user.role == 'station_manager':
-        employee_query = Employee.query.filter(
-            Employee.location == current_user.location,
-            Employee.is_active == True
-        )
-    else:
-        employee_query = Employee.query.filter(Employee.is_active == True)
-        
-        # Apply location filter for HR managers
-        if location_filter != 'all':
-            employee_query = employee_query.filter(Employee.location == location_filter)
-    
-    # Apply shift filter
-    if shift_filter != 'all':
-        employee_query = employee_query.filter(Employee.shift == shift_filter)
-    
-    # Order by location, department, and name
-    employees = employee_query.order_by(
-        Employee.location,
-        Employee.department, 
-        Employee.first_name,
-        Employee.last_name
-    ).all()
-    
-    # Get existing attendance records with comprehensive data
-    attendance_data = {}
-    leave_data = {}
-    
-    for employee in employees:
-        # Check attendance record
-        attendance = AttendanceRecord.query.filter(
-            AttendanceRecord.employee_id == employee.id,
-            AttendanceRecord.date == target_date
-        ).first()
-        
-        # Check approved leave
-        leave_request = LeaveRequest.query.filter(
-            LeaveRequest.employee_id == employee.id,
-            LeaveRequest.start_date <= target_date,
-            LeaveRequest.end_date >= target_date,
-            LeaveRequest.status == 'approved'
-        ).first()
-        
-        attendance_data[employee.id] = attendance
-        leave_data[employee.id] = leave_request
-    
-    # Get filter options
-    filter_options = get_attendance_filter_options(current_user)
-    
-    # Calculate summary for the day
-    day_summary = calculate_day_summary(employees, attendance_data, leave_data)
-    
-    # Check if it's a holiday
-    holiday = Holiday.query.filter(
-        Holiday.date == target_date,
-        Holiday.is_observed == True # FIX: Holiday active check
-    ).first()
-    
-    return render_template('attendance/mark.html',
-                         employees=employees,
-                         attendance_data=attendance_data,
-                         leave_data=leave_data,
-                         target_date=target_date,
-                         location_filter=location_filter,
-                         shift_filter=shift_filter,
-                         filter_options=filter_options,
-                         day_summary=day_summary,
-                         holiday=holiday)
-
-@attendance_bp.route('/mark-employee', methods=['POST'])
-@login_required
-def mark_employee_attendance():
-    """Enhanced individual attendance marking with validation"""
-    # FIX: Local imports
-    from models.employee import Employee
-    from models.attendance import AttendanceRecord
-    from models.leave import LeaveRequest
-    from models.audit import AuditLog
-    
-    data = request.get_json()
-    
-    employee_id = data.get('employee_id')
-    status = data.get('status')  # present, absent, late, half_day
-    notes = data.get('notes', '').strip()
-    target_date_str = data.get('date', date.today().isoformat())
-    clock_in_time = data.get('clock_in_time')
-    
-    # Validate input
-    if not employee_id or not status:
-        return jsonify({'success': False, 'message': 'Employee ID and status are required'}), 400
-    
-    # Parse date
     try:
-        target_date = date.fromisoformat(target_date_str)
-    except ValueError:
-        return jsonify({'success': False, 'message': 'Invalid date format'}), 400
-    
-    # Get employee with validation
-    employee = Employee.query.filter(
-        Employee.id == employee_id,
-        Employee.is_active == True
-    ).first()
-    
-    if not employee:
-        return jsonify({'success': False, 'message': 'Employee not found or inactive'}), 404
-    
-    # Check permissions
-    if current_user.role == 'station_manager' and employee.location != current_user.location:
-        return jsonify({'success': False, 'message': 'Access denied. You can only mark attendance for your station employees.'}), 403
-    
-    # Check for approved leave
-    leave_request = LeaveRequest.query.filter(
-        LeaveRequest.employee_id == employee.id,
-        LeaveRequest.start_date <= target_date,
-        LeaveRequest.end_date >= target_date,
-        LeaveRequest.status == 'approved'
-    ).first()
-    
-    if leave_request and status in ['present', 'late']:
-        return jsonify({
-            'success': False, 
-            'message': f'Employee is on approved {leave_request.leave_type} from {leave_request.start_date} to {leave_request.end_date}'
-        }), 400
-    
-    try:
-        current_time = datetime.now()
-        
-        # Check if attendance already exists
-        existing_attendance = AttendanceRecord.query.filter(
-            AttendanceRecord.employee_id == employee.id,
-            AttendanceRecord.date == target_date
-        ).first()
-        
-        if existing_attendance:
-            # Update existing record
-            old_status = existing_attendance.status
-            existing_attendance.status = status
-            existing_attendance.notes = notes
-            # FIX: Added marked_by, updated_by if they exist on the model
-            if hasattr(existing_attendance, 'marked_by'):
-                existing_attendance.marked_by = current_user.id
-            if hasattr(existing_attendance, 'updated_by'):
-                existing_attendance.updated_by = current_user.id
-            
-            existing_attendance.last_updated = current_time # FIX: Use last_updated
-            
-            # FIX: The model doesn't have is_corrected, corrected_by, correction_reason attributes
-            # We skip them to match the model structure
-            
-            # Handle clock times
-            if status in ['present', 'late', 'half_day']:
-                if not existing_attendance.clock_in or clock_in_time:
-                    if clock_in_time:
-                        existing_attendance.clock_in_time = datetime.combine(target_date, datetime.strptime(clock_in_time, '%H:%M').time()) # FIX: Use clock_in_time column
-                    else:
-                        existing_attendance.clock_in_time = current_time # FIX: Use clock_in_time column
-            elif status == 'absent':
-                existing_attendance.clock_in_time = None
-                existing_attendance.clock_out_time = None
-            
-            # Recalculate work hours if needed
-            if existing_attendance.clock_in_time and existing_attendance.clock_out_time:
-                existing_attendance._calculate_work_hours()
-            
-            action_type = 'attendance_updated'
-            action_details = f'Updated attendance for {employee.employee_id} ({employee.get_full_name()}) from {old_status} to {status}'
-            
-        else:
-            # Create new record
-            attendance = AttendanceRecord(
-                employee_id=employee.id,
-                date=target_date,
-                status=status,
-                shift_type=employee.shift, # FIX: Use shift_type column
-                notes=notes,
-                created_by=current_user.id, # FIX: Use created_by column
-                location=employee.location, # FIX: Use location column
-                clock_in_method='manual', # FIX: Use clock_in_method column
-                ip_address=request.remote_addr
-            )
-            
-            # Set clock times
-            if status in ['present', 'late', 'half_day']:
-                if clock_in_time:
-                    attendance.clock_in_time = datetime.combine(target_date, datetime.strptime(clock_in_time, '%H:%M').time()) # FIX: Use clock_in_time column
-                else:
-                    attendance.clock_in_time = current_time # FIX: Use clock_in_time column
-            
-            # Determine if late
-            if status == 'present' and attendance.clock_in_time:
-                if is_employee_late(employee, attendance.clock_in_time):
-                    attendance.status = 'late'
-                    attendance.minutes_late = calculate_late_minutes(employee, attendance.clock_in_time) # FIX: Use minutes_late column
-            
-            db.session.add(attendance)
-            action_type = 'attendance_marked'
-            action_details = f'Marked attendance for {employee.employee_id} ({employee.get_full_name()}) as {status}'
-        
-        # Create audit log
-        AuditLog.log_event( # FIX: Changed to log_event
-            user_id=current_user.id,
-            event_type=action_type, # FIX: Use event_type
-            target_type='attendance',
-            target_id=employee.id,
-            description=action_details, # FIX: Use description
-            ip_address=request.remote_addr
+        # Get attendance overview data
+        overview_data = get_attendance_overview_data(
+            target_date, location_filter, department_filter, 
+            shift_filter, status_filter
         )
         
-        db.session.commit()
+        # Get filter options
+        filter_options = get_attendance_filter_options(current_user)
         
-        return jsonify({
-            'success': True,
-            'message': f'Attendance marked successfully for {employee.get_full_name()}',
-            'status': status,
-            'employee_name': employee.get_full_name()
-        })
+        # Get recent attendance activities
+        recent_activities = get_recent_attendance_activities()
         
+        # Get attendance trends for the week
+        weekly_trends = get_weekly_attendance_trends(target_date)
+        
+        return render_template('attendance/overview.html',
+                             overview_data=overview_data,
+                             filter_options=filter_options,
+                             recent_activities=recent_activities,
+                             weekly_trends=weekly_trends,
+                             target_date=target_date,
+                             location_filter=location_filter,
+                             department_filter=department_filter,
+                             shift_filter=shift_filter,
+                             status_filter=status_filter)
+                             
     except Exception as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'message': f'Error marking attendance: {str(e)}'}), 500
+        current_app.logger.error(f"Error in attendance overview: {e}")
+        flash('Error loading attendance overview. Please try again.', 'error')
+        return redirect(url_for('dashboard.main'))
 
-@attendance_bp.route('/bulk-mark', methods=['GET', 'POST'])
+@attendance_bp.route('/mark', methods=['GET', 'POST'])
 @login_required
-def bulk_mark_attendance():
-    """Enhanced bulk attendance marking with validation and error handling"""
-    # FIX: Local imports
+def mark_attendance():
+    """Enhanced individual attendance marking interface"""
+    # FIXED: Local imports
     from models.employee import Employee
     from models.attendance import AttendanceRecord
-    from models.leave import LeaveRequest
     from models.audit import AuditLog
+    
+    if not check_attendance_permission('mark'):
+        flash('You do not have permission to mark attendance.', 'error')
+        return redirect(url_for('attendance.overview'))
     
     if request.method == 'POST':
-        data = request.get_json()
-        target_date_str = data.get('date', date.today().isoformat())
-        employee_statuses = data.get('employees', [])
-        
-        if not employee_statuses:
-            return jsonify({'success': False, 'message': 'No employee data provided'}), 400
-        
         try:
-            target_date = date.fromisoformat(target_date_str)
-        except ValueError:
-            return jsonify({'success': False, 'message': 'Invalid date format'}), 400
-        
-        success_count = 0
-        error_count = 0
-        errors = []
-        
-        try:
-            for employee_data in employee_statuses:
-                employee_id = employee_data.get('employee_id')
-                status = employee_data.get('status')
-                notes = employee_data.get('notes', '')
-                
-                # Validate employee
-                employee = Employee.query.filter(
-                    Employee.id == employee_id,
-                    Employee.is_active == True
-                ).first()
-                
-                if not employee:
-                    error_count += 1
-                    errors.append(f'Employee ID {employee_id}: Not found or inactive')
-                    continue
-                
-                # Check permissions
-                if current_user.role == 'station_manager' and employee.location != current_user.location:
-                    error_count += 1
-                    errors.append(f'{employee.get_full_name()}: Access denied')
-                    continue
-                
-                # Check for leave conflicts
-                leave_request = LeaveRequest.query.filter(
-                    LeaveRequest.employee_id == employee.id,
-                    LeaveRequest.start_date <= target_date,
-                    LeaveRequest.end_date >= target_date,
-                    LeaveRequest.status == 'approved'
-                ).first()
-                
-                if leave_request and status in ['present', 'late']:
-                    error_count += 1
-                    errors.append(f'{employee.get_full_name()}: On approved leave')
-                    continue
-                
-                # Process attendance
-                current_time = datetime.now()
-                existing_attendance = AttendanceRecord.query.filter(
-                    AttendanceRecord.employee_id == employee.id,
-                    AttendanceRecord.date == target_date
-                ).first()
-                
-                if existing_attendance:
-                    # Update existing
-                    existing_attendance.status = status
-                    existing_attendance.notes = notes
-                    existing_attendance.updated_by = current_user.id # FIX: Use updated_by
-                    existing_attendance.last_updated = current_time # FIX: Use last_updated
-                else:
-                    # Create new
-                    attendance = AttendanceRecord(
-                        employee_id=employee.id,
-                        date=target_date,
-                        status=status,
-                        shift_type=employee.shift, # FIX: Use shift_type
-                        notes=notes,
-                        created_by=current_user.id, # FIX: Use created_by
-                        clock_in_time=current_time if status in ['present', 'late'] else None, # FIX: Use clock_in_time
-                        location=employee.location, # FIX: Use location
-                        clock_in_method='manual',
-                        ip_address=request.remote_addr
-                    )
-                    db.session.add(attendance)
-                
-                success_count += 1
+            employee_id = int(request.form['employee_id'])
+            status = request.form['status']
+            target_date_str = request.form.get('date', date.today().isoformat())
+            notes = request.form.get('notes', '').strip()
+            clock_in_time = request.form.get('clock_in_time', '').strip()
+            clock_out_time = request.form.get('clock_out_time', '').strip()
             
-            # Create bulk audit log
-            AuditLog.log_event( # FIX: Changed to log_event
+            # Validate date
+            try:
+                target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                flash('Invalid date format.', 'error')
+                return redirect(url_for('attendance.mark_attendance'))
+            
+            # Get employee and validate permissions
+            employee = Employee.query.get_or_404(employee_id)
+            
+            if current_user.role == 'station_manager' and employee.location != current_user.location:
+                flash('You can only mark attendance for employees at your location.', 'error')
+                return redirect(url_for('attendance.mark_attendance'))
+            
+            # Check if attendance already exists
+            existing_attendance = AttendanceRecord.query.filter_by(
+                employee_id=employee.id,
+                date=target_date
+            ).first()
+            
+            if existing_attendance:
+                # Update existing record
+                old_status = existing_attendance.status
+                existing_attendance.status = status
+                existing_attendance.notes = notes
+                existing_attendance.updated_by = current_user.id
+                existing_attendance.last_updated = datetime.utcnow()
+                
+                # Update clock times
+                if status in ['present', 'late', 'half_day']:
+                    if clock_in_time:
+                        existing_attendance.clock_in_time = datetime.combine(
+                            target_date, datetime.strptime(clock_in_time, '%H:%M').time()
+                        )
+                    
+                    if clock_out_time:
+                        existing_attendance.clock_out_time = datetime.combine(
+                            target_date, datetime.strptime(clock_out_time, '%H:%M').time()
+                        )
+                elif status == 'absent':
+                    existing_attendance.clock_in_time = None
+                    existing_attendance.clock_out_time = None
+                
+                # Recalculate work hours if both times are set
+                if existing_attendance.clock_in_time and existing_attendance.clock_out_time:
+                    work_duration = existing_attendance.clock_out_time - existing_attendance.clock_in_time
+                    existing_attendance.work_hours = work_duration.total_seconds() / 3600
+                
+                action_details = f'Updated attendance for {employee.employee_id} ({employee.get_full_name()}) from {old_status} to {status}'
+                
+            else:
+                # Create new attendance record
+                attendance = AttendanceRecord(
+                    employee_id=employee.id,
+                    date=target_date,
+                    status=status,
+                    notes=notes,
+                    created_by=current_user.id,
+                    location=employee.location,
+                    shift_type=getattr(employee, 'shift', 'day'),
+                    clock_in_method='manual',
+                    ip_address=request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
+                )
+                
+                # Set clock times
+                if status in ['present', 'late', 'half_day']:
+                    if clock_in_time:
+                        attendance.clock_in_time = datetime.combine(
+                            target_date, datetime.strptime(clock_in_time, '%H:%M').time()
+                        )
+                    else:
+                        attendance.clock_in_time = datetime.now()
+                    
+                    if clock_out_time:
+                        attendance.clock_out_time = datetime.combine(
+                            target_date, datetime.strptime(clock_out_time, '%H:%M').time()
+                        )
+                
+                # Calculate work hours if both times are set
+                if attendance.clock_in_time and attendance.clock_out_time:
+                    work_duration = attendance.clock_out_time - attendance.clock_in_time
+                    attendance.work_hours = work_duration.total_seconds() / 3600
+                
+                # Determine if employee is late
+                if status == 'present' and attendance.clock_in_time:
+                    is_late = is_employee_late(employee, attendance.clock_in_time)
+                    if is_late:
+                        attendance.status = 'late'
+                        attendance.minutes_late = calculate_late_minutes(employee, attendance.clock_in_time)
+                
+                db.session.add(attendance)
+                action_details = f'Marked {status} for {employee.employee_id} ({employee.get_full_name()})'
+            
+            # Log the action
+            AuditLog.log_action(
                 user_id=current_user.id,
-                event_type='bulk_attendance_marked', # FIX: Use event_type
-                target_type='attendance',
-                description=f'Bulk marked attendance for {success_count} employees on {target_date}. Errors: {error_count}',
-                ip_address=request.remote_addr
+                action='attendance_marked',
+                table_name='attendance_records',
+                record_id=employee.id,
+                description=action_details,
+                ip_address=request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
             )
             
             db.session.commit()
             
-            response_data = {
-                'success': True,
-                'message': f'Bulk attendance completed. Success: {success_count}, Errors: {error_count}',
-                'success_count': success_count,
-                'error_count': error_count
-            }
+            flash(f'Attendance marked successfully for {employee.get_full_name()}.', 'success')
+            return redirect(url_for('attendance.mark_attendance'))
+            
+        except ValueError as e:
+            flash(f'Invalid input: {str(e)}', 'error')
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f'Error marking attendance: {e}')
+            flash(f'Error marking attendance: {str(e)}', 'error')
+    
+    # GET request - show marking interface
+    target_date = request.args.get('date', date.today().isoformat())
+    
+    try:
+        target_date_obj = datetime.strptime(target_date, '%Y-%m-%d').date()
+    except ValueError:
+        target_date_obj = date.today()
+        target_date = target_date_obj.isoformat()
+    
+    # Get employees for attendance marking
+    if current_user.role == 'station_manager':
+        employees = Employee.query.filter(
+            Employee.location == current_user.location,
+            Employee.is_active == True
+        ).order_by(Employee.first_name, Employee.last_name).all()
+    else:
+        employees = Employee.query.filter(
+            Employee.is_active == True
+        ).order_by(Employee.location, Employee.first_name, Employee.last_name).all()
+    
+    # Get existing attendance records for the date
+    existing_attendance = {}
+    if employees:
+        attendance_records = AttendanceRecord.query.filter(
+            AttendanceRecord.employee_id.in_([emp.id for emp in employees]),
+            AttendanceRecord.date == target_date_obj
+        ).all()
+        
+        for record in attendance_records:
+            existing_attendance[record.employee_id] = record
+    
+    return render_template('attendance/mark.html',
+                         employees=employees,
+                         existing_attendance=existing_attendance,
+                         target_date=target_date,
+                         today=date.today().isoformat())
+
+@attendance_bp.route('/bulk-mark', methods=['GET', 'POST'])
+@login_required
+def bulk_mark_attendance():
+    """Enhanced bulk attendance marking interface"""
+    # FIXED: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    from models.audit import AuditLog
+    
+    if not check_attendance_permission('mark'):
+        flash('You do not have permission to mark attendance.', 'error')
+        return redirect(url_for('attendance.overview'))
+    
+    if request.method == 'POST':
+        try:
+            target_date_str = request.form.get('date', date.today().isoformat())
+            employee_data = request.form.getlist('employee_status')
+            
+            try:
+                target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                flash('Invalid date format.', 'error')
+                return redirect(url_for('attendance.bulk_mark_attendance'))
+            
+            success_count = 0
+            error_count = 0
+            errors = []
+            
+            for data_str in employee_data:
+                try:
+                    employee_id, status = data_str.split(':')
+                    employee_id = int(employee_id)
+                    
+                    if status == 'skip':
+                        continue
+                    
+                    employee = Employee.query.get(employee_id)
+                    if not employee:
+                        continue
+                    
+                    # Check permissions
+                    if (current_user.role == 'station_manager' and 
+                        employee.location != current_user.location):
+                        continue
+                    
+                    # Check if attendance already exists
+                    existing = AttendanceRecord.query.filter_by(
+                        employee_id=employee.id,
+                        date=target_date
+                    ).first()
+                    
+                    if existing:
+                        existing.status = status
+                        existing.updated_by = current_user.id
+                        existing.last_updated = datetime.utcnow()
+                    else:
+                        attendance = AttendanceRecord(
+                            employee_id=employee.id,
+                            date=target_date,
+                            status=status,
+                            created_by=current_user.id,
+                            location=employee.location,
+                            shift_type=getattr(employee, 'shift', 'day'),
+                            clock_in_method='bulk_mark',
+                            ip_address=request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
+                        )
+                        
+                        # Set default clock-in time for present/late status
+                        if status in ['present', 'late']:
+                            attendance.clock_in_time = datetime.now()
+                        
+                        db.session.add(attendance)
+                    
+                    success_count += 1
+                    
+                except (ValueError, IndexError):
+                    error_count += 1
+                    errors.append(f'Invalid data format for employee ID {employee_id}')
+                except Exception as e:
+                    error_count += 1
+                    errors.append(f'Error processing employee {employee_id}: {str(e)}')
+            
+            # Log bulk action
+            AuditLog.log_action(
+                user_id=current_user.id,
+                action='bulk_attendance_marked',
+                description=f'Bulk attendance marking for {target_date}. Success: {success_count}, Errors: {error_count}',
+                ip_address=request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
+            )
+            
+            db.session.commit()
+            
+            flash(f'Bulk attendance completed. Success: {success_count}, Errors: {error_count}', 'success')
             
             if errors:
-                response_data['errors'] = errors
+                for error in errors[:5]:  # Show first 5 errors
+                    flash(error, 'warning')
             
-            return jsonify(response_data)
+            return redirect(url_for('attendance.bulk_mark_attendance'))
             
         except Exception as e:
             db.session.rollback()
-            return jsonify({'success': False, 'message': f'Error processing bulk attendance: {str(e)}'}), 500
+            current_app.logger.error(f'Error in bulk attendance marking: {e}')
+            flash(f'Error processing bulk attendance: {str(e)}', 'error')
     
     # GET request - show bulk marking interface
-    target_date = date.today()
+    target_date = request.args.get('date', date.today().isoformat())
+    
+    try:
+        target_date_obj = datetime.strptime(target_date, '%Y-%m-%d').date()
+    except ValueError:
+        target_date_obj = date.today()
+        target_date = target_date_obj.isoformat()
     
     # Get employees for bulk marking
     if current_user.role == 'station_manager':
@@ -386,29 +380,32 @@ def bulk_mark_attendance():
             Employee.is_active == True
         ).order_by(Employee.first_name, Employee.last_name).all()
     else:
-        employees = Employee.query.filter(Employee.is_active == True).order_by(
-            Employee.location, Employee.first_name, Employee.last_name
-        ).all()
+        employees = Employee.query.filter(
+            Employee.is_active == True
+        ).order_by(Employee.location, Employee.first_name, Employee.last_name).all()
     
     # Get existing attendance for today
     existing_attendance = {}
-    for employee in employees:
-        attendance = AttendanceRecord.query.filter(
-            AttendanceRecord.employee_id == employee.id,
-            AttendanceRecord.date == target_date
-        ).first()
-        existing_attendance[employee.id] = attendance
+    if employees:
+        attendance_records = AttendanceRecord.query.filter(
+            AttendanceRecord.employee_id.in_([emp.id for emp in employees]),
+            AttendanceRecord.date == target_date_obj
+        ).all()
+        
+        for record in attendance_records:
+            existing_attendance[record.employee_id] = record
     
     return render_template('attendance/bulk_mark.html',
                          employees=employees,
                          existing_attendance=existing_attendance,
-                         target_date=target_date)
+                         target_date=target_date,
+                         today=date.today().isoformat())
 
 @attendance_bp.route('/clock-in/<int:employee_id>', methods=['POST'])
 @login_required
 def clock_in_employee(employee_id):
     """Enhanced clock-in with time validation"""
-    # FIX: Local imports
+    # FIXED: Local imports
     from models.employee import Employee
     from models.attendance import AttendanceRecord
     from models.audit import AuditLog
@@ -427,11 +424,11 @@ def clock_in_employee(employee_id):
         AttendanceRecord.date == today
     ).first()
     
-    if existing_attendance and existing_attendance.clock_in_time: # FIX: Use clock_in_time
+    if existing_attendance and existing_attendance.clock_in_time:
         return jsonify({
             'success': False, 
             'message': 'Employee already clocked in today',
-            'clock_in_time': existing_attendance.clock_in_time.strftime('%H:%M') # FIX: Use clock_in_time
+            'clock_in_time': existing_attendance.clock_in_time.strftime('%H:%M')
         }), 400
     
     try:
@@ -444,34 +441,34 @@ def clock_in_employee(employee_id):
         
         if existing_attendance:
             # Update existing record
-            existing_attendance.clock_in_time = current_time # FIX: Use clock_in_time
+            existing_attendance.clock_in_time = current_time
             existing_attendance.status = status
-            existing_attendance.minutes_late = late_minutes # FIX: Use minutes_late
-            existing_attendance.updated_by = current_user.id # FIX: Use updated_by
+            existing_attendance.minutes_late = late_minutes
+            existing_attendance.updated_by = current_user.id
         else:
             # Create new record
             attendance = AttendanceRecord(
                 employee_id=employee.id,
                 date=today,
                 status=status,
-                shift_type=employee.shift, # FIX: Use shift_type
-                clock_in_time=current_time, # FIX: Use clock_in_time
-                minutes_late=late_minutes, # FIX: Use minutes_late
-                created_by=current_user.id, # FIX: Use created_by
-                location=employee.location, # FIX: Use location
-                clock_in_method='api_clock_in', # FIX: Use method
-                ip_address=request.remote_addr
+                shift_type=getattr(employee, 'shift', 'day'),
+                clock_in_time=current_time,
+                minutes_late=late_minutes,
+                created_by=current_user.id,
+                location=employee.location,
+                clock_in_method='api_clock_in',
+                ip_address=request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
             )
             db.session.add(attendance)
         
         # Create audit log
-        AuditLog.log_event( # FIX: Changed to log_event
+        AuditLog.log_action(
             user_id=current_user.id,
-            event_type='clock_in', # FIX: Use event_type
-            target_type='attendance',
-            target_id=employee.id,
+            action='clock_in',
+            table_name='attendance_records',
+            record_id=employee.id,
             description=f'Clocked in {employee.employee_id} at {current_time.strftime("%H:%M")} - {status}',
-            ip_address=request.remote_addr
+            ip_address=request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
         )
         
         db.session.commit()
@@ -487,13 +484,14 @@ def clock_in_employee(employee_id):
         
     except Exception as e:
         db.session.rollback()
+        current_app.logger.error(f'Error clocking in employee {employee_id}: {e}')
         return jsonify({'success': False, 'message': f'Error clocking in: {str(e)}'}), 500
 
 @attendance_bp.route('/clock-out/<int:employee_id>', methods=['POST'])
 @login_required
 def clock_out_employee(employee_id):
     """Enhanced clock-out with hours calculation"""
-    # FIX: Local imports
+    # FIXED: Local imports
     from models.employee import Employee
     from models.attendance import AttendanceRecord
     from models.audit import AuditLog
@@ -516,29 +514,37 @@ def clock_out_employee(employee_id):
     if not attendance:
         return jsonify({'success': False, 'message': 'No active attendance record found'}), 404
     
-    if attendance.clock_out_time: # FIX: Use clock_out_time
+    if attendance.clock_out_time:
         return jsonify({
             'success': False, 
             'message': 'Employee already clocked out',
-            'clock_out_time': attendance.clock_out_time.strftime('%H:%M') # FIX: Use clock_out_time
+            'clock_out_time': attendance.clock_out_time.strftime('%H:%M')
         }), 400
     
     try:
         current_time = datetime.now()
-        attendance.clock_out_time = current_time # FIX: Use clock_out_time
-        attendance.updated_by = current_user.id # FIX: Use updated_by
+        attendance.clock_out_time = current_time
+        attendance.updated_by = current_user.id
         
         # Calculate hours worked and overtime
-        attendance._calculate_work_hours() # FIX: Use internal method
+        if attendance.clock_in_time:
+            work_duration = attendance.clock_out_time - attendance.clock_in_time
+            hours_worked = work_duration.total_seconds() / 3600
+            attendance.work_hours = hours_worked
+            
+            # Calculate overtime (assuming 8-hour standard day)
+            standard_hours = 8.0
+            overtime_hours = max(0, hours_worked - standard_hours)
+            attendance.overtime_hours = overtime_hours
         
         # Create audit log
-        AuditLog.log_event( # FIX: Changed to log_event
+        AuditLog.log_action(
             user_id=current_user.id,
-            event_type='clock_out', # FIX: Use event_type
-            target_type='attendance',
-            target_id=employee.id,
-            description=f'Clocked out {employee.employee_id} at {current_time.strftime("%H:%M")}. Hours worked: {attendance.work_hours}', # FIX: Use work_hours
-            ip_address=request.remote_addr
+            action='clock_out',
+            table_name='attendance_records',
+            record_id=employee.id,
+            description=f'Clocked out {employee.employee_id} at {current_time.strftime("%H:%M")}. Hours worked: {attendance.work_hours:.2f}',
+            ip_address=request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
         )
         
         db.session.commit()
@@ -547,426 +553,175 @@ def clock_out_employee(employee_id):
             'success': True,
             'message': f'{employee.get_full_name()} clocked out successfully',
             'clock_out_time': current_time.strftime('%H:%M'),
-            'hours_worked': round(float(attendance.work_hours), 2), # FIX: Use work_hours
-            'overtime_hours': round(float(attendance.overtime_hours or 0), 2),
-            'total_break_time': attendance.total_break_minutes # FIX: Use total_break_minutes
+            'hours_worked': round(attendance.work_hours, 2),
+            'overtime_hours': round(attendance.overtime_hours or 0, 2)
         })
         
     except Exception as e:
         db.session.rollback()
+        current_app.logger.error(f'Error clocking out employee {employee_id}: {e}')
         return jsonify({'success': False, 'message': f'Error clocking out: {str(e)}'}), 500
 
 @attendance_bp.route('/history')
 @login_required
 def attendance_history():
     """Enhanced attendance history with advanced filtering"""
-    # FIX: Local imports
+    # FIXED: Local imports
     from models.employee import Employee
     from models.attendance import AttendanceRecord
+    
+    if not check_attendance_permission('view'):
+        flash('You do not have permission to view attendance history.', 'error')
+        return redirect(url_for('dashboard.main'))
     
     # Get filter parameters
     start_date_str = request.args.get('start_date', (date.today() - timedelta(days=30)).isoformat())
     end_date_str = request.args.get('end_date', date.today().isoformat())
-    employee_filter = request.args.get('employee', 'all')
+    employee_filter = request.args.get('employee', '')
     location_filter = request.args.get('location', 'all')
     department_filter = request.args.get('department', 'all')
     status_filter = request.args.get('status', 'all')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
     
     try:
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
     except ValueError:
+        flash('Invalid date format. Please use YYYY-MM-DD.', 'error')
         start_date = date.today() - timedelta(days=30)
         end_date = date.today()
     
-    # Build query based on user role
-    if current_user.role == 'station_manager':
-        base_query = db.session.query(AttendanceRecord).join(Employee).filter(
-            Employee.location == current_user.location,
-            Employee.is_active == True,
+    try:
+        # Build query
+        query = db.session.query(AttendanceRecord, Employee).join(
+            Employee, AttendanceRecord.employee_id == Employee.id
+        ).filter(
             AttendanceRecord.date >= start_date,
-            AttendanceRecord.date <= end_date
+            AttendanceRecord.date <= end_date,
+            Employee.is_active == True
         )
-    else:
-        base_query = db.session.query(AttendanceRecord).join(Employee).filter(
-            Employee.is_active == True,
-            AttendanceRecord.date >= start_date,
-            AttendanceRecord.date <= end_date
+        
+        # Apply role-based filtering
+        if current_user.role == 'station_manager':
+            query = query.filter(Employee.location == current_user.location)
+        elif location_filter != 'all':
+            query = query.filter(Employee.location == location_filter)
+        
+        # Apply other filters
+        if employee_filter:
+            search_pattern = f"%{employee_filter}%"
+            query = query.filter(or_(
+                Employee.first_name.ilike(search_pattern),
+                Employee.last_name.ilike(search_pattern),
+                Employee.employee_id.ilike(search_pattern)
+            ))
+        
+        if department_filter != 'all':
+            query = query.filter(Employee.department == department_filter)
+        
+        if status_filter != 'all':
+            if status_filter == 'present_late':
+                query = query.filter(AttendanceRecord.status.in_(['present', 'late']))
+            else:
+                query = query.filter(AttendanceRecord.status == status_filter)
+        
+        # Order by date (newest first) and employee name
+        query = query.order_by(desc(AttendanceRecord.date), Employee.first_name)
+        
+        # Paginate
+        history_records = query.paginate(
+            page=page, per_page=per_page, error_out=False
         )
+        
+        # Get summary statistics
+        summary_stats = get_attendance_summary_stats(start_date, end_date, current_user)
+        
+        # Get filter options
+        filter_options = get_history_filter_options(current_user)
+        
+        return render_template('attendance/history.html',
+                             history_records=history_records,
+                             summary_stats=summary_stats,
+                             filter_options=filter_options,
+                             start_date=start_date_str,
+                             end_date=end_date_str,
+                             employee_filter=employee_filter,
+                             location_filter=location_filter,
+                             department_filter=department_filter,
+                             status_filter=status_filter,
+                             per_page=per_page)
+                             
+    except Exception as e:
+        current_app.logger.error(f"Error in attendance history: {e}")
+        flash('Error loading attendance history. Please try again.', 'error')
+        return redirect(url_for('attendance.overview'))
+
+@attendance_bp.route('/api/today-summary')
+@login_required
+def api_today_summary():
+    """API endpoint for today's attendance summary"""
+    # FIXED: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
     
-    # Apply filters
-    if employee_filter != 'all':
-        base_query = base_query.filter(Employee.id == employee_filter)
+    location = request.args.get('location', 'all')
     
-    if location_filter != 'all' and current_user.role != 'station_manager':
-        base_query = base_query.filter(Employee.location == location_filter)
-    
-    if department_filter != 'all':
-        base_query = base_query.filter(Employee.department == department_filter)
-    
-    if status_filter != 'all':
-        if status_filter == 'present_late':
-            base_query = base_query.filter(AttendanceRecord.status.in_(['present', 'late']))
+    try:
+        today = date.today()
+        
+        # Base query based on user role
+        if current_user.role == 'station_manager':
+            employee_query = Employee.query.filter(
+                Employee.location == current_user.location,
+                Employee.is_active == True
+            )
         else:
-            base_query = base_query.filter(AttendanceRecord.status == status_filter)
-    
-    # Order and paginate
-    page = request.args.get('page', 1, type=int)
-    per_page = 50
-    
-    attendance_records = base_query.order_by(
-        desc(AttendanceRecord.date),
-        Employee.first_name,
-        Employee.last_name
-    ).paginate(page=page, per_page=per_page, error_out=False)
-    
-    # Calculate summary statistics
-    # FIX: The query returns AttendanceRecord objects, so we pass that list to the helper
-    summary_stats = calculate_history_summary(base_query.all())
-    
-    # Get filter options
-    filter_options = get_history_filter_options(current_user)
-    
-    return render_template('attendance/history.html',
-                         attendance_records=attendance_records,
-                         summary_stats=summary_stats,
-                         filter_options=filter_options,
-                         start_date=start_date,
-                         end_date=end_date,
-                         employee_filter=employee_filter,
-                         location_filter=location_filter,
-                         department_filter=department_filter,
-                         status_filter=status_filter)
-
-@attendance_bp.route('/reports')
-@login_required
-def attendance_reports():
-    """Enhanced attendance reporting dashboard"""
-    if current_user.role == 'station_manager':
-        flash('Access denied. HR Manager privileges required for detailed reports.', 'danger')
-        return redirect(url_for('attendance.mark_attendance'))
-    
-    # Get report parameters
-    report_type = request.args.get('type', 'daily')
-    start_date_str = request.args.get('start_date', date.today().isoformat())
-    end_date_str = request.args.get('end_date', date.today().isoformat())
-    
-    try:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-    except ValueError:
-        start_date = end_date = date.today()
-    
-    # Generate reports based on type
-    if report_type == 'daily':
-        report_data = generate_daily_report(start_date)
-    elif report_type == 'weekly':
-        report_data = generate_weekly_report(start_date, end_date)
-    elif report_type == 'monthly':
-        report_data = generate_monthly_report(start_date, end_date)
-    elif report_type == 'department':
-        report_data = generate_department_report(start_date, end_date)
-    elif report_type == 'location':
-        report_data = generate_location_report(start_date, end_date)
-    else:
-        report_data = generate_daily_report(date.today())
-    
-    return render_template('attendance/reports.html',
-                         report_data=report_data,
-                         report_type=report_type,
-                         start_date=start_date,
-                         end_date=end_date)
-
-# Helper Functions
-
-def get_attendance_filter_options(user):
-    """Get filter options for attendance marking"""
-    from config import Config
-    
-    options = {
-        'locations': [],
-        'shifts': ['all', 'day', 'night'],
-        'statuses': ['present', 'absent', 'late', 'half_day']
-    }
-    
-    if user.role == 'hr_manager':
-        options['locations'] = ['all'] + list(Config.COMPANY_LOCATIONS.keys())
-    elif user.role == 'station_manager':
-        options['locations'] = [user.location]
-    
-    return options
-
-def calculate_day_summary(employees, attendance_data, leave_data):
-    """Calculate summary statistics for the day"""
-    total = len(employees)
-    present = sum(1 for emp in employees if attendance_data.get(emp.id) and attendance_data[emp.id].status in ['present', 'late'])
-    absent = sum(1 for emp in employees if attendance_data.get(emp.id) and attendance_data[emp.id].status == 'absent')
-    on_leave = sum(1 for emp in employees if leave_data.get(emp.id))
-    not_marked = total - present - absent - on_leave
-    late = sum(1 for emp in employees if attendance_data.get(emp.id) and attendance_data[emp.id].status == 'late')
-    
-    return {
-        'total': total,
-        'present': present,
-        'absent': absent,
-        'on_leave': on_leave,
-        'not_marked': not_marked,
-        'late': late,
-        'attendance_rate': round((present / total * 100), 1) if total > 0 else 0
-    }
-
-def is_employee_late(employee, clock_in_time):
-    """Check if employee is late based on shift and grace period"""
-    from config import Config # FIX: Local import
-    
-    # Get expected start time based on shift
-    if employee.shift == 'day':
-        # FIX: Getting specific hour/minute from config would be better, but we use the fixed 6am/8am for now
-        expected_start = clock_in_time.replace(hour=6, minute=0, second=0, microsecond=0)
-    elif employee.shift == 'night':
-        expected_start = clock_in_time.replace(hour=18, minute=0, second=0, microsecond=0)
-    else:  # Head office or no shift
-        expected_start = clock_in_time.replace(hour=8, minute=0, second=0, microsecond=0)
-    
-    # Add grace period
-    # FIX: Config.ATTENDANCE_GRACE_PERIOD is not defined, using fixed value from validation rules
-    grace_period = Config.VALIDATION_RULES.get('attendance_rules', {}).get('late_threshold_minutes', 15)
-    expected_start_with_grace = expected_start + timedelta(minutes=grace_period)
-    
-    return clock_in_time > expected_start_with_grace
-
-def calculate_late_minutes(employee, clock_in_time):
-    """Calculate how many minutes late the employee is"""
-    # Get expected start time based on shift
-    if employee.shift == 'day':
-        expected_start = clock_in_time.replace(hour=6, minute=0, second=0, microsecond=0)
-    elif employee.shift == 'night':
-        expected_start = clock_in_time.replace(hour=18, minute=0, second=0, microsecond=0)
-    else:  # Head office or no shift
-        expected_start = clock_in_time.replace(hour=8, minute=0, second=0, microsecond=0)
-    
-    if clock_in_time > expected_start:
-        return int((clock_in_time - expected_start).total_seconds() / 60)
-    return 0
-
-def calculate_history_summary(attendance_records):
-    """Calculate summary statistics for attendance history"""
-    if not attendance_records:
-        return {'total': 0}
-    
-    total = len(attendance_records)
-    present = sum(1 for record in attendance_records if record.status in ['present', 'late'])
-    absent = sum(1 for record in attendance_records if record.status == 'absent')
-    late = sum(1 for record in attendance_records if record.status == 'late')
-    on_leave = sum(1 for record in attendance_records if 'leave' in record.status)
-    
-    # Calculate total hours worked
-    total_hours = sum(float(record.work_hours or 0) for record in attendance_records) # FIX: Use work_hours
-    total_overtime = sum(float(record.overtime_hours or 0) for record in attendance_records)
-    
-    return {
-        'total': total,
-        'present': present,
-        'absent': absent,
-        'late': late,
-        'on_leave': on_leave,
-        'attendance_rate': round((present / total * 100), 1) if total > 0 else 0,
-        'total_hours': round(total_hours, 2),
-        'total_overtime': round(total_overtime, 2),
-        'average_daily_hours': round(total_hours / total, 2) if total > 0 else 0
-    }
-
-def get_history_filter_options(user):
-    """Get filter options for attendance history"""
-    from config import Config
-    from models.employee import Employee
-    
-    options = {
-        'locations': [],
-        'departments': list(Config.DEPARTMENTS.keys()),
-        'statuses': ['all', 'present', 'absent', 'late', 'present_late', 'half_day'],
-        'employees': []
-    }
-    
-    if user.role == 'hr_manager':
-        options['locations'] = ['all'] + list(Config.COMPANY_LOCATIONS.keys())
+            employee_query = Employee.query.filter(Employee.is_active == True)
+            if location != 'all':
+                employee_query = employee_query.filter(Employee.location == location)
         
-        # Get employees for dropdown
-        options['employees'] = Employee.query.filter(Employee.is_active == True).order_by(
-            Employee.first_name, Employee.last_name
-        ).all()
-    elif user.role == 'station_manager':
-        options['locations'] = [user.location]
+        total_employees = employee_query.count()
         
-        # Get station employees
-        options['employees'] = Employee.query.filter(
-            Employee.location == user.location,
-            Employee.is_active == True
-        ).order_by(Employee.first_name, Employee.last_name).all()
-    
-    return options
-
-def generate_daily_report(target_date):
-    """Generate daily attendance report"""
-    # FIX: Local imports
-    from models.employee import Employee
-    from models.attendance import AttendanceRecord
-    from models.leave import LeaveRequest
-    from config import Config
-    
-    # Get all employees with their attendance for the day
-    employees = Employee.query.filter(Employee.is_active == True).all()
-    
-    report_data = {
-        'date': target_date,
-        'type': 'daily',
-        'locations': {},
-        'summary': {'total': 0, 'present': 0, 'absent': 0, 'late': 0, 'on_leave': 0}
-    }
-    
-    for location in Config.COMPANY_LOCATIONS.keys():
-        location_employees = [emp for emp in employees if emp.location == location]
-        location_attendance = []
-        
-        for employee in location_employees:
-            attendance = AttendanceRecord.query.filter(
-                AttendanceRecord.employee_id == employee.id,
-                AttendanceRecord.date == target_date
-            ).first()
-            
-            leave_request = LeaveRequest.query.filter(
-                LeaveRequest.employee_id == employee.id,
-                LeaveRequest.start_date <= target_date,
-                LeaveRequest.end_date >= target_date,
-                LeaveRequest.status == 'approved'
-            ).first()
-            
-            status = 'not_marked'
-            if leave_request:
-                status = 'on_leave'
-            elif attendance:
-                status = attendance.status
-            
-            location_attendance.append({
-                'employee': employee,
-                'attendance': attendance,
-                'leave_request': leave_request,
-                'status': status
-            })
-            
-            # Update summary
-            report_data['summary']['total'] += 1
-            if status in ['present', 'late']:
-                report_data['summary']['present'] += 1
-            elif status == 'absent':
-                report_data['summary']['absent'] += 1
-            elif status == 'late':
-                report_data['summary']['late'] += 1
-            elif status == 'on_leave':
-                report_data['summary']['on_leave'] += 1
-        
-        report_data['locations'][location] = location_attendance
-    
-    # Calculate attendance rate
-    if report_data['summary']['total'] > 0:
-        report_data['summary']['attendance_rate'] = round(
-            (report_data['summary']['present'] / report_data['summary']['total'] * 100), 1
+        # Get today's attendance
+        attendance_query = AttendanceRecord.query.join(Employee).filter(
+            AttendanceRecord.date == today,
+            AttendanceRecord.employee_id.in_(
+                employee_query.with_entities(Employee.id)
+            )
         )
-    
-    return report_data
-
-def generate_weekly_report(start_date, end_date):
-    """Generate weekly attendance report"""
-    # Implementation for weekly report
-    return {'type': 'weekly', 'message': 'Weekly report generation in progress'}
-
-def generate_monthly_report(start_date, end_date):
-    """Generate monthly attendance report"""
-    # Implementation for monthly report
-    return {'type': 'monthly', 'message': 'Monthly report generation in progress'}
-
-def generate_department_report(start_date, end_date):
-    """Generate department-wise attendance report"""
-    # Implementation for department report
-    return {'type': 'department', 'message': 'Department report generation in progress'}
-
-def generate_location_report(start_date, end_date):
-    """Generate location-wise attendance report"""
-    # Implementation for location report
-    return {'type': 'location', 'message': 'Location report generation in progress'}
-
-# API Endpoints
-
-@attendance_bp.route('/api/daily-summary')
-@login_required
-def api_daily_summary():
-    """API endpoint for daily attendance summary"""
-    # FIX: Local imports
-    from models.employee import Employee
-    from models.attendance import AttendanceRecord
-    from models.leave import LeaveRequest
-    
-    target_date_str = request.args.get('date', date.today().isoformat())
-    
-    try:
-        target_date = date.fromisoformat(target_date_str)
-    except ValueError:
-        return jsonify({'error': 'Invalid date format'}), 400
-    
-    # Get summary based on user role
-    if current_user.role == 'station_manager':
-        employees = Employee.query.filter(
-            Employee.location == current_user.location,
-            Employee.is_active == True
-        ).all()
-    else:
-        employees = Employee.query.filter(Employee.is_active == True).all()
-    
-    # Calculate statistics
-    total = len(employees)
-    present = absent = late = on_leave = 0
-    
-    for employee in employees:
-        # Check attendance
-        attendance = AttendanceRecord.query.filter(
-            AttendanceRecord.employee_id == employee.id,
-            AttendanceRecord.date == target_date
-        ).first()
         
-        # Check leave
-        leave_request = LeaveRequest.query.filter(
-            LeaveRequest.employee_id == employee.id,
-            LeaveRequest.start_date <= target_date,
-            LeaveRequest.end_date >= target_date,
-            LeaveRequest.status == 'approved'
-        ).first()
+        attendance_records = attendance_query.all()
         
-        if leave_request:
-            on_leave += 1
-        elif attendance:
-            if attendance.status in ['present', 'late']:
-                present += 1
-                if attendance.status == 'late':
-                    late += 1
-            elif attendance.status == 'absent':
-                absent += 1
-    
-    return jsonify({
-        'date': target_date.isoformat(),
-        'total_employees': total,
-        'present': present,
-        'absent': absent,
-        'late': late,
-        'on_leave': on_leave,
-        'not_marked': total - present - absent - on_leave,
-        'attendance_rate': round((present / total * 100), 1) if total > 0 else 0
-    })
+        # Calculate summary
+        present = sum(1 for record in attendance_records if record.status in ['present', 'late'])
+        absent = sum(1 for record in attendance_records if record.status == 'absent')
+        late = sum(1 for record in attendance_records if record.status == 'late')
+        on_leave = sum(1 for record in attendance_records if 'leave' in record.status)
+        not_marked = total_employees - len(attendance_records)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'total': total_employees,
+                'present': present,
+                'absent': absent,
+                'late': late,
+                'on_leave': on_leave,
+                'not_marked': not_marked,
+                'attendance_rate': round((present / total_employees * 100), 1) if total_employees > 0 else 0
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting today's summary: {e}")
+        return jsonify({'success': False, 'message': 'Error loading data'}), 500
 
 @attendance_bp.route('/api/employee-status/<int:employee_id>')
 @login_required
 def api_employee_status(employee_id):
     """API endpoint for individual employee attendance status"""
-    # FIX: Local imports
+    # FIXED: Local imports
     from models.employee import Employee
     from models.attendance import AttendanceRecord
     from models.leave import LeaveRequest
@@ -981,7 +736,7 @@ def api_employee_status(employee_id):
     target_date_str = request.args.get('date', date.today().isoformat())
     
     try:
-        target_date = date.fromisoformat(target_date_str)
+        target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
     except ValueError:
         return jsonify({'error': 'Invalid date format'}), 400
     
@@ -1001,7 +756,7 @@ def api_employee_status(employee_id):
     
     response_data = {
         'employee_id': employee.id,
-        'employee_name': employee.get_full_name(), # FIX: Use get_full_name
+        'employee_name': employee.get_full_name(),
         'date': target_date.isoformat(),
         'status': 'not_marked',
         'clock_in': None,
@@ -1020,10 +775,337 @@ def api_employee_status(employee_id):
     elif attendance:
         response_data.update({
             'status': attendance.status,
-            'clock_in': attendance.clock_in_time.strftime('%H:%M') if attendance.clock_in_time else None, # FIX: Use clock_in_time
-            'clock_out': attendance.clock_out_time.strftime('%H:%M') if attendance.clock_out_time else None, # FIX: Use clock_out_time
-            'hours_worked': float(attendance.work_hours) if attendance.work_hours else 0, # FIX: Use work_hours
+            'clock_in': attendance.clock_in_time.strftime('%H:%M') if attendance.clock_in_time else None,
+            'clock_out': attendance.clock_out_time.strftime('%H:%M') if attendance.clock_out_time else None,
+            'hours_worked': float(attendance.work_hours) if attendance.work_hours else 0,
             'notes': attendance.notes
         })
     
     return jsonify(response_data)
+
+# Helper Functions
+
+def get_attendance_overview_data(target_date, location_filter, department_filter, shift_filter, status_filter):
+    """Get comprehensive attendance overview data"""
+    # FIXED: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    from models.leave import LeaveRequest
+    
+    # Build base query
+    employee_query = Employee.query.filter(Employee.is_active == True)
+    
+    # Apply role-based filtering
+    if current_user.role == 'station_manager':
+        employee_query = employee_query.filter(Employee.location == current_user.location)
+    elif location_filter != 'all':
+        employee_query = employee_query.filter(Employee.location == location_filter)
+    
+    # Apply other filters
+    if department_filter != 'all':
+        employee_query = employee_query.filter(Employee.department == department_filter)
+    
+    if shift_filter != 'all':
+        employee_query = employee_query.filter(Employee.shift == shift_filter)
+    
+    employees = employee_query.all()
+    total_employees = len(employees)
+    
+    # Get attendance records for the date
+    attendance_records = []
+    if employees:
+        attendance_query = AttendanceRecord.query.filter(
+            AttendanceRecord.employee_id.in_([emp.id for emp in employees]),
+            AttendanceRecord.date == target_date
+        )
+        
+        if status_filter != 'all':
+            if status_filter == 'present_late':
+                attendance_query = attendance_query.filter(AttendanceRecord.status.in_(['present', 'late']))
+            else:
+                attendance_query = attendance_query.filter(AttendanceRecord.status == status_filter)
+        
+        attendance_records = attendance_query.all()
+    
+    # Get leave requests for the date
+    leave_requests = []
+    if employees:
+        leave_requests = LeaveRequest.query.filter(
+            LeaveRequest.employee_id.in_([emp.id for emp in employees]),
+            LeaveRequest.start_date <= target_date,
+            LeaveRequest.end_date >= target_date,
+            LeaveRequest.status == 'approved'
+        ).all()
+    
+    # Calculate statistics
+    present_count = len([r for r in attendance_records if r.status in ['present', 'late']])
+    absent_count = len([r for r in attendance_records if r.status == 'absent'])
+    late_count = len([r for r in attendance_records if r.status == 'late'])
+    on_leave_count = len(leave_requests)
+    not_marked_count = total_employees - len(attendance_records)
+    
+    # Build detailed employee list
+    employee_details = []
+    attendance_dict = {r.employee_id: r for r in attendance_records}
+    leave_dict = {r.employee_id: r for r in leave_requests}
+    
+    for employee in employees:
+        attendance = attendance_dict.get(employee.id)
+        leave = leave_dict.get(employee.id)
+        
+        if leave:
+            status = 'on_leave'
+            status_detail = f"On {leave.leave_type.replace('_', ' ').title()}"
+        elif attendance:
+            status = attendance.status
+            status_detail = attendance.status.replace('_', ' ').title()
+            if attendance.clock_in_time:
+                status_detail += f" (In: {attendance.clock_in_time.strftime('%H:%M')})"
+            if attendance.clock_out_time:
+                status_detail += f" (Out: {attendance.clock_out_time.strftime('%H:%M')})"
+        else:
+            status = 'not_marked'
+            status_detail = 'Not Marked'
+        
+        employee_details.append({
+            'employee': employee,
+            'attendance': attendance,
+            'leave': leave,
+            'status': status,
+            'status_detail': status_detail
+        })
+    
+    return {
+        'total_employees': total_employees,
+        'present_count': present_count,
+        'absent_count': absent_count,
+        'late_count': late_count,
+        'on_leave_count': on_leave_count,
+        'not_marked_count': not_marked_count,
+        'attendance_rate': round((present_count / total_employees * 100), 1) if total_employees > 0 else 0,
+        'employee_details': employee_details,
+        'date': target_date
+    }
+
+def get_attendance_filter_options(user):
+    """Get available filter options for attendance"""
+    options = {
+        'locations': [],
+        'departments': list(current_app.config.get('DEPARTMENTS', {}).keys()),
+        'shifts': ['day', 'night'],
+        'statuses': ['present', 'absent', 'late', 'on_leave', 'present_late', 'all']
+    }
+    
+    # Locations based on role
+    if user.role == 'hr_manager':
+        options['locations'] = ['all'] + list(current_app.config.get('COMPANY_LOCATIONS', {}).keys())
+    elif user.role == 'station_manager':
+        options['locations'] = [user.location]
+    
+    return options
+
+def get_recent_attendance_activities():
+    """Get recent attendance activities for dashboard"""
+    # FIXED: Local imports
+    from models.audit import AuditLog
+    
+    try:
+        recent_logs = AuditLog.query.filter(
+            AuditLog.action.in_(['attendance_marked', 'clock_in', 'clock_out', 'bulk_attendance_marked'])
+        ).order_by(desc(AuditLog.timestamp)).limit(10).all()
+        
+        activities = []
+        for log in recent_logs:
+            activities.append({
+                'action': log.action,
+                'description': log.description,
+                'timestamp': log.timestamp,
+                'user_id': log.user_id
+            })
+        
+        return activities
+    except:
+        return []
+
+def get_weekly_attendance_trends(target_date):
+    """Get weekly attendance trends"""
+    # FIXED: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    
+    try:
+        # Calculate week start (Monday)
+        days_since_monday = target_date.weekday()
+        week_start = target_date - timedelta(days=days_since_monday)
+        
+        trends = []
+        for i in range(7):
+            day = week_start + timedelta(days=i)
+            if day <= target_date:  # Don't show future days
+                
+                # Get attendance for this day
+                if current_user.role == 'station_manager':
+                    day_attendance = AttendanceRecord.query.join(Employee).filter(
+                        AttendanceRecord.date == day,
+                        Employee.location == current_user.location,
+                        Employee.is_active == True
+                    ).all()
+                    
+                    total_employees = Employee.query.filter(
+                        Employee.location == current_user.location,
+                        Employee.is_active == True
+                    ).count()
+                else:
+                    day_attendance = AttendanceRecord.query.join(Employee).filter(
+                        AttendanceRecord.date == day,
+                        Employee.is_active == True
+                    ).all()
+                    
+                    total_employees = Employee.query.filter(Employee.is_active == True).count()
+                
+                present_count = len([r for r in day_attendance if r.status in ['present', 'late']])
+                
+                trends.append({
+                    'date': day.isoformat(),
+                    'day_name': day.strftime('%A'),
+                    'present': present_count,
+                    'total': total_employees,
+                    'rate': round((present_count / total_employees * 100) if total_employees > 0 else 0, 1)
+                })
+        
+        return trends
+    except:
+        return []
+
+def get_attendance_summary_stats(start_date, end_date, user):
+    """Calculate attendance summary statistics for date range"""
+    # FIXED: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    
+    try:
+        # Base query
+        if user.role == 'station_manager':
+            attendance_query = AttendanceRecord.query.join(Employee).filter(
+                AttendanceRecord.date >= start_date,
+                AttendanceRecord.date <= end_date,
+                Employee.location == user.location,
+                Employee.is_active == True
+            )
+        else:
+            attendance_query = AttendanceRecord.query.join(Employee).filter(
+                AttendanceRecord.date >= start_date,
+                AttendanceRecord.date <= end_date,
+                Employee.is_active == True
+            )
+        
+        attendance_records = attendance_query.all()
+        
+        if not attendance_records:
+            return {
+                'total': 0,
+                'present': 0,
+                'absent': 0,
+                'late': 0,
+                'on_leave': 0,
+                'attendance_rate': 0,
+                'total_hours': 0,
+                'total_overtime': 0,
+                'average_daily_hours': 0
+            }
+        
+        # Calculate statistics
+        total = len(attendance_records)
+        present = sum(1 for record in attendance_records if record.status in ['present', 'late'])
+        absent = sum(1 for record in attendance_records if record.status == 'absent')
+        late = sum(1 for record in attendance_records if record.status == 'late')
+        on_leave = sum(1 for record in attendance_records if 'leave' in record.status)
+        
+        # Calculate total hours worked
+        total_hours = sum(float(record.work_hours or 0) for record in attendance_records)
+        total_overtime = sum(float(record.overtime_hours or 0) for record in attendance_records)
+        
+        return {
+            'total': total,
+            'present': present,
+            'absent': absent,
+            'late': late,
+            'on_leave': on_leave,
+            'attendance_rate': round((present / total * 100), 1) if total > 0 else 0,
+            'total_hours': round(total_hours, 2),
+            'total_overtime': round(total_overtime, 2),
+            'average_daily_hours': round(total_hours / total, 2) if total > 0 else 0
+        }
+    except:
+        return {}
+
+def get_history_filter_options(user):
+    """Get filter options for attendance history"""
+    # FIXED: Local imports
+    from models.employee import Employee
+    
+    options = {
+        'locations': [],
+        'departments': list(current_app.config.get('DEPARTMENTS', {}).keys()),
+        'statuses': ['all', 'present', 'absent', 'late', 'present_late', 'half_day'],
+        'employees': []
+    }
+    
+    if user.role == 'hr_manager':
+        options['locations'] = ['all'] + list(current_app.config.get('COMPANY_LOCATIONS', {}).keys())
+        
+        # Get employees for dropdown
+        options['employees'] = Employee.query.filter(Employee.is_active == True).order_by(
+            Employee.first_name, Employee.last_name
+        ).all()
+    elif user.role == 'station_manager':
+        options['locations'] = [user.location]
+        
+        # Get station employees
+        options['employees'] = Employee.query.filter(
+            Employee.location == user.location,
+            Employee.is_active == True
+        ).order_by(Employee.first_name, Employee.last_name).all()
+    
+    return options
+
+def is_employee_late(employee, clock_in_time):
+    """Determine if employee is late based on shift and location"""
+    # Get expected start time based on employee's shift and location
+    location_config = current_app.config.get('COMPANY_LOCATIONS', {}).get(employee.location, {})
+    shifts = location_config.get('shifts', {})
+    
+    employee_shift = getattr(employee, 'shift', 'day')
+    
+    if employee_shift == 'day':
+        expected_time = datetime.strptime('06:00', '%H:%M').time()
+    elif employee_shift == 'night':
+        expected_time = datetime.strptime('18:00', '%H:%M').time()
+    else:
+        expected_time = datetime.strptime('08:00', '%H:%M').time()  # Default office hours
+    
+    # Allow 15-minute grace period
+    grace_period = timedelta(minutes=15)
+    expected_datetime = datetime.combine(clock_in_time.date(), expected_time)
+    
+    return clock_in_time > (expected_datetime + grace_period)
+
+def calculate_late_minutes(employee, clock_in_time):
+    """Calculate how many minutes late the employee is"""
+    location_config = current_app.config.get('COMPANY_LOCATIONS', {}).get(employee.location, {})
+    employee_shift = getattr(employee, 'shift', 'day')
+    
+    if employee_shift == 'day':
+        expected_time = datetime.strptime('06:00', '%H:%M').time()
+    elif employee_shift == 'night':
+        expected_time = datetime.strptime('18:00', '%H:%M').time()
+    else:
+        expected_time = datetime.strptime('08:00', '%H:%M').time()
+    
+    expected_datetime = datetime.combine(clock_in_time.date(), expected_time)
+    
+    if clock_in_time > expected_datetime:
+        late_duration = clock_in_time - expected_datetime
+        return int(late_duration.total_seconds() / 60)
+    
+    return 0
