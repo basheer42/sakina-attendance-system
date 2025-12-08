@@ -145,10 +145,10 @@ class Employee(db.Model):
     # Relationships
     # FIX: Use string literal for self-referential relationship
     supervisor = relationship('Employee', remote_side=[id], backref='direct_reports') 
-    attendance_records = relationship('AttendanceRecord', backref='employee', lazy='dynamic', cascade='all, delete-orphan')
-    leave_requests = relationship('LeaveRequest', backref='employee', lazy='dynamic', cascade='all, delete-orphan')
-    performance_reviews = relationship('PerformanceReview', backref='employee', lazy='dynamic', cascade='all, delete-orphan')
-    disciplinary_actions = relationship('DisciplinaryAction', backref='employee', lazy='dynamic', cascade='all, delete-orphan')
+    attendance_records = relationship('AttendanceRecord', backref='emp_record', lazy='dynamic', cascade='all, delete-orphan')
+    leave_requests = relationship('LeaveRequest', foreign_keys='LeaveRequest.employee_id', backref='emp_leave', lazy='dynamic', cascade='all, delete-orphan')
+    performance_reviews = relationship('PerformanceReview', backref='emp_review', lazy='dynamic', cascade='all, delete-orphan')
+    disciplinary_actions = relationship('DisciplinaryAction', backref='emp_discipline', lazy='dynamic', cascade='all, delete-orphan')
     
     def __init__(self, **kwargs):
         """Initialize employee with default values"""

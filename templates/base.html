@@ -6,8 +6,8 @@
     <meta name="description" content="Sakina Gas Company - Professional Attendance Management System">
     <meta name="author" content="Sakina Gas Company">
     
-    <!-- FIX: Added CSRF Token Meta Tag for AJAX -->
-    {% if csrf_token() %}
+    <!-- FIXED: Proper CSRF Token Meta Tag for AJAX with conditional check -->
+    {% if csrf_token %}
     <meta name="csrf-token" content="{{ csrf_token() }}">
     {% endif %}
 
@@ -39,8 +39,19 @@
         /* Header Styles */
         .navbar-brand {
             font-weight: 700;
-            font-size: 1.5rem;
-            color: var(--sakina-orange) !important;
+            font-size: 1.3rem;
+            color: white !important;
+            display: flex;
+            align-items: center;
+        }
+        
+        .navbar-brand .logo {
+            height: 40px;
+            width: 40px;
+            margin-right: 10px;
+            border-radius: 50%;
+            background: white;
+            padding: 2px;
         }
         
         .navbar {
@@ -76,14 +87,15 @@
         /* Sidebar Styles */
         .sidebar {
             background: linear-gradient(180deg, var(--sakina-blue) 0%, var(--sakina-dark-blue) 100%);
-            min-height: 100vh;
             position: fixed;
-            top: 0;
-            left: -250px;
+            top: 60px;
+            left: -260px;
+            height: calc(100vh - 60px);
             width: 250px;
-            z-index: 1000;
+            overflow-y: auto;
             transition: left 0.3s ease;
-            padding-top: 70px;
+            z-index: 1000;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
         }
         
         .sidebar.show {
@@ -95,297 +107,376 @@
         }
         
         .sidebar .nav-link {
-            color: rgba(255, 255, 255, 0.8);
+            color: rgba(255, 255, 255, 0.8) !important;
             padding: 12px 20px;
+            border: none;
             border-radius: 0;
             transition: all 0.3s ease;
         }
         
         .sidebar .nav-link:hover {
-            background-color: rgba(255, 107, 53, 0.2);
-            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white !important;
+            padding-left: 30px;
         }
         
         .sidebar .nav-link.active {
             background-color: var(--sakina-orange);
-            color: white;
+            color: white !important;
         }
         
         .sidebar .nav-link i {
-            margin-right: 10px;
             width: 20px;
+            margin-right: 10px;
+        }
+        
+        /* Login Page Specific Styles */
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--sakina-blue) 0%, var(--sakina-light-blue) 50%, var(--sakina-orange) 100%);
+        }
+        
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            max-width: 400px;
+            width: 100%;
+        }
+        
+        .login-header {
+            background: linear-gradient(45deg, var(--sakina-orange) 0%, #ff8a50 100%);
+            color: white;
+            text-align: center;
+            padding: 30px 20px;
+        }
+        
+        .login-header .logo {
+            height: 60px;
+            width: 60px;
+            margin: 0 auto 15px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 5px;
+        }
+        
+        .login-header .logo img {
+            height: 50px;
+            width: 50px;
+            object-fit: contain;
         }
         
         /* Card Styles */
         .card {
             border: none;
             border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
         }
         
         .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
         }
         
         .card-header {
-            background: linear-gradient(90deg, var(--sakina-orange) 0%, #FF8C5A 100%);
+            background: linear-gradient(90deg, var(--sakina-orange) 0%, var(--sakina-blue) 100%);
             color: white;
             border-radius: 15px 15px 0 0 !important;
             border: none;
-            font-weight: 600;
         }
         
         /* Button Styles */
-        .btn-sakina-primary {
-            background: linear-gradient(90deg, var(--sakina-orange) 0%, #FF8C5A 100%);
-            border: none;
-            color: white;
-            font-weight: 500;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-        }
-        
-        .btn-sakina-primary:hover {
-            background: linear-gradient(90deg, #e85a2e 0%, #e67a4d 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(255, 107, 53, 0.4);
-            color: white;
-        }
-        
-        .btn-sakina-secondary {
-            background: linear-gradient(90deg, var(--sakina-blue) 0%, var(--sakina-light-blue) 100%);
-            border: none;
-            color: white;
-            font-weight: 500;
-            border-radius: 8px;
-        }
-        
-        .btn-sakina-secondary:hover {
-            background: linear-gradient(90deg, #003d7a 0%, #0066a0 100%);
-            color: white;
-        }
-        
-        /* Status Badges */
-        .status-present { background-color: #28A745; }
-        .status-late { background-color: #FFC107; color: #000; }
-        .status-absent { background-color: #DC3545; }
-        .status-on-leave { background-color: #17A2B8; }
-        
-        /* Alert Styles */
-        .alert {
+        .btn-primary {
+            background: linear-gradient(45deg, var(--sakina-blue) 0%, var(--sakina-light-blue) 100%);
             border: none;
             border-radius: 10px;
             font-weight: 500;
+            transition: all 0.3s ease;
         }
         
-        .alert-success {
-            background: linear-gradient(90deg, #d4edda 0%, #c3e6cb 100%);
-            color: #155724;
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 78, 152, 0.3);
         }
         
-        .alert-warning {
-            background: linear-gradient(90deg, #fff3cd 0%, #ffeaa7 100%);
-            color: #856404;
-        }
-        
-        .alert-danger {
-            background: linear-gradient(90deg, #f8d7da 0%, #f1b2b8 100%);
-            color: #721c24;
-        }
-        
-        .alert-info {
-            background: linear-gradient(90deg, #d1ecf1 0%, #bee5eb 100%);
-            color: #0c5460;
+        .btn-warning {
+            background: linear-gradient(45deg, var(--sakina-orange) 0%, #ff8a50 100%);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-weight: 500;
         }
         
         /* Table Styles */
+        .table {
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
         .table thead th {
-            background-color: var(--sakina-blue);
+            background: var(--sakina-blue);
             color: white;
             border: none;
             font-weight: 600;
         }
         
         .table tbody tr {
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
         }
         
         .table tbody tr:hover {
-            background-color: rgba(255, 107, 53, 0.05);
-            transform: scale(1.001);
+            background-color: var(--sakina-gray);
+            transform: scale(1.02);
+        }
+        
+        /* Badge Styles */
+        .badge {
+            border-radius: 20px;
+            font-weight: 500;
+        }
+        
+        /* Alert Styles */
+        .alert {
+            border-radius: 10px;
+            border: none;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+        }
+        
+        .alert-danger {
+            background: linear-gradient(45deg, #dc3545, #e74c3c);
+            color: white;
         }
         
         /* Form Styles */
-        .form-control:focus {
-            border-color: var(--sakina-orange);
-            box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 2px solid var(--sakina-gray);
+            padding: 12px;
+            transition: all 0.3s ease;
         }
         
-        .form-select:focus {
-            border-color: var(--sakina-orange);
-            box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
+        .form-control:focus, .form-select:focus {
+            border-color: var(--sakina-blue);
+            box-shadow: 0 0 0 0.2rem rgba(0, 78, 152, 0.25);
         }
         
         /* Footer */
         .footer {
             background: var(--sakina-dark-blue);
             color: white;
-            text-align: center;
             padding: 20px 0;
             margin-top: 50px;
         }
         
-        /* Loading Spinner */
-        .spinner-sakina {
-            border: 3px solid rgba(255, 107, 53, 0.3);
-            border-radius: 50%;
-            border-top: 3px solid var(--sakina-orange);
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        /* Responsive Design */
-        @media (max-width: 768px) {
+        /* Mobile Responsive */
+        @media (max-width: 992px) {
+            .sidebar-show .main-content {
+                margin-left: 0;
+            }
+            
             .sidebar {
-                width: 100%;
-                left: -100%;
+                width: 280px;
+                left: -280px;
             }
             
-            .sidebar.show {
-                left: 0;
+            .card {
+                margin-bottom: 20px;
             }
-            
+        }
+        
+        @media (max-width: 768px) {
             .main-content {
-                margin-left: 0 !important;
+                padding: 10px;
             }
             
             .navbar-brand {
-                font-size: 1.2rem;
+                font-size: 1.1rem;
+            }
+            
+            .navbar-brand .logo {
+                height: 35px;
+                width: 35px;
+            }
+            
+            .table-responsive {
+                font-size: 0.9rem;
+            }
+            
+            .login-header .logo {
+                height: 50px;
+                width: 50px;
+            }
+            
+            .login-header .logo img {
+                height: 40px;
+                width: 40px;
             }
         }
         
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
+        /* Loading Spinner */
+        .loading-spinner {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+        }
+        
+        /* Custom Scrollbar */
+        .sidebar::-webkit-scrollbar {
             width: 8px;
         }
         
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
+        .sidebar::-webkit-scrollbar-track {
+            background: var(--sakina-dark-blue);
         }
         
-        ::-webkit-scrollbar-thumb {
+        .sidebar::-webkit-scrollbar-thumb {
             background: var(--sakina-orange);
             border-radius: 4px;
         }
         
-        ::-webkit-scrollbar-thumb:hover {
-            background: #e55a2e;
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: #ff8a50;
+        }
+        
+        /* Animation Classes */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(0); }
         }
     </style>
     
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <!-- Navigation Bar -->
+    {% if request.endpoint != 'auth.login' %}
+    <!-- Top Navigation Bar (Only show if not on login page) -->
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
         <div class="container-fluid">
-            <!-- Sidebar Toggle Button -->
-            <button class="btn btn-link text-white d-lg-none" type="button" id="sidebarToggle">
-                <i class="bi bi-list fs-4"></i>
+            <!-- Sidebar Toggle -->
+            <button class="navbar-toggler border-0" type="button" id="sidebarToggle">
+                <span class="navbar-toggler-icon"></span>
             </button>
             
-            <!-- Brand -->
-            <a class="navbar-brand mx-auto mx-lg-0" href="{{ url_for('dashboard.main') }}">
-                <i class="bi bi-fire"></i>
+            <!-- Brand with Logo -->
+            <a class="navbar-brand ms-3" href="{{ url_for('dashboard.main') }}">
+                <div class="logo">
+                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Sakina Gas" style="height: 36px; width: 36px; object-fit: contain;">
+                </div>
                 Sakina Gas Company
             </a>
             
-            <!-- User Menu -->
+            <!-- Top Right Navigation -->
             <div class="navbar-nav ms-auto">
+                {% if current_user.is_authenticated %}
+                <!-- User Dropdown -->
                 <div class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                        <i class="bi bi-person-circle"></i>
-                        {% if current_user.is_authenticated %}
-                            {{ current_user.get_display_name() }}
-                        {% else %}
-                            User
-                        {% endif %}
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" 
+                       data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-circle me-1"></i>
+                        {{ current_user.get_full_name() }}
+                        <span class="badge bg-light text-dark ms-1">{{ current_user.get_role_display() }}</span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="{{ url_for('profile.view_profile') }}">
-                            <i class="bi bi-person"></i> My Profile
+                            <i class="bi bi-person me-2"></i>My Profile
                         </a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('profile.settings') }}">
-                            <i class="bi bi-gear"></i> Settings
-                        </a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('profile.security_dashboard') }}">
-                            <i class="bi bi-shield-check"></i> Security Logs
+                        <li><a class="dropdown-item" href="{{ url_for('profile.change_password') }}">
+                            <i class="bi bi-key me-2"></i>Change Password
                         </a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <form method="POST" action="{{ url_for('auth.logout') }}" class="d-inline">
-                                <button type="submit" class="dropdown-item">
-                                    <i class="bi bi-box-arrow-right"></i> Logout
-                                </button>
-                            </form>
-                        </li>
+                        <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">
+                            <i class="bi bi-box-arrow-right me-2"></i>Sign Out
+                        </a></li>
                     </ul>
                 </div>
+                {% else %}
+                <a class="nav-link" href="{{ url_for('auth.login') }}">
+                    <i class="bi bi-box-arrow-in-right me-1"></i>Sign In
+                </a>
+                {% endif %}
             </div>
         </div>
     </nav>
     
-    <!-- Sidebar -->
+    <!-- Sidebar Navigation -->
     <nav class="sidebar" id="sidebar">
-        <ul class="nav flex-column">
+        <ul class="navbar-nav">
             <!-- Dashboard -->
             <li class="nav-item">
-                <a class="nav-link {% if request.endpoint and 'dashboard' in request.endpoint %}active{% endif %}" 
+                <a class="nav-link {% if request.endpoint == 'dashboard.main' %}active{% endif %}" 
                    href="{{ url_for('dashboard.main') }}">
                     <i class="bi bi-speedometer2"></i> Dashboard
                 </a>
             </li>
             
-            {% if current_user.is_authenticated and current_user.role in ['hr_manager', 'admin', 'station_manager'] %}
+            {% if current_user.is_authenticated %}
             <!-- Employees -->
+            {% if current_user.role in ['hr_manager', 'admin', 'station_manager'] %}
             <li class="nav-item">
                 <a class="nav-link {% if request.endpoint and 'employees' in request.endpoint %}active{% endif %}" 
                    href="{{ url_for('employees.list_employees') }}">
                     <i class="bi bi-people"></i> Employees
+                    {% if pending_counts and pending_counts.new_employees > 0 %}
+                        <span class="badge bg-warning text-dark ms-2">{{ pending_counts.new_employees }}</span>
+                    {% endif %}
                 </a>
             </li>
+            {% endif %}
             
             <!-- Attendance -->
             <li class="nav-item">
                 <a class="nav-link {% if request.endpoint and 'attendance' in request.endpoint %}active{% endif %}" 
-                   href="{{ url_for('attendance.mark_attendance') }}">
+                   href="{{ url_for('attendance.overview') }}">
                     <i class="bi bi-clock"></i> Attendance
+                    {% if pending_counts and pending_counts.pending_attendance > 0 %}
+                        <span class="badge bg-danger ms-2">{{ pending_counts.pending_attendance }}</span>
+                    {% endif %}
                 </a>
             </li>
             
             <!-- Leave Management -->
             <li class="nav-item">
-                <!-- FIX: Corrected url_for to the defined route 'list_leaves' -->
                 <a class="nav-link {% if request.endpoint and 'leaves' in request.endpoint %}active{% endif %}" 
-                   href="{{ url_for('leaves.list_leaves') }}">
-                    <i class="bi bi-calendar-check"></i> Leave Management
-                    {% if pending_counts.pending_leaves is defined and pending_counts.pending_leaves > 0 %}
-                    <span class="badge bg-warning text-dark ms-2">{{ pending_counts.pending_leaves }}</span>
+                   href="{{ url_for('leaves.list_requests') }}">
+                    <i class="bi bi-calendar-x"></i> Leave Management
+                    {% if pending_counts and pending_counts.pending_leaves > 0 %}
+                        <span class="badge bg-warning text-dark ms-2">{{ pending_counts.pending_leaves }}</span>
                     {% endif %}
                 </a>
             </li>
             
             <!-- Reports -->
             <li class="nav-item">
-                <!-- FIX: Corrected url_for to the defined route 'reports_dashboard' -->
                 <a class="nav-link {% if request.endpoint and 'reports' in request.endpoint %}active{% endif %}" 
                    href="{{ url_for('reports.reports_dashboard') }}">
                     <i class="bi bi-graph-up"></i> Reports & Analytics
@@ -426,87 +517,109 @@
             </li>
         </ul>
     </nav>
+    {% endif %}
     
     <!-- Main Content -->
-    <!-- FIX: Added 'sidebar-show' class to body if sidebar is meant to be open initially or on desktop -->
-    <main class="main-content" style="margin-top: 70px;">
+    <main class="main-content" style="{% if request.endpoint != 'auth.login' %}margin-top: 70px;{% endif %}">
         <div class="container-fluid">
-            <!-- Flash Messages -->
+            <!-- Flash Messages (Only show if not on login page) -->
+            {% if request.endpoint != 'auth.login' %}
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
                         <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
-                            {% if category == 'success' %}
-                                <i class="bi bi-check-circle-fill"></i>
-                            {% elif category == 'warning' %}
-                                <i class="bi bi-exclamation-triangle-fill"></i>
-                            {% elif category == 'error' or category == 'danger' %}
-                                <i class="bi bi-x-circle-fill"></i>
-                            {% else %}
-                                <i class="bi bi-info-circle-fill"></i>
-                            {% endif %}
+                            <i class="bi bi-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' if category == 'success' else 'info-circle' }} me-2"></i>
                             {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
                         </div>
                     {% endfor %}
                 {% endif %}
             {% endwith %}
+            {% endif %}
             
             <!-- Page Content -->
             {% block content %}{% endblock %}
         </div>
     </main>
     
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
+    <!-- Footer (Only show if not on login page) -->
+    {% if request.endpoint != 'auth.login' %}
+    <footer class="footer mt-5">
+        <div class="container-fluid">
             <div class="row">
-                <div class="col-md-6 text-start">
-                    <strong>Sakina Gas Company</strong><br>
-                    Professional Attendance Management System<br>
-                    <small>Version {{ app_version }} - Enterprise Edition</small>
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center">
+                        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Sakina Gas" style="height: 30px; width: 30px; object-fit: contain; margin-right: 10px;">
+                        <div>
+                            <p class="mb-1"><strong>Sakina Gas Company</strong> - Reliable Energy Solutions</p>
+                            <p class="small mb-0">Professional Attendance Management System v3.0</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-6 text-end">
-                    <small>
-                        &copy; {{ current_year }} Sakina Gas Company<br>
-                        All Rights Reserved<br>
-                        <i class="bi bi-shield-check"></i> Secure & Compliant
-                    </small>
+                <div class="col-md-6 text-md-end">
+                    <p class="mb-1">📞 Contact: +254 700 123 456</p>
+                    <p class="small mb-0">© {{ current_year }} Sakina Gas Company. All rights reserved.</p>
                 </div>
             </div>
         </div>
     </footer>
+    {% endif %}
+    
+    <!-- Loading Spinner -->
+    <div class="loading-spinner">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
     
     <!-- Bootstrap 5.3 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- jQuery (for backward compatibility) -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    
     <!-- Custom JavaScript -->
     <script>
-        // Sidebar toggle functionality
         document.addEventListener('DOMContentLoaded', function() {
             const sidebarToggle = document.getElementById('sidebarToggle');
             const sidebar = document.getElementById('sidebar');
             const body = document.body;
             
-            if (sidebarToggle) {
-                sidebarToggle.addEventListener('click', function() {
+            // Only initialize sidebar if elements exist (not on login page)
+            if (sidebarToggle && sidebar) {
+                // Sidebar toggle functionality
+                sidebarToggle.addEventListener('click', function(e) {
+                    e.preventDefault();
                     sidebar.classList.toggle('show');
                     body.classList.toggle('sidebar-show');
                 });
-            }
-            
-            // Close sidebar when clicking outside on mobile
-            document.addEventListener('click', function(event) {
-                if (window.innerWidth <= 992) { // Changed to LG breakpoint
-                    if (sidebar.classList.contains('show') && !sidebar.contains(event.target) && !sidebarToggle.contains(event.target)) {
+                
+                // Auto-hide sidebar on medium screens and larger if content is clicked
+                if (window.innerWidth >= 992) {
+                    body.classList.add('sidebar-show');
+                    sidebar.classList.add('show');
+                }
+                
+                // Handle window resize
+                window.addEventListener('resize', function() {
+                    if (window.innerWidth >= 992) {
+                        if (!sidebar.classList.contains('show')) {
+                            sidebar.classList.add('show');
+                            body.classList.add('sidebar-show');
+                        }
+                    } else {
                         sidebar.classList.remove('show');
                         body.classList.remove('sidebar-show');
                     }
-                }
-            });
+                });
+                
+                // Close sidebar when clicking outside on mobile
+                document.addEventListener('click', function(event) {
+                    if (window.innerWidth <= 992) {
+                        if (sidebar.classList.contains('show') && !sidebar.contains(event.target) && !sidebarToggle.contains(event.target)) {
+                            sidebar.classList.remove('show');
+                            body.classList.remove('sidebar-show');
+                        }
+                    }
+                });
+            }
             
             // Auto-dismiss alerts after 5 seconds
             setTimeout(function() {
@@ -524,10 +637,12 @@
         }
 
         function showLoading() {
+            document.querySelector('.loading-spinner').style.display = 'block';
             document.body.style.cursor = 'wait';
         }
         
         function hideLoading() {
+            document.querySelector('.loading-spinner').style.display = 'none';
             document.body.style.cursor = 'default';
         }
         
@@ -574,23 +689,56 @@
             })
             .catch(error => {
                 hideLoading();
+                console.error('Error:', error);
                 if (errorCallback) errorCallback(error);
-                else console.error('AJAX Error:', error);
             });
         }
         
-        // Date formatting helper
-        function formatDate(dateString, format = 'short') {
-            const date = new Date(dateString);
-            const options = format === 'long' 
-                ? { year: 'numeric', month: 'long', day: 'numeric' }
-                : { year: 'numeric', month: 'short', day: 'numeric' };
-            return date.toLocaleDateString('en-US', options);
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alertDiv.style.cssText = 'top: 80px; right: 20px; z-index: 9999; min-width: 300px;';
+            alertDiv.innerHTML = `
+                <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'danger' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(alertDiv);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(function() {
+                const alert = bootstrap.Alert.getOrCreateInstance(alertDiv);
+                alert.close();
+            }, 5000);
         }
         
-        // Number formatting helper
-        function formatNumber(number, decimals = 2) {
-            return parseFloat(number).toFixed(decimals);
+        // Confirm dialog helper
+        function confirmAction(message, callback) {
+            if (confirm(message)) {
+                callback();
+            }
+        }
+        
+        // Format date helper
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-KE', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+        
+        // Format time helper
+        function formatTime(timeString) {
+            const time = new Date(`1970-01-01T${timeString}`);
+            return time.toLocaleTimeString('en-KE', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
         }
     </script>
     

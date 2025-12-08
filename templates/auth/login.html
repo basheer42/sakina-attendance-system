@@ -47,6 +47,7 @@
         text-align: center;
         padding: 30px 20px;
         margin: 0;
+        position: relative;
     }
     
     .login-header h2 {
@@ -61,76 +62,81 @@
         font-size: 1.1rem;
     }
     
+    /* Logo in header */
     .company-logo {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 15px;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .company-logo img {
+        width: 60px;
+        height: 60px;
+        object-fit: contain;
+    }
+    
+    /* Fallback icon if logo doesn't load */
+    .company-logo i {
         font-size: 3rem;
-        margin-bottom: 10px;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        color: var(--sakina-orange);
     }
     
     .login-body {
         padding: 40px 30px;
     }
     
-    .form-floating label {
-        color: var(--sakina-blue);
-        font-weight: 500;
-    }
-    
     .form-control {
-        border: 2px solid #e0e0e0;
+        border: 2px solid #e9ecef;
         border-radius: 12px;
-        padding: 15px;
-        font-size: 1rem;
+        padding: 12px 16px;
         transition: all 0.3s ease;
+        background: rgba(248, 249, 250, 0.7);
     }
     
     .form-control:focus {
-        border-color: var(--sakina-orange);
-        box-shadow: 0 0 0 0.25rem rgba(255, 107, 53, 0.15);
-        transform: translateY(-2px);
+        border-color: var(--sakina-blue);
+        box-shadow: 0 0 0 0.2rem rgba(0, 78, 152, 0.25);
+        background: white;
+    }
+    
+    .form-floating > label {
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .form-floating > .form-control:focus ~ label,
+    .form-floating > .form-control:not(:placeholder-shown) ~ label {
+        color: var(--sakina-blue);
     }
     
     .login-btn {
-        /* Using Sakina Brand Colors */
-        background: linear-gradient(135deg, var(--sakina-orange) 0%, #FF8C5A 100%);
+        background: linear-gradient(45deg, var(--sakina-orange) 0%, #ff8a50 100%);
         border: none;
         border-radius: 12px;
-        padding: 15px;
+        padding: 14px;
         font-size: 1.1rem;
         font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
+        color: white;
         transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     
     .login-btn:hover {
-        background: linear-gradient(135deg, #e85a2e 0%, #e67a4d 100%);
-        transform: translateY(-3px);
-        box-shadow: 0 10px 25px rgba(255, 107, 53, 0.3);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(255, 107, 53, 0.3);
+        background: linear-gradient(45deg, #ff8a50 0%, var(--sakina-orange) 100%);
+        color: white;
     }
     
     .login-btn:active {
-        transform: translateY(-1px);
-    }
-    
-    .login-btn::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        transition: width 0.6s, height 0.6s;
-    }
-    
-    .login-btn:active::after {
-        width: 300px;
-        height: 300px;
+        transform: translateY(0);
     }
     
     .forgot-password {
@@ -141,7 +147,7 @@
     }
     
     .forgot-password:hover {
-        color: var(--sakina-orange);
+        color: var(--sakina-light-blue);
         text-decoration: underline;
     }
     
@@ -219,6 +225,16 @@
         }
         
         .company-logo {
+            width: 60px;
+            height: 60px;
+        }
+        
+        .company-logo img {
+            width: 45px;
+            height: 45px;
+        }
+        
+        .company-logo i {
             font-size: 2.5rem;
         }
     }
@@ -230,7 +246,10 @@
     <div class="login-card">
         <div class="login-header">
             <div class="company-logo">
-                <i class="bi bi-fire"></i>
+                <img src="{{ url_for('static', filename='images/logo.png') }}" 
+                     alt="Sakina Gas Company" 
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <i class="bi bi-fire" style="display: none;"></i>
             </div>
             <h2>Sakina Gas Company</h2>
             <p>Attendance Management System</p>
@@ -266,6 +285,11 @@
             
             <!-- Login Form -->
             <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm" novalidate>
+                <!-- CSRF Protection -->
+                {% if csrf_token %}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% endif %}
+                
                 <div class="form-floating mb-3">
                     <input type="text" 
                            class="form-control" 

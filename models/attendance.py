@@ -117,7 +117,7 @@ class AttendanceRecord(db.Model):
     # Relationships
     # FIX: Use string literal for relationship to break circular dependency
     leave_request = relationship('LeaveRequest', backref='attendance_records')
-    employee = relationship('Employee', backref='employee_attendance_records') 
+    employee = relationship('Employee') 
     
     # Indexes
     __table_args__ = (

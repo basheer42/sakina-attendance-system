@@ -126,6 +126,14 @@ def initialize_extensions(app):
         next_url = request.url if request.endpoint != 'auth.login' else None
         return redirect(url_for('auth.login', next=next_url))
     
+        # Initialize Flask-WTF for CSRF protection
+        try:
+            from flask_wtf.csrf import CSRFProtect
+            csrf = CSRFProtect(app)
+        except ImportError:
+            # CSRF protection not available
+            pass
+        
     # Initialize Flask-Mail with enhanced configuration
     if MAIL_AVAILABLE and app.config.get('MAIL_SERVER'):
         mail = Mail()
@@ -138,6 +146,13 @@ def initialize_extensions(app):
 
 def register_blueprints(app):
     """Register all application blueprints with comprehensive error handling"""
+    
+    # Import admin blueprint
+    from routes.admin import admin_bp
+
+    # Register admin blueprint
+    app.register_blueprint(admin_bp)
+    app.logger.info('✅ Registered blueprint: admin at /admin')
     
     blueprints = [
         ('auth', '/auth'),
@@ -365,11 +380,7 @@ def register_cli_commands(app):
     """Register comprehensive CLI commands for database management"""
     
     @app.cli.command()
-    @click.confirmation_option(
-        prompt='This will delete all data. Are you sure?',
-        help='Confirm database reset',
-        abort=True
-    )
+    @click.confirmation_option(prompt='This will delete all data. Are you sure?')
     def reset_db():
         """Reset database - WARNING: This deletes all data!"""
         with app.app_context():

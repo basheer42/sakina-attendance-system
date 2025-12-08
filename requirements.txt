@@ -3,6 +3,7 @@
 
 # Core Flask Framework
 Flask==3.0.0
+Flask-WTF==1.1.1
 Werkzeug==3.0.1
 
 # Database and ORM

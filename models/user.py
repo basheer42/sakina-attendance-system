@@ -90,7 +90,7 @@ class User(UserMixin, db.Model):
     # created_audit_logs is handled in AuditLog model
     # FIX: Use string literal for relationship to break circular dependency
     employee = relationship('Employee', backref='user_account', uselist=False, 
-                          primaryjoin="User.employee_id == Employee.employee_id")
+                      primaryjoin="User.employee_id == foreign(Employee.employee_id)")
     
     def __init__(self, **kwargs):
         """Initialize user with secure defaults"""
