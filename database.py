@@ -1,6 +1,6 @@
 """
 Sakina Gas Company - Database Configuration
-Fixed to prevent mapper conflicts
+FIXED to prevent mapper conflicts - ONLY circular import issues fixed
 """
 
 from flask_sqlalchemy import SQLAlchemy
@@ -29,7 +29,8 @@ db = SQLAlchemy(model_class=Base, metadata=metadata)
 def init_database(app):
     """Initialize database with application context"""
     with app.app_context():
-        # Import models only when absolutely necessary and in correct order
+        # FIXED: Import models only when absolutely necessary and in correct order
+        # This prevents "primary key mapper already defined" errors
         try:
             # Import models one by one to register them with SQLAlchemy
             from models.user import User

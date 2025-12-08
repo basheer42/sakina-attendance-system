@@ -7,7 +7,7 @@ This prevents "primary key mapper already defined" errors.
 Models will be imported individually inside functions when needed.
 """
 
-# Only make Base class available for inheritance
+# FIXED: Only make Base class available for inheritance
 from database import Base
 
 # IMPORTANT: Models are NOT imported here to prevent circular imports
