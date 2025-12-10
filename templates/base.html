@@ -446,9 +446,6 @@
                 <a class="nav-link {% if request.endpoint and 'employees' in request.endpoint %}active{% endif %}" 
                    href="{{ url_for('employees.list_employees') }}">
                     <i class="bi bi-people"></i> Employees
-                    {% if pending_counts and pending_counts.new_employees > 0 %}
-                        <span class="badge bg-warning text-dark ms-2">{{ pending_counts.new_employees }}</span>
-                    {% endif %}
                 </a>
             </li>
             {% endif %}
@@ -458,20 +455,14 @@
                 <a class="nav-link {% if request.endpoint and 'attendance' in request.endpoint %}active{% endif %}" 
                    href="{{ url_for('attendance.overview') }}">
                     <i class="bi bi-clock"></i> Attendance
-                    {% if pending_counts and pending_counts.pending_attendance > 0 %}
-                        <span class="badge bg-danger ms-2">{{ pending_counts.pending_attendance }}</span>
-                    {% endif %}
                 </a>
             </li>
             
             <!-- Leave Management -->
             <li class="nav-item">
                 <a class="nav-link {% if request.endpoint and 'leaves' in request.endpoint %}active{% endif %}" 
-                   href="{{ url_for('leaves.list_requests') }}">
+                   href="{{ url_for('leaves.list_leaves') }}">
                     <i class="bi bi-calendar-x"></i> Leave Management
-                    {% if pending_counts and pending_counts.pending_leaves > 0 %}
-                        <span class="badge bg-warning text-dark ms-2">{{ pending_counts.pending_leaves }}</span>
-                    {% endif %}
                 </a>
             </li>
             

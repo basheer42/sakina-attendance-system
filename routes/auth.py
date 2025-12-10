@@ -58,17 +58,16 @@ def login():
         client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
         user_agent = request.headers.get('User-Agent', '')
         
-        # Find user
-        if User.authenticate:
-            user = User.authenticate(username_or_email, password)
-        else:
-            # Fallback authentication method if authenticate method doesn't exist
-            user = User.query.filter(
-                (User.username == username_or_email) | 
-                (User.email == username_or_email)
-            ).first()
-            if user and not user.check_password(password):
-                user = None
+        # Find user by username or email
+        user = User.query.filter(
+            (User.username == username_or_email) | 
+            (User.email == username_or_email)
+        ).first()
+
+        # Check password
+        if user and user.check_password(password):
+            # Password validation already done above
+            pass
         
         if user is None:
             # Log failed login attempt

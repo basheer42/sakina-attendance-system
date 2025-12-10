@@ -24,18 +24,18 @@
                                 <h6><i class="bi bi-info-circle"></i> Leave Request Details</h6>
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <strong>Employee:</strong> {{ leave_request.employee.full_name }}<br>
+                                        <strong>Employee:</strong> {{ leave_request.employee.get_full_name() }}<br>
                                         <strong>Employee ID:</strong> {{ leave_request.employee.employee_id }}<br>
-                                        <strong>Department:</strong> {{ leave_request.employee.department }}<br>
+                                        <strong>Department:</strong> {{ leave_request.employee.department|title }}<br>
                                         <strong>Position:</strong> {{ leave_request.employee.position }}<br>
                                         <strong>Location:</strong> {{ leave_request.employee.location.replace('_', ' ').title() }}
                                     </div>
                                     <div class="col-md-6">
-                                        <strong>Leave Type:</strong> {{ leave_request.leave_type.replace('_', ' ').title() }}<br>
+                                        <strong>Leave Type:</strong> {{ leave_request.get_leave_type_display() }}<br>
                                         <strong>Start Date:</strong> {{ leave_request.start_date.strftime('%Y-%m-%d') }}<br>
                                         <strong>End Date:</strong> {{ leave_request.end_date.strftime('%Y-%m-%d') }}<br>
-                                        <strong>Total Days:</strong> {{ leave_request.total_days }} days<br>
-                                        <strong>Requested On:</strong> {{ leave_request.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                        <strong>Total Days:</strong> {{ leave_request.total_days|int }} days<br>
+                                        <strong>Requested On:</strong> {{ leave_request.requested_date.strftime('%Y-%m-%d %H:%M') }}
                                     </div>
                                 </div>
                             </div>
@@ -56,16 +56,16 @@
                             <h6><i class="bi bi-shield-check"></i> Legal Compliance Check</h6>
                             <div class="row">
                                 <div class="col-md-12">
-                                    {% set max_days = {'annual_leave': 21, 'maternity_leave': 90, 'paternity_leave': 14, 'sick_leave': 7, 'compassionate_leave': 7} %}
-                                    {% if leave_request.leave_type in max_days %}
-                                        {% if leave_request.total_days <= max_days[leave_request.leave_type] %}
-                                            <span class="text-success">✓ Request is within Kenyan legal limits ({{ max_days[leave_request.leave_type] }} days max for {{ leave_request.leave_type.replace('_', ' ') }})</span>
-                                        {% else %}
-                                            <span class="text-danger">⚠ Request exceeds Kenyan legal limits ({{ max_days[leave_request.leave_type] }} days max for {{ leave_request.leave_type.replace('_', ' ') }})</span>
-                                            <br><small class="text-muted">This could be a valid reason for rejection.</small>
-                                        {% endif %}
+                                    {% set compliant, notes = leave_request.validate_against_kenyan_law() %}
+                                    {% if compliant %}
+                                        <span class="text-success">✓ Request complies with all major legal requirements.</span>
                                     {% else %}
-                                        <span class="text-info">No specific legal limits apply to {{ leave_request.leave_type.replace('_', ' ') }}</span>
+                                        <span class="text-danger">⚠ Request has compliance issues or warnings:</span>
+                                        <ul class="mb-0 small text-danger">
+                                            {% for line in notes.split('\n') %}
+                                                <li>{{ line }}</li>
+                                            {% endfor %}
+                                        </ul>
                                     {% endif %}
                                 </div>
                             </div>
@@ -73,7 +73,10 @@
                     </div>
 
                     <!-- Rejection Form -->
-                    <form method="POST" action="{{ url_for('leaves.reject_leave', leave_id=leave_request.id) }}" id="rejectionForm">
+                    <form method="POST" action="{{ url_for('leaves.reject_leave', id=leave_request.id) }}" id="rejectionForm">
+                        <!-- FIX: Added CSRF token -->
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
                         <div class="mb-4">
                             <label for="rejection_reason" class="form-label">
                                 <i class="bi bi-exclamation-circle"></i> Reason for Rejection *
@@ -122,7 +125,7 @@
                                 <button type="submit" class="btn btn-danger btn-lg me-3">
                                     <i class="bi bi-x-circle"></i> Reject Leave Request
                                 </button>
-                                <a href="{{ url_for('leaves.approve_leave', leave_id=leave_request.id) }}" 
+                                <a href="{{ url_for('leaves.approve_leave', id=leave_request.id) }}" 
                                    class="btn btn-success btn-lg me-3">
                                     <i class="bi bi-check-circle"></i> Approve Instead
                                 </a>
@@ -178,7 +181,7 @@ document.getElementById('rejectionForm').addEventListener('submit', function(e) 
         return false;
     }
     
-    const confirmed = confirm('Are you sure you want to REJECT this leave request?\n\nEmployee: {{ leave_request.employee.full_name }}\nDuration: {{ leave_request.total_days }} days\nType: {{ leave_request.leave_type.replace("_", " ").title() }}\n\nThis action cannot be easily undone.');
+    const confirmed = confirm('Are you sure you want to REJECT this leave request?\n\nEmployee: {{ leave_request.employee.get_full_name() }}\nDuration: {{ leave_request.total_days|int }} days\nType: {{ leave_request.get_leave_type_display() }}\n\nThis action cannot be easily undone.');
     
     if (!confirmed) {
         e.preventDefault();

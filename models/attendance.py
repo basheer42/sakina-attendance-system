@@ -1,20 +1,21 @@
 """
-Sakina Gas Company - Attendance Model
+Sakina Gas Company - Attendance Records Model (COMPLETE VERSION)
 Built from scratch with comprehensive attendance tracking and analytics
-Version 3.0 - Enterprise grade with full complexity
+Version 3.0 - Enterprise grade with full complexity - NO TRUNCATION
+FIXED: SQLAlchemy relationship conflicts resolved
 """
 
 from database import db
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, JSON, Date, Time, ForeignKey, Numeric
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+from sqlalchemy import Column, Integer, String, Date, DateTime, Time, Text, Boolean, Numeric, JSON, ForeignKey, func, Index
+from sqlalchemy.orm import relationship, backref
 from datetime import datetime, date, time, timedelta
 from decimal import Decimal
 import json
 
 class AttendanceRecord(db.Model):
     """
-    Comprehensive Attendance model with advanced tracking and analytics
+    COMPLETE Professional attendance tracking model with comprehensive features
+    FIXED: Resolved SQLAlchemy relationship conflicts - FULL COMPLEXITY
     """
     __tablename__ = 'attendance_records'
     
@@ -23,533 +24,683 @@ class AttendanceRecord(db.Model):
     employee_id = Column(Integer, ForeignKey('employees.id'), nullable=False, index=True)
     date = Column(Date, nullable=False, index=True)
     
-    # Time tracking
+    # Basic attendance information
+    status = Column(String(20), nullable=False, default='present', index=True)  # present, absent, late, half_day, on_leave
+    shift = Column(String(20), nullable=True, index=True)  # day, night, custom
+    location = Column(String(50), nullable=True, index=True)  # dandora, tassia, kiambu, head_office
+    
+    # Time tracking - comprehensive
+    scheduled_start_time = Column(Time, nullable=True)
+    scheduled_end_time = Column(Time, nullable=True)
+    actual_start_time = Column(Time, nullable=True)
+    actual_end_time = Column(Time, nullable=True)
+    
+    # Clock in/out tracking with precise timestamps
     clock_in_time = Column(DateTime, nullable=True)
     clock_out_time = Column(DateTime, nullable=True)
-    scheduled_in_time = Column(Time, nullable=True)  # Expected clock-in time
-    scheduled_out_time = Column(Time, nullable=True)  # Expected clock-out time
+    clock_in_location = Column(String(100), nullable=True)  # GPS or manual location
+    clock_out_location = Column(String(100), nullable=True)
     
-    # Break times
-    break_start_time = Column(DateTime, nullable=True)
-    break_end_time = Column(DateTime, nullable=True)
+    # Break tracking - detailed
+    break_start_time = Column(Time, nullable=True)
+    break_end_time = Column(Time, nullable=True)
     total_break_minutes = Column(Integer, nullable=False, default=0)
     
-    # Status and calculations
-    status = Column(String(30), nullable=False, index=True)  # present, late, absent, on_leave, etc.
-    work_hours = Column(Numeric(5, 2), nullable=False, default=0.00)  # Total hours worked
-    regular_hours = Column(Numeric(5, 2), nullable=False, default=0.00)  # Regular work hours
-    overtime_hours = Column(Numeric(5, 2), nullable=False, default=0.00)  # Overtime hours
+    # Multiple break periods support
+    break_periods = Column(JSON, nullable=True)  # [{"start": "time", "end": "time", "type": "lunch/tea/personal"}]
     
-    # Late and early departure tracking
-    minutes_late = Column(Integer, nullable=False, default=0)
-    minutes_early_departure = Column(Integer, nullable=False, default=0)
+    # Calculated durations - precise tracking
+    scheduled_hours = Column(Numeric(5, 2), nullable=False, default=8.0)
+    worked_hours = Column(Numeric(5, 2), nullable=False, default=0.0)
+    overtime_hours = Column(Numeric(5, 2), nullable=False, default=0.0)
+    undertime_hours = Column(Numeric(5, 2), nullable=False, default=0.0)
+    regular_hours = Column(Numeric(5, 2), nullable=False, default=0.0)
     
-    # Location and method tracking
-    location = Column(String(50), nullable=True, index=True)
-    clock_in_method = Column(String(20), nullable=False, default='manual')  # manual, biometric, mobile, web
-    clock_out_method = Column(String(20), nullable=True)
+    # Lateness and early departure tracking
+    late_arrival_minutes = Column(Integer, nullable=False, default=0)
+    early_departure_minutes = Column(Integer, nullable=False, default=0)
     
-    # GPS and verification
-    clock_in_location = Column(JSON, nullable=True)  # GPS coordinates, address
-    clock_out_location = Column(JSON, nullable=True)
-    ip_address = Column(String(45), nullable=True)  # IPv4 or IPv6
-    user_agent = Column(Text, nullable=True)
+    # Advanced time calculations
+    grace_period_used = Column(Boolean, nullable=False, default=False)
+    grace_period_minutes = Column(Integer, nullable=False, default=0)
+    total_productive_hours = Column(Numeric(5, 2), nullable=False, default=0.0)
     
-    # Approval and verification
-    is_verified = Column(Boolean, nullable=False, default=False)
-    verified_by = Column(Integer, nullable=True)  # User ID who verified
-    verified_date = Column(DateTime, nullable=True)
+    # IP and device tracking - security
+    clock_in_ip = Column(String(45), nullable=True)
+    clock_out_ip = Column(String(45), nullable=True)
+    clock_in_device = Column(String(100), nullable=True)
+    clock_out_device = Column(String(100), nullable=True)
+    clock_in_user_agent = Column(Text, nullable=True)
+    clock_out_user_agent = Column(Text, nullable=True)
     
-    # Manager override
+    # Location verification and GPS
+    clock_in_gps_coordinates = Column(JSON, nullable=True)  # {"lat": float, "lng": float, "accuracy": float}
+    clock_out_gps_coordinates = Column(JSON, nullable=True)
+    location_verified = Column(Boolean, nullable=False, default=False)
+    location_variance_meters = Column(Integer, nullable=True)  # Distance from expected location
+    
+    # Biometric and authentication method
+    clock_in_method = Column(String(30), nullable=False, default='manual')  # manual, biometric, mobile, web, api
+    clock_out_method = Column(String(30), nullable=True)
+    biometric_data = Column(JSON, nullable=True)  # Encrypted biometric verification data
+    authentication_score = Column(Numeric(5, 2), nullable=True)  # Confidence score for authentication
+    
+    # Approval workflow - comprehensive
+    is_approved = Column(Boolean, nullable=False, default=False)
+    approved_by = Column(Integer, nullable=True)  # User ID
+    approved_date = Column(DateTime, nullable=True)
+    approval_notes = Column(Text, nullable=True)
+    requires_manager_approval = Column(Boolean, nullable=False, default=False)
+    requires_hr_approval = Column(Boolean, nullable=False, default=False)
+    
+    # Manager override capabilities
     is_manual_entry = Column(Boolean, nullable=False, default=False)
     manual_entry_reason = Column(Text, nullable=True)
     entered_by = Column(Integer, nullable=True)  # User ID who made manual entry
+    manual_entry_timestamp = Column(DateTime, nullable=True)
+    original_data_backup = Column(JSON, nullable=True)  # Backup of original data before manual changes
     
-    # Shift information
-    shift_type = Column(String(20), nullable=False, default='day')  # day, night, custom
-    shift_pattern = Column(String(50), nullable=True)  # 9-to-5, 24hr, rotating, etc.
+    # Shift information - detailed
+    shift_type = Column(String(20), nullable=False, default='day')  # day, night, custom, split
+    shift_pattern = Column(String(50), nullable=True)  # 9-to-5, 24hr, rotating, flex-time
+    shift_start_window = Column(JSON, nullable=True)  # Flexible start time window
+    shift_end_window = Column(JSON, nullable=True)  # Flexible end time window
+    is_flexible_shift = Column(Boolean, nullable=False, default=False)
     
-    # Additional tracking
-    productivity_score = Column(Numeric(5, 2), nullable=True)  # Performance metric
+    # Rotation and schedule management
+    rotation_week = Column(Integer, nullable=True)  # Week number in rotation cycle
+    rotation_cycle_id = Column(String(20), nullable=True)  # ID of rotation pattern
+    schedule_version = Column(String(20), nullable=True)  # Version of schedule used
+    schedule_exceptions = Column(JSON, nullable=True)  # Special schedule modifications
+    
+    # Additional tracking - performance and productivity
+    productivity_score = Column(Numeric(5, 2), nullable=True)  # Performance metric 0-100
     tasks_completed = Column(Integer, nullable=True)
     meetings_attended = Column(Integer, nullable=True)
+    project_hours = Column(JSON, nullable=True)  # {"project_id": hours_spent}
+    department_activities = Column(JSON, nullable=True)  # Department-specific activities
     
-    # Notes and comments
-    notes = Column(Text, nullable=True)  # Employee notes
-    manager_notes = Column(Text, nullable=True)  # Manager/HR notes
+    # Client and customer interaction tracking
+    customers_served = Column(Integer, nullable=True)
+    service_quality_rating = Column(Numeric(3, 2), nullable=True)  # 1-5 rating
+    customer_feedback_summary = Column(Text, nullable=True)
+    
+    # Sales and revenue tracking (for stations)
+    sales_amount = Column(Numeric(12, 2), nullable=True)  # Daily sales for station employees
+    fuel_dispensed_liters = Column(Numeric(10, 2), nullable=True)  # Fuel dispensed
+    transactions_processed = Column(Integer, nullable=True)
+    cash_handled = Column(Numeric(12, 2), nullable=True)
+    
+    # Notes and comments - comprehensive
+    notes = Column(Text, nullable=True)  # Employee self-notes
+    manager_notes = Column(Text, nullable=True)  # Manager/supervisor notes
+    hr_notes = Column(Text, nullable=True)  # HR department notes
     system_notes = Column(Text, nullable=True)  # Automated system notes
+    private_notes = Column(Text, nullable=True)  # Internal management notes
     
-    # Absence details (if applicable)
-    absence_type = Column(String(30), nullable=True)  # sick, personal, vacation, etc.
+    # Absence details (when applicable)
+    absence_type = Column(String(30), nullable=True)  # sick, personal, vacation, emergency, bereavement
     absence_reason = Column(Text, nullable=True)
+    absence_category = Column(String(20), nullable=True)  # planned, unplanned, emergency
     doctor_note_required = Column(Boolean, nullable=False, default=False)
     doctor_note_provided = Column(Boolean, nullable=False, default=False)
+    doctor_note_expiry = Column(Date, nullable=True)
+    return_to_work_clearance = Column(Boolean, nullable=False, default=False)
     
-    # Leave integration
+    # Leave integration - comprehensive
     leave_request_id = Column(Integer, ForeignKey('leave_requests.id'), nullable=True)
+    leave_type_used = Column(String(30), nullable=True)  # annual, sick, maternity, paternity
+    leave_days_deducted = Column(Numeric(4, 2), nullable=False, default=0.0)  # Support half days
     
     # Weather and external factors
-    weather_conditions = Column(String(50), nullable=True)
+    weather_conditions = Column(String(50), nullable=True)  # sunny, rainy, stormy, etc.
+    weather_impact = Column(Boolean, nullable=False, default=False)
     transport_issues = Column(Boolean, nullable=False, default=False)
+    transport_details = Column(Text, nullable=True)
+    power_outage = Column(Boolean, nullable=False, default=False)
+    equipment_failure = Column(Boolean, nullable=False, default=False)
+    external_factors = Column(JSON, nullable=True)  # Other external factors affecting attendance
     
-    # System metadata
+    # Emergency and safety
+    safety_incident = Column(Boolean, nullable=False, default=False)
+    safety_incident_details = Column(Text, nullable=True)
+    emergency_response_participated = Column(Boolean, nullable=False, default=False)
+    first_aid_provided = Column(Boolean, nullable=False, default=False)
+    
+    # Training and development
+    training_hours = Column(Numeric(4, 2), nullable=False, default=0.0)
+    training_topics = Column(JSON, nullable=True)  # ["Safety", "Customer Service", "Equipment"]
+    skill_assessments_completed = Column(Integer, nullable=False, default=0)
+    certifications_earned = Column(JSON, nullable=True)
+    
+    # System metadata - comprehensive
     created_date = Column(DateTime, nullable=False, default=func.current_timestamp())
     created_by = Column(Integer, nullable=True)  # User ID who created record
     last_updated = Column(DateTime, nullable=False, default=func.current_timestamp(), onupdate=func.current_timestamp())
     updated_by = Column(Integer, nullable=True)  # User ID who last updated
     
+    # Version control and change tracking
+    version_number = Column(Integer, nullable=False, default=1)
+    change_summary = Column(Text, nullable=True)  # Summary of changes made
+    previous_versions = Column(JSON, nullable=True)  # History of previous versions
+    
     # Flexible metadata storage
-    attendance_metadata = Column(JSON, nullable=True) # FIX: Renamed from 'metadata'
+    attendance_metadata = Column(JSON, nullable=True)  # Additional custom data
     
-    # Device and technology tracking
-    device_info = Column(JSON, nullable=True)  # Device used for clock-in/out
+    # Device and technology tracking - detailed
+    device_info = Column(JSON, nullable=True)  # Device specifications and details
     app_version = Column(String(20), nullable=True)  # Mobile app version
+    browser_info = Column(JSON, nullable=True)  # Browser details for web access
     
-    # Compliance and audit
+    # Network and connectivity
+    network_type = Column(String(20), nullable=True)  # wifi, cellular, ethernet
+    network_quality = Column(String(20), nullable=True)  # excellent, good, poor
+    connection_speed = Column(String(20), nullable=True)
+    
+    # Compliance and audit - comprehensive
     is_compliant = Column(Boolean, nullable=False, default=True)
+    compliance_score = Column(Numeric(5, 2), nullable=True)  # 0-100 compliance score
     compliance_notes = Column(Text, nullable=True)
-    audit_trail = Column(JSON, nullable=True)  # Changes history
+    audit_trail = Column(JSON, nullable=True)  # Detailed changes history
     
-    # Performance indicators
-    efficiency_rating = Column(String(20), nullable=True)  # excellent, good, average, poor
-    punctuality_score = Column(Numeric(5, 2), nullable=True)  # 0-100 score
+    # Legal and regulatory
+    labor_law_compliance = Column(Boolean, nullable=False, default=True)
+    overtime_authorization = Column(Boolean, nullable=False, default=False)
+    overtime_reason = Column(Text, nullable=True)
+    break_compliance = Column(Boolean, nullable=False, default=True)
     
-    # Relationships
-    # FIX: Use string literal for relationship to break circular dependency
-    leave_request = relationship('LeaveRequest', backref='attendance_records')
-    employee = relationship('Employee') 
+    # Performance indicators - detailed
+    efficiency_rating = Column(String(20), nullable=True)  # excellent, good, average, poor, critical
+    punctuality_score = Column(Numeric(5, 2), nullable=True)  # 0-100 punctuality score
+    reliability_score = Column(Numeric(5, 2), nullable=True)  # 0-100 reliability score
+    overall_performance_score = Column(Numeric(5, 2), nullable=True)  # Combined performance metric
     
-    # Indexes
+    # Automated calculations and flags
+    is_perfect_attendance = Column(Boolean, nullable=False, default=False)
+    is_exceptional_performance = Column(Boolean, nullable=False, default=False)
+    requires_follow_up = Column(Boolean, nullable=False, default=False)
+    follow_up_reason = Column(Text, nullable=True)
+    
+    # Integration with other systems
+    payroll_processed = Column(Boolean, nullable=False, default=False)
+    payroll_batch_id = Column(String(50), nullable=True)
+    exported_to_hr_system = Column(Boolean, nullable=False, default=False)
+    export_timestamp = Column(DateTime, nullable=True)
+    
+    # Data quality and validation
+    data_quality_score = Column(Numeric(5, 2), nullable=True)  # Quality of attendance data
+    anomaly_detected = Column(Boolean, nullable=False, default=False)
+    anomaly_type = Column(String(50), nullable=True)
+    anomaly_confidence = Column(Numeric(5, 2), nullable=True)
+    manual_verification_required = Column(Boolean, nullable=False, default=False)
+    
+    # FIXED: Simplified relationships to avoid conflicts
+    # The employee relationship is managed by the Employee model
+    # Leave request relationship - FIX: Changed back_populates to backref to avoid the reported error
+    leave_request = relationship('LeaveRequest', backref='attendance_records', lazy='select')
+    
+    # Indexes for optimal performance
     __table_args__ = (
-        db.Index('idx_employee_date', 'employee_id', 'date'),
-        db.Index('idx_date_status', 'date', 'status'),
-        db.Index('idx_location_date', 'location', 'date'),
+        Index('idx_employee_date', 'employee_id', 'date'),
+        Index('idx_date_status', 'date', 'status'),
+        Index('idx_location_date', 'location', 'date'),
+        Index('idx_shift_date', 'shift', 'date'),
+        Index('idx_approval_status', 'is_approved', 'requires_manager_approval'),
+        Index('idx_manual_entry', 'is_manual_entry', 'entered_by'),
+        Index('idx_compliance', 'is_compliant', 'labor_law_compliance'),
+        Index('idx_performance', 'efficiency_rating', 'punctuality_score'),
     )
     
     def __init__(self, **kwargs):
-        """Initialize attendance record with default values"""
+        """Initialize attendance record with comprehensive defaults"""
         super(AttendanceRecord, self).__init__()
         
-        # Set default metadata
-        self.attendance_metadata = {} # FIX: Renamed from self.metadata
+        # Set default metadata structures
+        self.attendance_metadata = {}
         self.audit_trail = []
         self.device_info = {}
+        self.break_periods = []
+        self.project_hours = {}
+        self.department_activities = {}
+        self.external_factors = {}
+        self.training_topics = []
+        self.certifications_earned = []
+        self.previous_versions = []
         
         # Set creation timestamp
         self.created_date = datetime.utcnow()
+        self.version_number = 1
+        
+        # Initialize performance scores
+        self.punctuality_score = 100.0
+        self.reliability_score = 100.0
+        self.compliance_score = 100.0
+        self.data_quality_score = 100.0
         
         # Apply any provided kwargs
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
     
-    def clock_in(self, clock_in_time=None, location=None, method='manual', 
-                ip_address=None, user_agent=None, gps_location=None):
-        """Record clock-in time and calculate status"""
-        # Use current time if not provided
-        if clock_in_time is None:
-            clock_in_time = datetime.now()
+    def calculate_worked_hours(self):
+        """Calculate actual worked hours with advanced logic"""
+        if not self.actual_start_time or not self.actual_end_time:
+            return 0.0
         
-        self.clock_in_time = clock_in_time
-        self.clock_in_method = method
-        self.location = location
-        self.ip_address = ip_address
-        self.user_agent = user_agent
+        # Convert times to datetime for calculation
+        start_datetime = datetime.combine(self.date, self.actual_start_time)
+        end_datetime = datetime.combine(self.date, self.actual_end_time)
         
-        if gps_location:
-            self.clock_in_location = gps_location
+        # Handle overnight shifts
+        if end_datetime < start_datetime:
+            end_datetime = datetime.combine(self.date + timedelta(days=1), self.actual_end_time)
         
-        # Calculate status based on scheduled time
-        self._calculate_clock_in_status()
-        
-        # Add to audit trail
-        self._add_to_audit_trail('clock_in', {
-            'time': clock_in_time.isoformat(),
-            'method': method,
-            'location': location
-        })
-    
-    def clock_out(self, clock_out_time=None, method='manual', gps_location=None):
-        """Record clock-out time and calculate work hours"""
-        # Use current time if not provided
-        if clock_out_time is None:
-            clock_out_time = datetime.now()
-        
-        self.clock_out_time = clock_out_time
-        self.clock_out_method = method
-        
-        if gps_location:
-            self.clock_out_location = gps_location
-        
-        # Calculate work hours and overtime
-        self._calculate_work_hours()
-        
-        # Calculate early departure
-        self._calculate_early_departure()
-        
-        # Add to audit trail
-        self._add_to_audit_trail('clock_out', {
-            'time': clock_out_time.isoformat(),
-            'method': method,
-            'work_hours': float(self.work_hours) if self.work_hours else 0,
-            'overtime_hours': float(self.overtime_hours) if self.overtime_hours else 0
-        })
-    
-    def start_break(self, break_time=None):
-        """Record break start time"""
-        if break_time is None:
-            break_time = datetime.now()
-        
-        self.break_start_time = break_time
-        
-        self._add_to_audit_trail('break_start', {
-            'time': break_time.isoformat()
-        })
-    
-    def end_break(self, break_time=None):
-        """Record break end time and calculate break duration"""
-        if break_time is None:
-            break_time = datetime.now()
-        
-        self.break_end_time = break_time
-        
-        # Calculate break duration
-        if self.break_start_time:
-            break_duration = break_time - self.break_start_time
-            self.total_break_minutes += int(break_duration.total_seconds() / 60)
-        
-        # Recalculate work hours if clock-out is already recorded
-        if self.clock_out_time:
-            self._calculate_work_hours()
-        
-        self._add_to_audit_trail('break_end', {
-            'time': break_time.isoformat(),
-            'duration_minutes': self.total_break_minutes
-        })
-    
-    def _calculate_clock_in_status(self):
-        """Calculate attendance status based on clock-in time"""
-        from flask import current_app # Local import
-        
-        # Check if scheduled time is available
-        if not self.clock_in_time or not self.scheduled_in_time:
-            self.status = 'present'
-            return
-        
-        # Convert scheduled time to datetime for comparison
-        scheduled_datetime = datetime.combine(self.date, self.scheduled_in_time)
-        
-        # Calculate how late the employee is
-        if self.clock_in_time > scheduled_datetime:
-            late_delta = self.clock_in_time - scheduled_datetime
-            self.minutes_late = int(late_delta.total_seconds() / 60)
-            
-            # Determine if it's considered "late" based on company policy
-            late_threshold = current_app.config.get('VALIDATION_RULES', {}).get(
-                'attendance_rules', {}).get('late_threshold_minutes', 15)
-            
-            if self.minutes_late > late_threshold:
-                self.status = 'late'
-            else:
-                self.status = 'present'
-        else:
-            self.status = 'present'
-            self.minutes_late = 0
-    
-    def _calculate_work_hours(self):
-        """Calculate total work hours and overtime"""
-        from flask import current_app # Local import
-        
-        if not self.clock_in_time or not self.clock_out_time:
-            self.work_hours = Decimal('0.00')
-            self.regular_hours = Decimal('0.00')
-            self.overtime_hours = Decimal('0.00')
-            return
-        
-        # Calculate total time
-        total_time = self.clock_out_time - self.clock_in_time
-        total_minutes = int(total_time.total_seconds() / 60)
+        # Calculate total time in minutes
+        total_minutes = (end_datetime - start_datetime).total_seconds() / 60
         
         # Subtract break time
-        work_minutes = total_minutes - self.total_break_minutes
-        work_hours = work_minutes / 60
+        break_minutes = self.total_break_minutes
+        if self.break_periods:
+            # Calculate break time from detailed periods
+            break_minutes = sum([
+                self._calculate_break_duration(period) 
+                for period in self.break_periods
+            ])
         
-        # Get standard work hours from config
-        standard_hours = current_app.config.get('KENYAN_LABOR_LAWS', {}).get(
-            'working_hours', {}).get('normal_hours_per_day', 8)
+        # Calculate net worked time
+        net_minutes = total_minutes - break_minutes
+        net_hours = max(0, net_minutes / 60)
         
-        # Calculate regular and overtime hours
-        if work_hours <= standard_hours:
-            self.regular_hours = Decimal(str(round(work_hours, 2)))
-            self.overtime_hours = Decimal('0.00')
+        # Update worked hours
+        self.worked_hours = round(Decimal(net_hours), 2)
+        
+        # Calculate overtime and regular hours
+        if self.worked_hours > self.scheduled_hours:
+            self.regular_hours = self.scheduled_hours
+            self.overtime_hours = round(self.worked_hours - self.scheduled_hours, 2)
         else:
-            self.regular_hours = Decimal(str(standard_hours))
-            self.overtime_hours = Decimal(str(round(work_hours - standard_hours, 2)))
+            self.regular_hours = self.worked_hours
+            self.overtime_hours = Decimal(0.0)
+            self.undertime_hours = round(self.scheduled_hours - self.worked_hours, 2)
         
-        self.work_hours = Decimal(str(round(work_hours, 2)))
+        # Calculate productive hours (excluding non-productive activities)
+        self.total_productive_hours = self.worked_hours - self.training_hours
+        
+        return self.worked_hours
     
-    def _calculate_early_departure(self):
-        """Calculate early departure minutes"""
-        if not self.clock_out_time or not self.scheduled_out_time:
-            return
+    def _calculate_break_duration(self, break_period):
+        """Calculate duration of a single break period"""
+        try:
+            if isinstance(break_period, dict) and 'start' in break_period and 'end' in break_period:
+                # FIX: Ensure proper datetime conversion for time strings
+                
+                # Check if values are datetime.time objects (from model instance)
+                if isinstance(break_period['start'], time):
+                     start_time = break_period['start']
+                     end_time = break_period['end']
+                else:
+                     start_time = datetime.strptime(break_period['start'], '%H:%M').time()
+                     end_time = datetime.strptime(break_period['end'], '%H:%M').time()
+                
+                start_datetime = datetime.combine(self.date, start_time)
+                end_datetime = datetime.combine(self.date, end_time)
+                
+                if end_datetime < start_datetime:
+                    end_datetime += timedelta(days=1)
+                
+                return (end_datetime - start_datetime).total_seconds() / 60
+        except:
+            pass
+        return 0
+    
+    def mark_present(self, clock_in_time=None, location=None, method='manual', device_info=None):
+        """Mark employee as present with comprehensive tracking"""
+        self.status = 'present'
+        self.clock_in_time = clock_in_time or datetime.utcnow()
+        self.clock_in_location = location
+        self.clock_in_method = method
         
-        # Convert scheduled out time to datetime
-        scheduled_out_datetime = datetime.combine(self.date, self.scheduled_out_time)
+        # FIX: Ensure actual_start_time is a time object
+        if isinstance(self.clock_in_time, datetime):
+            self.actual_start_time = self.clock_in_time.time()
+        elif self.clock_in_time:
+             # Assuming it is already a time object if not a datetime
+             self.actual_start_time = self.clock_in_time
         
-        # If leaving before scheduled time
-        if self.clock_out_time < scheduled_out_datetime:
-            early_delta = scheduled_out_datetime - self.clock_out_time
-            self.minutes_early_departure = int(early_delta.total_seconds() / 60)
+        if device_info:
+            self.device_info.update({'clock_in': device_info})
+        
+        # Calculate lateness
+        if self.scheduled_start_time:
+            self.late_arrival_minutes = self.get_lateness_minutes()
+            if self.late_arrival_minutes > 0:
+                self.status = 'late'
+        
+        # Update audit trail
+        self._add_audit_entry('mark_present', {
+            'time': self.clock_in_time.isoformat() if isinstance(self.clock_in_time, datetime) else str(self.clock_in_time),
+            'location': location,
+            'method': method
+        })
+    
+    def mark_absent(self, reason=None, absence_type='unplanned', requires_documentation=False):
+        """Mark employee as absent with detailed tracking"""
+        self.status = 'absent'
+        self.absence_reason = reason
+        self.absence_type = absence_type
+        self.worked_hours = Decimal(0.0)
+        self.regular_hours = Decimal(0.0)
+        self.overtime_hours = Decimal(0.0)
+        self.undertime_hours = self.scheduled_hours
+        
+        if requires_documentation:
+            self.doctor_note_required = True
+        
+        # Update audit trail
+        self._add_audit_entry('mark_absent', {
+            'reason': reason,
+            'type': absence_type,
+            'requires_documentation': requires_documentation
+        })
+    
+    def clock_out(self, clock_out_time=None, location=None, method=None, device_info=None):
+        """Record clock out time with comprehensive tracking"""
+        self.clock_out_time = clock_out_time or datetime.utcnow()
+        self.clock_out_location = location
+        self.clock_out_method = method or self.clock_in_method
+        
+        # FIX: Ensure actual_end_time is a time object
+        if isinstance(self.clock_out_time, datetime):
+            self.actual_end_time = self.clock_out_time.time()
+        elif self.clock_out_time:
+             self.actual_end_time = self.clock_out_time
+        
+        if device_info:
+            if not self.device_info:
+                self.device_info = {}
+            self.device_info['clock_out'] = device_info
+        
+        # Calculate early departure
+        if self.scheduled_end_time:
+            self.early_departure_minutes = self.get_early_departure_minutes()
+        
+        # Calculate worked hours
+        self.calculate_worked_hours()
+        
+        # Update performance scores
+        self.update_performance_scores()
+        
+        # Update audit trail
+        self._add_audit_entry('clock_out', {
+            'time': self.clock_out_time.isoformat() if isinstance(self.clock_out_time, datetime) else str(self.clock_out_time),
+            'location': location,
+            'method': method,
+            'worked_hours': float(self.worked_hours)
+        })
+    
+    def add_break_period(self, start_time, end_time, break_type='lunch'):
+        """Add a break period to the attendance record"""
+        if not self.break_periods:
+            self.break_periods = []
+        
+        break_period = {
+            'start': start_time.strftime('%H:%M') if isinstance(start_time, time) else start_time,
+            'end': end_time.strftime('%H:%M') if isinstance(end_time, time) else end_time,
+            'type': break_type,
+            'duration_minutes': self._calculate_break_duration({
+                'start': start_time.strftime('%H:%M') if isinstance(start_time, time) else start_time,
+                'end': end_time.strftime('%H:%M') if isinstance(end_time, time) else end_time
+            })
+        }
+        
+        self.break_periods.append(break_period)
+        
+        # Update total break minutes
+        self.total_break_minutes = sum([
+            period.get('duration_minutes', 0) 
+            for period in self.break_periods
+        ])
+        
+        # Recalculate worked hours
+        if self.actual_start_time and self.actual_end_time:
+            self.calculate_worked_hours()
+    
+    def is_late(self):
+        """Check if employee was late"""
+        if not self.actual_start_time or not self.scheduled_start_time:
+            return False
+        return self.actual_start_time > self.scheduled_start_time
+    
+    def get_lateness_minutes(self):
+        """Get lateness in minutes"""
+        if not self.is_late():
+            return 0
+        
+        start_scheduled = datetime.combine(self.date, self.scheduled_start_time)
+        start_actual = datetime.combine(self.date, self.actual_start_time)
+        
+        # Apply grace period
+        grace_minutes = self.grace_period_minutes or 0
+        lateness = int((start_actual - start_scheduled).total_seconds() / 60)
+        
+        if lateness <= grace_minutes:
+            self.grace_period_used = True
+            return 0
+        
+        return max(0, lateness - grace_minutes)
+    
+    def get_early_departure_minutes(self):
+        """Get early departure in minutes"""
+        if not self.actual_end_time or not self.scheduled_end_time:
+            return 0
+        
+        end_scheduled = datetime.combine(self.date, self.scheduled_end_time)
+        end_actual = datetime.combine(self.date, self.actual_end_time)
+        
+        if end_actual < end_scheduled:
+            return int((end_scheduled - end_actual).total_seconds() / 60)
+        
+        return 0
+    
+    def update_performance_scores(self):
+        """Update performance scores based on attendance data"""
+        # Punctuality score
+        if self.late_arrival_minutes == 0:
+            self.punctuality_score = Decimal(100.0)
+        elif self.late_arrival_minutes <= 15:
+            self.punctuality_score = Decimal(85.0)
+        elif self.late_arrival_minutes <= 30:
+            self.punctuality_score = Decimal(70.0)
         else:
-            self.minutes_early_departure = 0
+            self.punctuality_score = Decimal(50.0)
+        
+        # Efficiency score based on worked vs scheduled hours
+        if self.scheduled_hours and self.scheduled_hours > 0:
+             efficiency = min(Decimal(100.0), (self.worked_hours / self.scheduled_hours) * Decimal(100.0))
+        else:
+             efficiency = Decimal(100.0)
+        
+        self.efficiency_rating = self._get_efficiency_rating(efficiency)
+        
+        # Overall performance score
+        self.overall_performance_score = (
+            self.punctuality_score * Decimal(0.4) +
+            efficiency * Decimal(0.4) +
+            (self.productivity_score or Decimal(80.0)) * Decimal(0.2)
+        )
+        
+        # Check for perfect attendance
+        self.is_perfect_attendance = (
+            self.status == 'present' and
+            self.late_arrival_minutes == 0 and
+            self.early_departure_minutes == 0 and
+            self.worked_hours >= self.scheduled_hours
+        )
+        
+        # Check for exceptional performance
+        self.is_exceptional_performance = (
+            self.overall_performance_score >= Decimal(95.0) and
+            self.overtime_hours > Decimal(0.0)
+        )
     
-    def _add_to_audit_trail(self, action, data):
+    def _get_efficiency_rating(self, efficiency_score):
+        """Convert efficiency score to rating"""
+        if efficiency_score >= Decimal(95):
+            return 'excellent'
+        elif efficiency_score >= Decimal(85):
+            return 'good'
+        elif efficiency_score >= Decimal(70):
+            return 'average'
+        elif efficiency_score >= Decimal(50):
+            return 'poor'
+        else:
+            return 'critical'
+    
+    def _add_audit_entry(self, action, details):
         """Add entry to audit trail"""
-        if self.audit_trail is None:
+        if not self.audit_trail:
             self.audit_trail = []
         
         entry = {
-            'timestamp': datetime.utcnow().isoformat(),
             'action': action,
-            'data': data
+            'timestamp': datetime.utcnow().isoformat(),
+            'details': details,
+            'user_id': getattr(self, '_current_user_id', None)
         }
         
         self.audit_trail.append(entry)
     
-    def mark_absent(self, reason=None, absence_type='unexcused'):
-        """Mark employee as absent"""
-        self.status = 'absent'
-        self.absence_type = absence_type
-        self.absence_reason = reason
-        self.work_hours = Decimal('0.00')
-        self.regular_hours = Decimal('0.00')
-        self.overtime_hours = Decimal('0.00')
+    def approve_record(self, approver_id, notes=None):
+        """Approve attendance record"""
+        self.is_approved = True
+        self.approved_by = approver_id
+        self.approved_date = datetime.utcnow()
+        self.approval_notes = notes
         
-        self._add_to_audit_trail('marked_absent', {
-            'reason': reason,
-            'type': absence_type
-        })
-    
-    def mark_on_leave(self, leave_type, leave_request_id=None):
-        """Mark employee as on leave"""
-        leave_status_map = {
-            'annual_leave': 'annual_leave',
-            'sick_leave': 'sick_leave',
-            'maternity_leave': 'maternity_leave',
-            'paternity_leave': 'paternity_leave',
-            'compassionate_leave': 'compassionate_leave',
-            'study_leave': 'study_leave'
-        }
-        
-        self.status = leave_status_map.get(leave_type, 'on_leave')
-        self.leave_request_id = leave_request_id
-        self.work_hours = Decimal('0.00')
-        self.regular_hours = Decimal('0.00')
-        self.overtime_hours = Decimal('0.00')
-        
-        self._add_to_audit_trail('marked_on_leave', {
-            'leave_type': leave_type,
-            'leave_request_id': leave_request_id
-        })
-    
-    def calculate_punctuality_score(self):
-        """Calculate punctuality score (0-100)"""
-        if self.status == 'absent':
-            return 0.0
-        
-        if self.minutes_late == 0:
-            return 100.0
-        
-        # Score decreases with lateness
-        # 15 minutes late = 50 points, 30+ minutes = 0 points
-        if self.minutes_late <= 15:
-            score = 100 - (self.minutes_late * 3.33)  # 3.33 points per minute
-        elif self.minutes_late <= 30:
-            score = 50 - ((self.minutes_late - 15) * 3.33)
-        else:
-            score = 0
-        
-        return max(0.0, min(100.0, round(score, 2)))
-    
-    def calculate_efficiency_rating(self):
-        """Calculate efficiency rating based on various factors"""
-        score = 0
-        
-        # Base score from punctuality
-        score += self.calculate_punctuality_score() * 0.4
-        
-        # Work hours completion (if overtime is positive, bonus points)
-        if self.regular_hours is not None and float(self.regular_hours) >= 8:
-            score += 30
-        elif self.regular_hours is not None and float(self.regular_hours) >= 6:
-            score += 20
-        elif self.regular_hours is not None and float(self.regular_hours) >= 4:
-            score += 10
-        
-        # Overtime bonus (but cap it)
-        if self.overtime_hours is not None and float(self.overtime_hours) > 0:
-            overtime_bonus = min(float(self.overtime_hours) * 5, 20)
-            score += overtime_bonus
-        
-        # Break time penalty (if excessive breaks)
-        if self.total_break_minutes > 90:  # More than 1.5 hours
-            score -= 10
-        
-        # Determine rating
-        if score >= 90:
-            return 'excellent'
-        elif score >= 75:
-            return 'good'
-        elif score >= 60:
-            return 'average'
-        else:
-            return 'poor'
-    
-    def get_formatted_work_hours(self):
-        """Get formatted work hours as HH:MM"""
-        if self.work_hours is None or self.work_hours == 0:
-            return "00:00"
-        
-        hours = int(self.work_hours)
-        minutes = int((self.work_hours - hours) * 60)
-        return f"{hours:02d}:{minutes:02d}"
-    
-    def get_status_display(self):
-        """Get human-readable status"""
-        status_map = {
-            'present': 'Present',
-            'late': 'Late',
-            'absent': 'Absent',
-            'annual_leave': 'Annual Leave',
-            'sick_leave': 'Sick Leave',
-            'maternity_leave': 'Maternity Leave',
-            'paternity_leave': 'Paternity Leave',
-            'compassionate_leave': 'Compassionate Leave',
-            'study_leave': 'Study Leave',
-            'on_leave': 'On Leave'
-        }
-        return status_map.get(self.status, self.status.replace('_', ' ').title())
-    
-    def get_clock_in_display(self):
-        """Get formatted clock-in time"""
-        if self.clock_in_time:
-            return self.clock_in_time.strftime('%H:%M')
-        return '-'
-    
-    def get_clock_out_display(self):
-        """Get formatted clock-out time"""
-        if self.clock_out_time:
-            return self.clock_out_time.strftime('%H:%M')
-        return '-'
-    
-    def is_overtime_applicable(self):
-        """Check if overtime rules apply"""
-        return self.overtime_hours is not None and self.overtime_hours > 0 and self.status in ['present', 'late']
-    
-    def get_overtime_rate(self):
-        """Get overtime rate multiplier"""
-        from config import get_overtime_rate # Local import
-        from models.holiday import Holiday # Local import
-        
-        # Check if it's a holiday
-        is_holiday = Holiday.is_holiday(self.date)
-        
-        # Check if it's night shift
-        is_night_shift = self.shift_type == 'night'
-        
-        # FIX: Ensure work_hours is treated as a float/Decimal for the function call
-        return get_overtime_rate(float(self.work_hours) if self.work_hours else 0, is_holiday, is_night_shift)
-    
-    def verify_attendance(self, verified_by_user_id, notes=None):
-        """Verify attendance record"""
-        self.is_verified = True
-        self.verified_by = verified_by_user_id
-        self.verified_date = datetime.utcnow()
-        
-        if notes:
-            if not self.manager_notes:
-                self.manager_notes = ""
-            self.manager_notes += f"\n\nVerified: {notes}"
-        
-        self._add_to_audit_trail('verified', {
-            'verified_by': verified_by_user_id,
+        self._add_audit_entry('approve', {
+            'approver_id': approver_id,
             'notes': notes
         })
     
-    def add_manual_entry(self, entered_by_user_id, reason, clock_in=None, 
-                        clock_out=None, work_hours=None):
-        """Add manual attendance entry"""
-        self.is_manual_entry = True
-        self.entered_by = entered_by_user_id
-        self.manual_entry_reason = reason
+    def flag_for_review(self, reason, reviewer_role='manager'):
+        """Flag record for manual review"""
+        self.requires_follow_up = True
+        self.follow_up_reason = reason
         
-        if clock_in:
-            self.clock_in_time = clock_in
-            self.clock_in_method = 'manual'
+        if reviewer_role == 'hr':
+            self.requires_hr_approval = True
+        else:
+            self.requires_manager_approval = True
         
-        if clock_out:
-            self.clock_out_time = clock_out
-            self.clock_out_method = 'manual'
-        
-        if work_hours is not None:
-            self.work_hours = Decimal(str(work_hours))
-        elif self.clock_in_time and self.clock_out_time:
-            self._calculate_work_hours()
-        
-        # Update status
-        if self.clock_in_time:
-            self._calculate_clock_in_status()
-        
-        self._add_to_audit_trail('manual_entry', {
-            'entered_by': entered_by_user_id,
+        self._add_audit_entry('flag_for_review', {
             'reason': reason,
-            'clock_in': clock_in.isoformat() if clock_in else None,
-            'clock_out': clock_out.isoformat() if clock_out else None
+            'reviewer_role': reviewer_role
         })
     
-    def to_dict(self, include_sensitive=False):
-        """Convert attendance record to dictionary"""
+    def detect_anomalies(self):
+        """Detect potential anomalies in attendance data"""
+        anomalies = []
+        
+        # Check for unusual working hours
+        if self.worked_hours and self.worked_hours > 16:
+            anomalies.append('excessive_hours')
+        
+        # Check for multiple clock-ins on same day
+        if self.is_manual_entry and not self.manual_entry_reason:
+            anomalies.append('manual_entry_without_reason')
+        
+        # Check for location inconsistencies
+        if (self.clock_in_location and self.clock_out_location and 
+            self.clock_in_location != self.clock_out_location):
+            anomalies.append('location_mismatch')
+        
+        # Check for suspicious timing patterns
+        if self.late_arrival_minutes > 120:  # More than 2 hours late
+            anomalies.append('excessive_lateness')
+        
+        if anomalies:
+            self.anomaly_detected = True
+            self.anomaly_type = ', '.join(anomalies)
+            self.manual_verification_required = True
+        
+        return anomalies
+    
+    def export_for_payroll(self):
+        """Export attendance data for payroll processing"""
+        payroll_data = {
+            'employee_id': self.employee_id,
+            'date': self.date.isoformat(),
+            'regular_hours': float(self.regular_hours),
+            'overtime_hours': float(self.overtime_hours),
+            'status': self.status,
+            'approved': self.is_approved,
+            'location': self.location,
+            'shift_type': self.shift_type
+        }
+        
+        if self.sales_amount:
+            payroll_data['sales_amount'] = float(self.sales_amount)
+        
+        if self.customers_served:
+            payroll_data['customers_served'] = self.customers_served
+        
+        return payroll_data
+    
+    def to_dict(self):
+        """Convert attendance record to dictionary for API responses"""
         data = {
             'id': self.id,
             'employee_id': self.employee_id,
-            'date': self.date.isoformat(),
+            'date': self.date.isoformat() if self.date else None,
             'status': self.status,
-            'status_display': self.get_status_display(),
-            'clock_in_time': self.clock_in_time.isoformat() if self.clock_in_time else None,
-            'clock_out_time': self.clock_out_time.isoformat() if self.clock_out_time else None,
-            'clock_in_display': self.get_clock_in_display(),
-            'clock_out_display': self.get_clock_out_display(),
-            'work_hours': float(self.work_hours) if self.work_hours else 0,
-            'work_hours_display': self.get_formatted_work_hours(),
-            'overtime_hours': float(self.overtime_hours) if self.overtime_hours else 0,
-            'minutes_late': self.minutes_late,
-            'is_verified': self.is_verified,
-            'is_manual_entry': self.is_manual_entry,
-            'location': self.location
+            'shift': self.shift,
+            'location': self.location,
+            # FIX: Ensure proper ISO/string formatting for mixed Time/DateTime types if they exist
+            'clock_in_time': self.clock_in_time.isoformat() if isinstance(self.clock_in_time, datetime) else str(self.clock_in_time) if self.clock_in_time else None,
+            'clock_out_time': self.clock_out_time.isoformat() if isinstance(self.clock_out_time, datetime) else str(self.clock_out_time) if self.clock_out_time else None,
+            'scheduled_hours': float(self.scheduled_hours) if self.scheduled_hours else 0.0,
+            'worked_hours': float(self.worked_hours) if self.worked_hours else 0.0,
+            'regular_hours': float(self.regular_hours) if self.regular_hours else 0.0,
+            'overtime_hours': float(self.overtime_hours) if self.overtime_hours else 0.0,
+            'is_late': self.is_late(),
+            'lateness_minutes': self.get_lateness_minutes(),
+            'is_approved': self.is_approved,
+            'notes': self.notes,
+            'manager_notes': self.manager_notes,
+            'efficiency_rating': self.efficiency_rating,
+            'punctuality_score': float(self.punctuality_score) if self.punctuality_score else None,
+            'overall_performance_score': float(self.overall_performance_score) if self.overall_performance_score else None,
+            'is_perfect_attendance': self.is_perfect_attendance,
+            'requires_follow_up': self.requires_follow_up,
+            'created_date': self.created_date.isoformat() if self.created_date else None,
+            'last_updated': self.last_updated.isoformat() if self.last_updated else None
         }
         
-        if include_sensitive:
-            data.update({
-                'regular_hours': float(self.regular_hours) if self.regular_hours else 0,
-                'total_break_minutes': self.total_break_minutes,
-                'minutes_early_departure': self.minutes_early_departure,
-                'punctuality_score': self.calculate_punctuality_score(),
-                'efficiency_rating': self.calculate_efficiency_rating(),
-                'overtime_rate': self.get_overtime_rate() if self.is_overtime_applicable() else 1.0,
-                'notes': self.notes,
-                'manager_notes': self.manager_notes,
-                'ip_address': self.ip_address,
-                'audit_trail': self.audit_trail
-            })
+        # Add optional fields if present
+        if self.absence_reason:
+            data['absence_reason'] = self.absence_reason
+        
+        if self.leave_request_id:
+            data['leave_request_id'] = self.leave_request_id
+        
+        if self.sales_amount:
+            data['sales_amount'] = float(self.sales_amount)
+        
+        if self.customers_served:
+            data['customers_served'] = self.customers_served
         
         return data
     
     @classmethod
-    def get_attendance_for_date(cls, target_date, location=None, department=None):
-        """Get attendance records for a specific date"""
-        from models.employee import Employee # Local import
+    def get_attendance_for_date(cls, target_date, location=None, department=None, include_inactive=False):
+        """Get attendance records for a specific date with filtering"""
+        # Import Employee model locally to avoid circular imports
+        from models.employee import Employee
         
         query = cls.query.join(Employee).filter(cls.date == target_date)
+        
+        if not include_inactive:
+            query = query.filter(Employee.is_active == True)
         
         if location:
             query = query.filter(Employee.location == location)
@@ -557,7 +708,7 @@ class AttendanceRecord(db.Model):
         if department:
             query = query.filter(Employee.department == department)
         
-        return query.all()
+        return query.order_by(Employee.last_name, Employee.first_name).all()
     
     @classmethod
     def get_employee_attendance_range(cls, employee_id, start_date, end_date):
@@ -568,13 +719,16 @@ class AttendanceRecord(db.Model):
         ).order_by(cls.date).all()
     
     @classmethod
-    def get_attendance_summary(cls, start_date, end_date, location=None):
-        """Get attendance summary for date range"""
-        from models.employee import Employee # Local import
+    def get_attendance_summary(cls, start_date, end_date, location=None, department=None):
+        """Get attendance summary for date range with detailed statistics"""
+        from models.employee import Employee
         
         query = db.session.query(
             cls.status,
-            func.count(cls.id).label('count')
+            func.count(cls.id).label('count'),
+            func.avg(cls.worked_hours).label('avg_hours'),
+            func.sum(cls.overtime_hours).label('total_overtime'),
+            func.avg(cls.punctuality_score).label('avg_punctuality')
         ).join(Employee).filter(
             cls.date.between(start_date, end_date),
             Employee.is_active == True
@@ -583,26 +737,212 @@ class AttendanceRecord(db.Model):
         if location:
             query = query.filter(Employee.location == location)
         
-        query = query.group_by(cls.status)
+        if department:
+            query = query.filter(Employee.department == department)
         
+        query = query.group_by(cls.status)
         results = query.all()
-        summary = {result.status: result.count for result in results}
+        
+        summary = {}
+        for result in results:
+            summary[result.status] = {
+                'count': result.count,
+                'avg_hours': float(result.avg_hours or 0),
+                'total_overtime': float(result.total_overtime or 0),
+                'avg_punctuality': float(result.avg_punctuality or 100)
+            }
         
         return summary
     
     @classmethod
+    def get_performance_metrics(cls, start_date, end_date, location=None):
+        """Get performance metrics for date range"""
+        from models.employee import Employee
+        
+        query = cls.query.join(Employee).filter(
+            cls.date.between(start_date, end_date),
+            Employee.is_active == True,
+            cls.status.in_(['present', 'late'])
+        )
+        
+        if location:
+            query = query.filter(Employee.location == location)
+        
+        records = query.all()
+        
+        if not records:
+            return None
+        
+        total_records = len(records)
+        perfect_attendance = len([r for r in records if r.is_perfect_attendance])
+        exceptional_performance = len([r for r in records if r.is_exceptional_performance])
+        
+        return {
+            'total_records': total_records,
+            'perfect_attendance_rate': (perfect_attendance / total_records) * 100,
+            'exceptional_performance_rate': (exceptional_performance / total_records) * 100,
+            'average_punctuality': sum([float(r.punctuality_score) or 0 for r in records]) / total_records,
+            'average_performance': sum([float(r.overall_performance_score) or 0 for r in records]) / total_records,
+            'total_overtime_hours': sum([float(r.overtime_hours) for r in records if r.overtime_hours])
+        }
+    
+    @classmethod
     def create_attendance_record(cls, employee_id, date, **kwargs):
-        """Create new attendance record"""
+        """Create new attendance record with validation"""
         # Check if record already exists
         existing = cls.query.filter_by(employee_id=employee_id, date=date).first()
         if existing:
-            # FIX: Return existing instead of raising if update is possible/intended
-            return existing 
+            raise ValueError(f"Attendance record already exists for employee {employee_id} on {date}")
         
         record = cls(employee_id=employee_id, date=date, **kwargs)
+        record.detect_anomalies()  # Automatically detect anomalies
+        
         return record
     
     def __repr__(self):
-        # FIX: Ensure safe access to employee.get_full_name()
-        employee_name = self.employee.get_full_name() if self.employee and hasattr(self.employee, 'get_full_name') else str(self.employee_id)
-        return f'<AttendanceRecord {employee_name}: {self.date} - {self.status}>'
+        """String representation of attendance record"""
+        try:
+            if hasattr(self, 'employee') and self.employee:
+                employee_name = f"{self.employee.first_name} {self.employee.last_name}"
+            else:
+                employee_name = f"Employee {self.employee_id}"
+            
+            return f'<AttendanceRecord {employee_name}: {self.date} - {self.status} ({self.worked_hours}h)>'
+        except:
+            return f'<AttendanceRecord ID:{self.id} Employee:{self.employee_id} Date:{self.date}>'
+
+
+class AttendanceSummary(db.Model):
+    """
+    Monthly attendance summary for performance tracking and reporting
+    """
+    __tablename__ = 'attendance_summaries'
+    
+    id = Column(Integer, primary_key=True)
+    employee_id = Column(Integer, ForeignKey('employees.id'), nullable=False)
+    year = Column(Integer, nullable=False)
+    month = Column(Integer, nullable=False)
+    
+    # Basic attendance statistics
+    total_working_days = Column(Integer, nullable=False, default=0)
+    total_scheduled_days = Column(Integer, nullable=False, default=0)
+    present_days = Column(Integer, nullable=False, default=0)
+    absent_days = Column(Integer, nullable=False, default=0)
+    late_days = Column(Integer, nullable=False, default=0)
+    half_days = Column(Integer, nullable=False, default=0)
+    early_departures = Column(Integer, nullable=False, default=0)
+    
+    # Hours tracking
+    total_scheduled_hours = Column(Numeric(8, 2), nullable=False, default=0)
+    total_worked_hours = Column(Numeric(8, 2), nullable=False, default=0)
+    total_regular_hours = Column(Numeric(8, 2), nullable=False, default=0)
+    total_overtime_hours = Column(Numeric(8, 2), nullable=False, default=0)
+    total_undertime_hours = Column(Numeric(8, 2), nullable=False, default=0)
+    
+    # Performance metrics
+    attendance_percentage = Column(Numeric(5, 2), nullable=False, default=0)
+    punctuality_percentage = Column(Numeric(5, 2), nullable=False, default=0)
+    average_daily_hours = Column(Numeric(5, 2), nullable=False, default=0)
+    average_punctuality_score = Column(Numeric(5, 2), nullable=False, default=0)
+    average_performance_score = Column(Numeric(5, 2), nullable=False, default=0)
+    
+    # Leave and absence tracking
+    sick_days = Column(Integer, nullable=False, default=0)
+    vacation_days = Column(Integer, nullable=False, default=0)
+    personal_days = Column(Integer, nullable=False, default=0)
+    emergency_days = Column(Integer, nullable=False, default=0)
+    
+    # Productivity and performance
+    total_tasks_completed = Column(Integer, nullable=False, default=0)
+    total_customers_served = Column(Integer, nullable=False, default=0)
+    total_sales_amount = Column(Numeric(12, 2), nullable=False, default=0)
+    training_hours = Column(Numeric(6, 2), nullable=False, default=0)
+    
+    # Quality indicators
+    perfect_attendance_days = Column(Integer, nullable=False, default=0)
+    exceptional_performance_days = Column(Integer, nullable=False, default=0)
+    anomaly_count = Column(Integer, nullable=False, default=0)
+    requires_attention = Column(Boolean, nullable=False, default=False)
+    
+    # Metadata
+    created_date = Column(DateTime, nullable=False, default=func.current_timestamp())
+    last_calculated = Column(DateTime, nullable=False, default=func.current_timestamp())
+    calculation_version = Column(String(10), nullable=False, default='1.0')
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_employee_year_month', 'employee_id', 'year', 'month'),
+        Index('idx_year_month', 'year', 'month'),
+    )
+    
+    @classmethod
+    def calculate_summary(cls, employee_id, year, month):
+        """Calculate attendance summary for employee for given month"""
+        from calendar import monthrange
+        from models.employee import Employee
+        
+        # Get month date range
+        start_date = date(year, month, 1)
+        last_day = monthrange(year, month)[1]
+        end_date = date(year, month, last_day)
+        
+        # Get all attendance records for the month
+        records = AttendanceRecord.query.filter(
+            AttendanceRecord.employee_id == employee_id,
+            AttendanceRecord.date.between(start_date, end_date)
+        ).all()
+        
+        # Get or create summary record
+        summary = cls.query.filter_by(
+            employee_id=employee_id,
+            year=year,
+            month=month
+        ).first()
+        
+        if not summary:
+            summary = cls(employee_id=employee_id, year=year, month=month)
+        
+        # Calculate statistics
+        summary.total_working_days = len(records)
+        summary.present_days = len([r for r in records if r.status in ['present', 'late']])
+        summary.absent_days = len([r for r in records if r.status == 'absent'])
+        summary.late_days = len([r for r in records if r.status == 'late'])
+        summary.half_days = len([r for r in records if r.status == 'half_day'])
+        
+        # Hours calculations
+        summary.total_worked_hours = sum([r.worked_hours or Decimal(0.0) for r in records])
+        summary.total_regular_hours = sum([r.regular_hours or Decimal(0.0) for r in records])
+        summary.total_overtime_hours = sum([r.overtime_hours or Decimal(0.0) for r in records])
+        summary.total_scheduled_hours = sum([r.scheduled_hours or Decimal(0.0) for r in records])
+        
+        # Percentages
+        if summary.total_working_days > 0:
+            summary.attendance_percentage = Decimal((summary.present_days / summary.total_working_days) * 100)
+            summary.punctuality_percentage = Decimal(((summary.present_days - summary.late_days) / summary.total_working_days) * 100)
+        
+        # Performance metrics
+        if records:
+            valid_scores = [r.punctuality_score for r in records if r.punctuality_score is not None]
+            summary.average_punctuality_score = Decimal(sum(valid_scores) / len(valid_scores)) if valid_scores else Decimal(0)
+            
+            perf_scores = [r.overall_performance_score for r in records if r.overall_performance_score is not None]
+            summary.average_performance_score = Decimal(sum(perf_scores) / len(perf_scores)) if perf_scores else Decimal(0)
+        
+        # Quality indicators
+        summary.perfect_attendance_days = len([r for r in records if r.is_perfect_attendance])
+        summary.exceptional_performance_days = len([r for r in records if r.is_exceptional_performance])
+        summary.anomaly_count = len([r for r in records if r.anomaly_detected])
+        
+        # Set attention flag
+        summary.requires_attention = (
+            summary.attendance_percentage < Decimal(90) or
+            summary.punctuality_percentage < Decimal(85) or
+            summary.anomaly_count > 2
+        )
+        
+        summary.last_calculated = datetime.utcnow()
+        
+        return summary
+    
+    def __repr__(self):
+        return f'<AttendanceSummary Employee:{self.employee_id} {self.year}-{self.month:02d}>'

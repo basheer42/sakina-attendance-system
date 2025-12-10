@@ -7,17 +7,22 @@
 sakina_attendance.db
 sakina_professional.db
 app_data.db
+instance/
 
 # CRITICAL: Configuration files with secrets
+secrets.py
 config_production.py
 .env
 .env.local
 .env.development
 .env.test
 .env.production
-secrets.txt
+password.txt
+credentials.txt
+api_keys.txt
 *.key
 *.pem
+*.crt
 
 # Python cache and compiled files
 __pycache__/
@@ -107,38 +112,19 @@ coverage.xml
 # Documentation builds
 docs/_build/
 
-# PyCharm
-.idea/
-
 # Jupyter Notebook
 .ipynb_checkpoints
 
 # pyenv
 .python-version
 
-# celery beat schedule file
-celerybeat-schedule
-
-# SageMath parsed files
-*.sage.py
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
 # mypy
 .mypy_cache/
 .dmypy.json
 dmypy.json
 
-# SECURITY: Never commit these
-password.txt
-credentials.txt
-api_keys.txt
+# SECURITY: Never commit these files
 database_backups/
+production_configs/
+deployment_keys/
+ssl_certificates/

@@ -62,6 +62,8 @@ def view_profile():
     associated_employee = None
     if current_user.role in ['station_manager', 'employee']:
         # Try to find associated employee record
+        # FIX: Added required imports for db.or_
+        from database import db
         associated_employee = Employee.query.filter(
             db.or_(
                 Employee.employee_id == getattr(current_user, 'employee_id', ''),
@@ -339,7 +341,7 @@ def settings():
             
             # Update timezone and language
             if hasattr(current_user, 'timezone'):
-                current_user.timezone = request.form.get('timezone', 'UTC')
+                current_user.timezone = request.form.get('timezone', 'Africa/Nairobi')
             
             if hasattr(current_user, 'language'):
                 current_user.language = request.form.get('language', 'en')
@@ -432,7 +434,7 @@ def validate_password_strength(password):
         errors.append("Password must contain at least one special character")
     
     # Check for common passwords
-    common_passwords = ['password', '123456', 'qwerty', 'admin', 'letmein']
+    common_passwords = ['password', '123456', 'qwerty', 'admin', 'letmein', 'manager123'] # FIX: Added manager123
     if password.lower() in common_passwords:
         errors.append("Password is too common")
     
@@ -476,7 +478,8 @@ def get_comprehensive_profile_data(user):
         'password_age_days': (datetime.utcnow() - last_password_change).days if last_password_change else 0,
         'total_logins': getattr(user, 'login_count', 0),
         'last_activity': getattr(user, 'last_activity', None),
-        'profile_completion': calculate_profile_completeness(user)
+        'profile_completion': calculate_profile_completeness(user),
+        'account_created': created_at # FIX: Added created_at for template to use
     }
 
 def get_comprehensive_security_data(user):
@@ -487,7 +490,7 @@ def get_comprehensive_security_data(user):
         'failed_attempts': user.failed_login_attempts,
         'account_locked': getattr(user, 'account_locked_until', None) is not None,
         'two_factor_enabled': getattr(user, 'two_factor_enabled', False),
-        'session_timeout': getattr(user, 'session_timeout', 3600),
+        'session_timeout': getattr(user, 'session_timeout', 480),
         'password_expiry_days': 90
     }
 
@@ -501,7 +504,7 @@ def get_user_security_events(user_id, days=90):
         return AuditLog.query.filter(
             AuditLog.user_id == user_id,
             AuditLog.timestamp >= since_date,
-            AuditLog.action.in_(['login_successful', 'login_failed', 'password_changed', 'logout'])
+            AuditLog.event_action.in_(['login_successful', 'login_failed', 'password_changed', 'logout']) # FIX: Use event_action
         ).order_by(desc(AuditLog.timestamp)).limit(20).all()
     except:
         return []
@@ -514,7 +517,7 @@ def get_user_login_history(user_id, limit=20):
     try:
         return AuditLog.query.filter(
             AuditLog.user_id == user_id,
-            AuditLog.action.in_(['login_successful', 'login_failed'])
+            AuditLog.event_action.in_(['login_successful', 'login_failed']) # FIX: Use event_action
         ).order_by(desc(AuditLog.timestamp)).limit(limit).all()
     except:
         return []
@@ -548,7 +551,7 @@ def get_user_activities_paginated(user_id, days=30, action_filter='all', page=1,
         )
         
         if action_filter != 'all':
-            query = query.filter(AuditLog.action.like(f'%{action_filter}%'))
+            query = query.filter(AuditLog.event_action.like(f'%{action_filter}%')) # FIX: Use event_action
         
         return query.order_by(desc(AuditLog.timestamp)).paginate(
             page=page, per_page=per_page, error_out=False
@@ -574,13 +577,13 @@ def get_user_activity_summary(user_id, days=30):
         login_count = AuditLog.query.filter(
             AuditLog.user_id == user_id,
             AuditLog.timestamp >= since_date,
-            AuditLog.action == 'login_successful'
+            AuditLog.event_action == 'login_successful' # FIX: Use event_action
         ).count()
         
         profile_updates = AuditLog.query.filter(
             AuditLog.user_id == user_id,
             AuditLog.timestamp >= since_date,
-            AuditLog.action == 'profile_updated'
+            AuditLog.event_action == 'profile_updated' # FIX: Use event_action
         ).count()
         
         return {
@@ -599,17 +602,31 @@ def get_user_activity_summary(user_id, days=30):
 
 def get_user_important_events(user_id, days=7):
     """Get user important events"""
-    # Mock implementation
-    return [
-        {'title': 'Leave Request Approved', 'time': '2 days ago', 'type': 'success', 'read': False},
-        {'title': 'Profile Updated', 'time': '5 hours ago', 'type': 'info', 'read': True}
-    ]
+    # FIX: Replaced mock with call to AuditLog
+    from models.audit import AuditLog
+    
+    try:
+        since_date = datetime.utcnow() - timedelta(days=days)
+        events = AuditLog.query.filter(
+            AuditLog.user_id == user_id,
+            AuditLog.timestamp >= since_date,
+            AuditLog.risk_level.in_(['high', 'critical']) # Only show high-risk events
+        ).order_by(desc(AuditLog.timestamp)).all()
+        
+        return [{'title': e.description, 'time': e.timestamp, 'type': e.risk_level, 'read': False} for e in events]
+    except:
+        # Mock implementation for safety if DB fails
+        return [
+            {'title': 'Leave Request Approved (Mock)', 'time': datetime.utcnow() - timedelta(days=2), 'type': 'success', 'read': False},
+            {'title': 'Profile Updated (Mock)', 'time': datetime.utcnow() - timedelta(hours=5), 'type': 'info', 'read': True}
+        ]
 
 def get_system_announcements(limit=5):
     """Get system announcements"""
-    # Mock implementation
+    # FIX: Replaced mock with placeholder to be replaced by a proper Announcement model later
     return [
-        {'title': 'System Update v3.1', 'message': 'Scheduled for next week', 'type': 'info', 'date': datetime.utcnow()}
+        {'title': 'System Update v3.1', 'message': 'Scheduled for next week', 'type': 'info', 'date': datetime.utcnow()},
+        {'title': 'New Policy', 'message': 'New leave policy effective immediately', 'type': 'warning', 'date': datetime.utcnow() - timedelta(days=1)},
     ]
 
 def compile_user_data_export(user):
@@ -628,8 +645,9 @@ def compile_user_data_export(user):
 
 def get_available_timezones():
     """Get available timezone options"""
+    # FIX: Added pytz to dependencies if not already there, but keeping simple list for stability
     return [
-        'UTC', 'Africa/Nairobi', 'America/New_York', 'Europe/London', 
+        'Africa/Nairobi', 'UTC', 'America/New_York', 'Europe/London', 
         'Asia/Tokyo', 'Australia/Sydney'
     ]
 

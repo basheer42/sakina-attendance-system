@@ -405,8 +405,8 @@ def register_cli_commands(app):
                 
                 click.echo('✅ Database reset completed successfully!')
                 click.echo('\n📋 Default login credentials:')
-                click.echo('   HR Manager: hr_manager / manager123')
-                click.echo('   Station Managers: [location]_manager / manager123')
+                click.echo('   HR Manager: hr_manager / Manager123!')
+                click.echo('   Station Managers: [location]_manager / Manager123!')
                 
             except Exception as e:
                 click.echo(f'❌ Database reset failed: {e}')
@@ -718,6 +718,9 @@ def create_default_system_data(app, User, Employee, Holiday, AuditLog):
         
         print("👥 Creating default system data...")
         
+        # Define the SECURE default password
+        SECURE_DEFAULT_PASSWORD = 'Manager123!'
+        
         # Create default HR Manager
         hr_manager = User(
             username='hr_manager',
@@ -730,7 +733,7 @@ def create_default_system_data(app, User, Employee, Holiday, AuditLog):
             is_verified=True,
             created_by=1
         )
-        hr_manager.set_password('manager123')
+        hr_manager.set_password(SECURE_DEFAULT_PASSWORD)
         db.session.add(hr_manager)
         
         # Create Station Managers
@@ -752,7 +755,7 @@ def create_default_system_data(app, User, Employee, Holiday, AuditLog):
                 is_verified=True,
                 created_by=1
             )
-            manager.set_password('manager123')
+            manager.set_password(SECURE_DEFAULT_PASSWORD)
             db.session.add(manager)
         
         # Commit users first
@@ -767,7 +770,7 @@ def create_default_system_data(app, User, Employee, Holiday, AuditLog):
                 'first_name': 'John',
                 'last_name': 'Doe',
                 'position': 'Station Attendant',
-                'department': 'Operations',
+                'department': 'operations',
                 'location': 'dandora',
                 'email': 'john.doe@sakinagas.com',
                 'phone': '+254700123456',
@@ -779,7 +782,7 @@ def create_default_system_data(app, User, Employee, Holiday, AuditLog):
                 'first_name': 'Jane',
                 'last_name': 'Smith',
                 'position': 'Cashier',
-                'department': 'Finance',
+                'department': 'finance',
                 'location': 'tassia',
                 'email': 'jane.smith@sakinagas.com',
                 'phone': '+254700123457',
@@ -791,7 +794,7 @@ def create_default_system_data(app, User, Employee, Holiday, AuditLog):
                 'first_name': 'Michael',
                 'last_name': 'Johnson',
                 'position': 'Security Guard',
-                'department': 'Security',
+                'department': 'security',
                 'location': 'kiambu',
                 'email': 'michael.johnson@sakinagas.com',
                 'phone': '+254700123458',
@@ -800,6 +803,9 @@ def create_default_system_data(app, User, Employee, Holiday, AuditLog):
                 'created_by': hr_manager_db.id
             }
         ]
+        
+        # FIX: Ensure Employee model can be called
+        from models.employee import Employee 
         
         for emp_data in sample_employees:
             employee = Employee.create_employee(**emp_data)
@@ -822,12 +828,16 @@ def create_default_system_data(app, User, Employee, Holiday, AuditLog):
             ('Boxing Day', date(current_year, 12, 26))
         ]
         
+        # FIX: Ensure Holiday model can be called
+        from models.holiday import Holiday
+        
         for name, holiday_date in kenyan_holidays:
             holiday = Holiday(
                 name=name,
                 date=holiday_date,
-                type='national',
-                is_recurring=True,
+                year=holiday_date.year,
+                holiday_type='public',
+                is_recurring_annually=True,
                 created_by=hr_manager_db.id,
                 description=f'Kenya National Holiday: {name}'
             )
@@ -907,10 +917,10 @@ if __name__ == '__main__':
     print(f"🔧 Health Check: http://localhost:5000/health")
     print("=" * 80)
     print("👤 DEFAULT LOGIN CREDENTIALS:")
-    print("   HR Manager:     hr_manager / manager123")
-    print("   Dandora Mgr:    dandora_manager / manager123")
-    print("   Tassia Mgr:     tassia_manager / manager123")
-    print("   Kiambu Mgr:     kiambu_manager / manager123")
+    print("   HR Manager:     hr_manager / Manager123!")
+    print("   Dandora Mgr:    dandora_manager / Manager123!")
+    print("   Tassia Mgr:     tassia_manager / Manager123!")
+    print("   Kiambu Mgr:     kiambu_manager / Manager123!")
     print("=" * 80)
     print("🔧 AVAILABLE CLI COMMANDS:")
     print("   flask init-db           - Initialize database")

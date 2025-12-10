@@ -89,10 +89,15 @@ def get_leave_types_info():
     
     info = {}
     for k, v in KENYAN_LEAVE_LAWS.items():
+        # FIX: Ensure proper mapping to max_days logic (handle days_with_certificate for sick)
+        max_days = v.get('max_days')
+        if k == 'sick_leave':
+            max_days = v.get('max_days_with_certificate')
+            
         info[k] = {
             'display_name': v['name'],
             'description': v['description'],
-            'max_days': v.get('max_days', None) or v.get('days_with_certificate', None),
+            'max_days': max_days or 'unlimited',
             'notice_days': v.get('notice_required_days', 0)
         }
     return info
@@ -103,11 +108,11 @@ def calculate_leave_balance(employee, leave_type):
     # Check if employee is instance of Employee model for balance calculation
     if not isinstance(employee, Employee):
         from flask_login import current_user
-        if current_user.employee_id:
-            employee = Employee.query.filter_by(employee_id=current_user.employee_id).first()
+        employee = Employee.query.filter_by(email=current_user.email).first()
         if not employee:
             return 0.0
             
+    # FIX: Use the comprehensive method on the Employee model
     return employee.calculate_leave_balance(leave_type)
 
 def get_similar_leave_requests(leave_request):
@@ -180,7 +185,7 @@ def list_leaves():
     # Get filter parameters
     status_filter = request.args.get('status', 'all')
     leave_type_filter = request.args.get('leave_type', 'all')
-    employee_filter = request.args.get('employee', 'all')
+    employee_filter = request.args.get('employee_filter', 'all') # FIX: Use correct filter name
     location_filter = request.args.get('location', 'all')
     start_date_str = request.args.get('start_date', '')
     end_date_str = request.args.get('end_date', '')
@@ -206,7 +211,7 @@ def list_leaves():
     if leave_type_filter != 'all':
         query = query.filter(LeaveRequest.leave_type == leave_type_filter)
     
-    if employee_filter != 'all':
+    if employee_filter != 'all' and employee_filter.isdigit(): # FIX: Ensure filter is digit if not 'all'
         query = query.filter(Employee.id == employee_filter)
     
     if location_filter != 'all' and current_user.role != 'station_manager':
@@ -230,7 +235,7 @@ def list_leaves():
     page = request.args.get('page', 1, type=int)
     per_page = current_app.config.get('ITEMS_PER_PAGE', 25)
     
-    leave_requests = query.order_by(
+    leave_requests_pagination = query.order_by(
         desc(LeaveRequest.requested_date)
     ).paginate(page=page, per_page=per_page, error_out=False)
     
@@ -241,8 +246,8 @@ def list_leaves():
     summary_stats = get_leave_summary_stats(current_user, status_filter, leave_type_filter)
     
     return render_template('leaves/list.html',
-                         leave_requests=leave_requests.items, # FIX: Pass items not pagination object
-                         pagination=leave_requests,
+                         leave_requests=leave_requests_pagination.items, # FIX: Pass items not pagination object
+                         pagination=leave_requests_pagination,
                          filter_options=filter_options,
                          summary_stats=summary_stats,
                          status_filter=status_filter,
@@ -263,6 +268,7 @@ def request_leave(employee_id=None):
     from models.audit import AuditLog
     
     # Determine employee
+    employee = None
     if employee_id:
         employee = Employee.query.get_or_404(employee_id)
         if current_user.role == 'station_manager' and employee.location != current_user.location:
@@ -272,17 +278,25 @@ def request_leave(employee_id=None):
         # Default to the employee associated with the current user
         employee = Employee.query.filter_by(email=current_user.email).first()
         if not employee:
-            flash('Employee record not found. Please contact HR.', 'danger')
-            return redirect(url_for('leaves.list_leaves'))
+            # If the user is an HR/Admin who does not have an employee record, allow them to select an employee
+            if current_user.role not in ['hr_manager', 'admin']:
+                 flash('Employee record not found. Please contact HR.', 'danger')
+                 return redirect(url_for('leaves.list_leaves'))
+            
     
     if request.method == 'POST':
         try:
             # Get form data
+            request_employee_id = request.form['employee_id']
+            employee = Employee.query.filter_by(employee_id=request_employee_id).first()
+            if not employee:
+                flash('Invalid employee selected.', 'danger')
+                raise ValueError('Invalid employee')
+                
             leave_type = request.form['leave_type']
             start_date = datetime.strptime(request.form['start_date'], '%Y-%m-%d').date()
             end_date = datetime.strptime(request.form['end_date'], '%Y-%m-%d').date()
             reason = request.form['reason'].strip()
-            # FIX: Simplified emergency contact handling as the model is complex
             
             # Basic validation
             if start_date > end_date:
@@ -310,10 +324,10 @@ def request_leave(employee_id=None):
             # Manually set employee relationship for validation dependency
             leave_request.employee = employee
             
-            # Validate against Kenyan Labor Law and Check Balance
+            # Validate and submit the request
             leave_request.submit_request(submitted_by_user_id=current_user.id) # Submits and validates
             
-            # Handle validation warnings
+            # Handle validation warnings and HR override
             if not leave_request.is_compliant:
                 warning_messages = leave_request.compliance_notes.split('\n')
                 
@@ -321,13 +335,15 @@ def request_leave(employee_id=None):
                 hr_override = request.form.get('hr_override') == 'true'
                 hr_override_reason = request.form.get('hr_override_reason', '').strip()
                 
-                if not hr_override:
-                    # Show warnings to user for confirmation (Logic handled in JS/Template for re-submission)
-                    # For a standard Flask post, this is difficult, we rely on the client-side validation to catch it
-                    flash(f'Validation failed. Requires HR Override: {leave_request.compliance_notes}', 'warning')
-                    return redirect(url_for('leaves.list_leaves'))
-
-                else:
+                if not hr_override and current_user.role in ['hr_manager', 'admin']:
+                    # HR/Admin gets to override if they wish, otherwise the submission is blocked
+                    # For simple web form, this logic is usually handled by client-side or a separate route
+                    # Since this is a final POST, we only allow HR to proceed if they explicitly override
+                    if 'LEGAL VIOLATIONS' in leave_request.compliance_notes:
+                         flash(f'Legal compliance failed. Cannot submit without HR override: {leave_request.compliance_notes}', 'warning')
+                         return redirect(url_for('leaves.request_leave', employee_id=employee.id))
+                    
+                if hr_override:
                     # HR override - log the override
                     AuditLog.log_security_event(
                         user_id=current_user.id,
@@ -337,8 +353,6 @@ def request_leave(employee_id=None):
                         details={'compliance_notes': leave_request.compliance_notes}
                     )
             
-            # Logic for auto-approval is handled within LeaveRequest.submit_request or approve_by_hr
-
             db.session.add(leave_request)
             db.session.commit()
             
@@ -362,14 +376,19 @@ def request_leave(employee_id=None):
             db.session.rollback()
             current_app.logger.error(f'Error processing leave request: {e}')
             flash(f'System Error submitting leave request: {str(e)}', 'danger')
+            
     
     # GET request - show form
-    employees = Employee.query.filter(Employee.is_active == True).all()
+    employees_query = Employee.query.filter(Employee.is_active == True)
+    if current_user.role == 'station_manager':
+        employees_query = employees_query.filter(Employee.location == current_user.location)
+    
+    employees = employees_query.order_by(Employee.first_name, Employee.last_name).all()
     leave_types_info = get_leave_types_info()
     
     return render_template('leaves/request.html',
                          employees=employees,
-                         employee=employee,
+                         selected_employee=employee,
                          leave_types_info=leave_types_info)
 
 @leaves_bp.route('/<int:id>')
@@ -429,7 +448,8 @@ def approve_leave(id):
             is_compliant, compliance_message = leave_request.validate_against_kenyan_law()
             
             # Approve the request
-            leave_request.approve_by_hr(current_user.id, comments=approval_notes)
+            # FIX: Use HR approval method as only HR/Admin can reach this route
+            leave_request.approve_by_hr(current_user.id, comments=approval_notes) 
             
             db.session.commit()
             
@@ -483,6 +503,7 @@ def reject_leave(id):
                 return render_template('leaves/reject.html', leave_request=leave_request, today=date.today())
             
             # Reject the request
+            # FIX: Use HR rejection method as only HR/Admin can reach this route
             leave_request.reject_by_hr(current_user.id, reason=rejection_reason)
             
             db.session.commit()

@@ -18,16 +18,16 @@
                                 <h6><i class="bi bi-info-circle"></i> Leave Request Details</h6>
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <strong>Employee:</strong> {{ leave_request.employee.full_name }}<br>
+                                        <strong>Employee:</strong> {{ leave_request.employee.get_full_name() }}<br>
                                         <strong>Employee ID:</strong> {{ leave_request.employee.employee_id }}<br>
-                                        <strong>Department:</strong> {{ leave_request.employee.department }}<br>
+                                        <strong>Department:</strong> {{ leave_request.employee.department|title }}<br>
                                         <strong>Location:</strong> {{ leave_request.employee.location.replace('_', ' ').title() }}
                                     </div>
                                     <div class="col-md-6">
-                                        <strong>Leave Type:</strong> {{ leave_request.leave_type.replace('_', ' ').title() }}<br>
+                                        <strong>Leave Type:</strong> {{ leave_request.get_leave_type_display() }}<br>
                                         <strong>Duration:</strong> {{ leave_request.start_date.strftime('%Y-%m-%d') }} to {{ leave_request.end_date.strftime('%Y-%m-%d') }}<br>
-                                        <strong>Total Days:</strong> {{ leave_request.total_days }} days<br>
-                                        <strong>Requested:</strong> {{ leave_request.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                        <strong>Total Days:</strong> {{ leave_request.total_days|int }} days<br>
+                                        <strong>Requested:</strong> {{ leave_request.requested_date.strftime('%Y-%m-%d %H:%M') }}
                                     </div>
                                 </div>
                             </div>
@@ -47,33 +47,17 @@
                         <div class="alert alert-warning">
                             <h6><i class="bi bi-shield-check"></i> Kenyan Labor Law Compliance</h6>
                             <div class="row">
-                                <div class="col-md-6">
-                                    <strong>Leave Type Limits:</strong><br>
-                                    {% if leave_request.leave_type == 'annual_leave' %}
-                                        <span class="text-success">✓ Annual Leave: Max 21 days/year</span>
-                                    {% elif leave_request.leave_type == 'maternity_leave' %}
-                                        <span class="text-success">✓ Maternity Leave: Max 90 days</span>
-                                    {% elif leave_request.leave_type == 'paternity_leave' %}
-                                        <span class="text-success">✓ Paternity Leave: Max 14 days</span>
-                                    {% elif leave_request.leave_type == 'sick_leave' %}
-                                        <span class="text-success">✓ Sick Leave: 7 days without certificate</span>
-                                    {% elif leave_request.leave_type == 'compassionate_leave' %}
-                                        <span class="text-success">✓ Compassionate Leave: Max 7 days</span>
+                                <div class="col-md-12">
+                                    {% set compliant, notes = leave_request.validate_against_kenyan_law() %}
+                                    {% if compliant %}
+                                        <span class="text-success">✓ Request complies with all major legal requirements.</span>
                                     {% else %}
-                                        <span class="text-info">ℹ No legal limits apply</span>
-                                    {% endif %}
-                                </div>
-                                <div class="col-md-6">
-                                    <strong>Current Request:</strong><br>
-                                    {% set max_days = {'annual_leave': 21, 'maternity_leave': 90, 'paternity_leave': 14, 'sick_leave': 7, 'compassionate_leave': 7} %}
-                                    {% if leave_request.leave_type in max_days %}
-                                        {% if leave_request.total_days <= max_days[leave_request.leave_type] %}
-                                            <span class="text-success">✓ {{ leave_request.total_days }} days - Within legal limits</span>
-                                        {% else %}
-                                            <span class="text-danger">⚠ {{ leave_request.total_days }} days - Exceeds {{ max_days[leave_request.leave_type] }} day limit</span>
-                                        {% endif %}
-                                    {% else %}
-                                        <span class="text-info">{{ leave_request.total_days }} days - No legal restrictions</span>
+                                        <span class="text-danger">⚠ Request has compliance issues or warnings:</span>
+                                        <ul class="mb-0 small text-danger">
+                                            {% for line in notes.split('\n') %}
+                                                <li>{{ line }}</li>
+                                            {% endfor %}
+                                        </ul>
                                     {% endif %}
                                 </div>
                             </div>
@@ -81,7 +65,10 @@
                     </div>
 
                     <!-- Approval Form -->
-                    <form method="POST" action="{{ url_for('leaves.approve_leave', leave_id=leave_request.id) }}">
+                    <form method="POST" action="{{ url_for('leaves.approve_leave', id=leave_request.id) }}">
+                        <!-- FIX: Added CSRF token -->
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
                         <div class="mb-4">
                             <label for="approval_notes" class="form-label">
                                 <i class="bi bi-pencil-square"></i> HR Approval Notes (Optional)
@@ -97,7 +84,7 @@
                                 <button type="submit" class="btn btn-success btn-lg me-3">
                                     <i class="bi bi-check-circle"></i> Approve Leave Request
                                 </button>
-                                <a href="{{ url_for('leaves.reject_leave', leave_id=leave_request.id) }}" 
+                                <a href="{{ url_for('leaves.reject_leave', id=leave_request.id) }}" 
                                    class="btn btn-danger btn-lg me-3">
                                     <i class="bi bi-x-circle"></i> Reject Instead
                                 </a>
@@ -110,9 +97,12 @@
 
                     <!-- Employee Leave History (Quick Reference) -->
                     <div class="mt-5 pt-4 border-top">
-                        <h6><i class="bi bi-clock-history"></i> Employee Leave History (This Year)</h6>
+                        <h6><i class="bi bi-clock-history"></i> Employee Leave History (Current Year)</h6>
                         <div class="alert alert-light">
-                            <p class="mb-0"><strong>Quick Reference:</strong> This feature will show the employee's leave balance and history once fully implemented. For now, please check manually if needed.</p>
+                            <!-- FIX: Using dummy data/placeholder until full template support is implemented -->
+                            <p class="mb-0"><strong>Annual Leave:</strong> {{ leave_request.employee.annual_leave_balance|int }} days remaining</p>
+                            <p class="mb-0"><strong>Sick Leave:</strong> {{ leave_request.employee.sick_leave_balance|int }} days remaining</p>
+                            <small class="text-muted">Actual balance calculation requires full implementation of leave history reporting. Showing column values for quick reference.</small>
                         </div>
                     </div>
                 </div>
@@ -129,7 +119,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Add confirmation before approval
 document.querySelector('form').addEventListener('submit', function(e) {
-    const confirmed = confirm('Are you sure you want to APPROVE this leave request?\n\nEmployee: {{ leave_request.employee.full_name }}\nDuration: {{ leave_request.total_days }} days\nType: {{ leave_request.leave_type.replace("_", " ").title() }}');
+    const confirmed = confirm('Are you sure you want to APPROVE this leave request?\n\nEmployee: {{ leave_request.employee.get_full_name() }}\nDuration: {{ leave_request.total_days|int }} days\nType: {{ leave_request.get_leave_type_display() }}');
     
     if (!confirmed) {
         e.preventDefault();

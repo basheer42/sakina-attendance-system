@@ -67,7 +67,7 @@
                         <div class="col-md-4 mb-3">
                             <div class="p-3 border rounded">
                                 <small class="text-muted d-block">Last Login</small>
-                                <strong>{{ security_summary.last_login.strftime('%Y-%m-%d %H:%M') if security_summary.last_login else 'N/A' }}</strong>
+                                <strong class="text-success">{{ security_summary.last_login.strftime('%Y-%m-%d %H:%M') if security_summary.last_login else 'N/A' }}</strong>
                             </div>
                         </div>
                         <div class="col-md-4 mb-3">
@@ -124,10 +124,9 @@
                         <a href="{{ url_for('profile.change_password') }}" class="btn btn-outline-primary">
                             <i class="bi bi-key"></i> Change Password
                         </a>
-                        <a href="{{ url_for('profile.preferences') }}" class="btn btn-outline-secondary">
+                        <a href="{{ url_for('profile.settings') }}" class="btn btn-outline-secondary">
                             <i class="bi bi-gear"></i> Preferences
                         </a>
-                        <!-- FIX: Corrected url_for to the correct route -->
                         <a href="{{ url_for('profile.security_dashboard') }}" class="btn btn-outline-info">
                             <i class="bi bi-shield-check"></i> Security Dashboard
                         </a>
@@ -142,7 +141,7 @@
             <div class="card">
                 <div class="card-header">
                     <h6 class="mb-0">
-                        <i class="bi bi-activity me-2"></i>
+                        <i class="bi bi-activity"></i>
                         Recent Activity
                     </h6>
                 </div>
@@ -152,7 +151,7 @@
                             {% for activity in recent_activities %}
                             <div class="list-group-item d-flex justify-content-between align-items-center px-0">
                                 <div class="me-auto">
-                                    <small class="fw-bold">{{ activity.event_type.replace('_', ' ').title() }}</small><br>
+                                    <small class="fw-bold">{{ activity.event_action.replace('_', ' ').title() }}</small><br>
                                     <small class="text-muted">{{ activity.description[:50] }}...</small>
                                 </div>
                                 <small class="text-muted text-end">

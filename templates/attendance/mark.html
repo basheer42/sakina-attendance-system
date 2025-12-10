@@ -43,8 +43,8 @@
                             <select class="form-control" id="quickEmployeeSelect">
                                 <option value="">Select Employee</option>
                                 {% for employee in employees %}
-                                <option value="{{ employee.employee_id }}" data-name="{{ employee.full_name }}">
-                                    {{ employee.employee_id }} - {{ employee.full_name }}
+                                <option value="{{ employee.id }}" data-name="{{ employee.get_full_name() }}">
+                                    {{ employee.employee_id }} - {{ employee.get_full_name() }}
                                 </option>
                                 {% endfor %}
                             </select>
@@ -105,29 +105,26 @@
                     <h5><i class="bi bi-list-check"></i> Mark Attendance</h5>
                 </div>
                 <div class="card-body">
-                    <form method="POST" id="attendanceForm">
+                    <form method="POST" action="{{ url_for('attendance.mark_attendance') }}" id="attendanceForm">
+                        <!-- FIX: Added CSRF token -->
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="date" value="{{ today.isoformat() }}">
+
                         <div class="row">
                             <!-- Employee Selection -->
                             <div class="col-md-6 mb-3">
                                 <label for="employee_id" class="form-label">Employee *</label>
                                 <select class="form-control" id="employee_id" name="employee_id" required>
                                     <option value="">Select Employee</option>
-                                    {% for location_key, location_info in locations.items() %}
-                                        {% set location_employees = employees|selectattr('location', 'equalto', location_key)|list %}
-                                        {% if location_employees %}
-                                        <optgroup label="{{ location_info.name }}">
-                                            {% for employee in location_employees %}
-                                            <option value="{{ employee.employee_id }}" 
-                                                    data-location="{{ employee.location }}" 
-                                                    data-shift="{{ employee.shift or 'none' }}"
-                                                    data-name="{{ employee.full_name }}">
-                                                {{ employee.employee_id }} - {{ employee.full_name }} 
-                                                ({{ employee.position }})
-                                                {% if employee.shift %} - {{ employee.shift.title() }} Shift{% endif %}
-                                            </option>
-                                            {% endfor %}
-                                        </optgroup>
-                                        {% endif %}
+                                    {% for employee in employees %}
+                                        <option value="{{ employee.id }}" 
+                                                data-location="{{ employee.location }}" 
+                                                data-shift="{{ employee.shift or 'none' }}"
+                                                data-name="{{ employee.get_full_name() }}">
+                                            {{ employee.employee_id }} - {{ employee.get_full_name() }} 
+                                            ({{ employee.position }})
+                                            {% if employee.shift %} - {{ employee.shift.title() }} Shift{% endif %}
+                                        </option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -147,11 +144,17 @@
 
                         <!-- Time Fields (for present status) -->
                         <div class="row" id="timeFields" style="display: none;">
-                            <div class="col-md-12 mb-3">
+                            <div class="col-md-6 mb-3">
                                 <label for="clock_in_time" class="form-label">Clock In Time</label>
                                 <input type="time" class="form-control" id="clock_in_time" name="clock_in_time">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="clock_out_time" class="form-label">Clock Out Time (Optional)</label>
+                                <input type="time" class="form-control" id="clock_out_time" name="clock_out_time">
+                            </div>
+                            <div class="col-md-12 mb-3">
                                 <div class="form-text">
-                                    Clock out time is automatically set based on location:
+                                    Clock out time is automatically set based on schedule if left blank.
                                     <br>• Head Office: 5:00 PM
                                     <br>• Day Shift: 6:00 PM  
                                     <br>• Night Shift: 6:00 AM (next day)
@@ -284,11 +287,11 @@ document.getElementById('status').addEventListener('change', function() {
     const timeFields = document.getElementById('timeFields');
     const notes = document.getElementById('notes');
     
-    if (this.value === 'present') {
-        timeFields.style.display = 'block';
+    if (this.value === 'present' || this.value === 'late') { // FIX: Also show for late status
+        timeFields.style.display = 'flex'; // FIX: Use flex for row display
         notes.removeAttribute('required');
         notes.placeholder = 'Add any notes about attendance (optional)';
-    } else if (this.value === 'absent' || this.value === 'late') {
+    } else if (this.value === 'absent') {
         timeFields.style.display = 'none';
         notes.setAttribute('required', 'required');
         notes.placeholder = 'Please explain the reason for ' + this.value + ' (required)';
@@ -305,8 +308,9 @@ document.getElementById('employee_id').addEventListener('change', function() {
     const employeeDetails = document.getElementById('employeeDetails');
     const attendanceStatus = document.getElementById('attendanceStatus');
     const attendanceDetails = document.getElementById('attendanceDetails');
+    const employeeId = this.value;
     
-    if (this.value) {
+    if (employeeId) {
         const selectedOption = this.options[this.selectedIndex];
         const location = selectedOption.getAttribute('data-location');
         const shift = selectedOption.getAttribute('data-shift');
@@ -329,57 +333,44 @@ document.getElementById('employee_id').addEventListener('change', function() {
         employeeInfo.style.display = 'block';
         
         // Show attendance status for editing
-        // Fetch current attendance status via AJAX to show real data
-        fetch(`/api/attendance-status/${this.value}`)
+        // Fetch current attendance status via API
+        fetch(`{{ url_for('attendance.api_employee_status', employee_id=0) }}`.replace('0', employeeId))
             .then(response => response.json())
             .then(data => {
-                if (data.has_attendance) {
-                    const statusBadge = getStatusBadge(data.status);
-                    const clockInTime = data.clock_in ? new Date(data.clock_in).toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit'}) : 'Not clocked in';
-                    
-                    attendanceDetails.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>Current Status:</strong> ${statusBadge}
-                                <br><small class="text-muted">Clock In: ${clockInTime}</small>
-                            </div>
-                            <div>
-                                <small class="text-muted">Marked by: ${data.marked_by}</small>
-                            </div>
-                        </div>
-                    `;
-                    
-                    // Pre-fill the form with current status
-                    document.getElementById('status').value = data.status;
-                    if (data.clock_in) {
-                        const timeOnly = new Date(data.clock_in).toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit'});
-                        document.getElementById('clock_in_time').value = timeOnly;
-                    }
-                    if (data.notes) {
-                        document.getElementById('notes').value = data.notes;
-                    }
-                } else {
-                    attendanceDetails.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>Current Status:</strong> <span class="badge bg-secondary">Not marked today</span>
-                            </div>
-                            <div>
-                                <small class="text-muted">Can be marked using form above</small>
-                            </div>
-                        </div>
-                    `;
-                }
-            })
-            .catch(error => {
-                console.log('Could not fetch attendance status');
+                const status = data.status || 'not_marked';
+                const clockInTime = data.clock_in || 'Not recorded';
+                const notes = data.notes || '';
+                
                 attendanceDetails.innerHTML = `
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <strong>Current Status:</strong> <span class="badge bg-secondary">Not marked today</span>
+                            <strong>Current Status:</strong> ${getStatusBadge(status)}
+                            <br><small class="text-muted">Clock In: ${clockInTime}</small>
                         </div>
                         <div>
-                            <small class="text-muted">Can be updated using form above</small>
+                            <small class="text-muted">Hours Worked: ${data.hours_worked || 0}h</small>
+                        </div>
+                    </div>
+                `;
+                
+                // Pre-fill the form with current status if found
+                document.getElementById('status').value = status === 'not_marked' ? '' : status;
+                document.getElementById('clock_in_time').value = data.clock_in_time_raw || '';
+                document.getElementById('notes').value = notes;
+                
+                // Trigger status change handler to show/hide time fields
+                document.getElementById('status').dispatchEvent(new Event('change'));
+
+            })
+            .catch(error => {
+                console.error('Could not fetch attendance status:', error);
+                attendanceDetails.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>Current Status:</strong> <span class="badge bg-secondary">Error/Not marked today</span>
+                        </div>
+                        <div>
+                            <small class="text-muted">Please mark manually</small>
                         </div>
                     </div>
                 `;
@@ -392,13 +383,13 @@ document.getElementById('employee_id').addEventListener('change', function() {
 });
 
 function getExpectedTime(location, shift) {
-    if (location === 'head_office') return '9:00 AM';
+    if (location === 'head_office') return '8:00 AM'; // FIX: Consistent with config
     return shift === 'day' ? '6:00 AM' : '6:00 PM';
 }
 
 function getLateTime(location, shift) {
-    if (location === 'head_office') return '9:30 AM';
-    return shift === 'day' ? '6:30 AM' : '6:30 PM';
+    if (location === 'head_office') return '8:15 AM'; // FIX: Consistent with config + 15 min grace
+    return shift === 'day' ? '6:15 AM' : '6:15 PM';
 }
 
 function getClockOutTime(location, shift) {
@@ -416,6 +407,8 @@ function getStatusBadge(status) {
             return '<span class="badge bg-danger"><i class="bi bi-x-circle"></i> Absent</span>';
         case 'on_leave':
             return '<span class="badge bg-info"><i class="bi bi-calendar-check"></i> On Leave</span>';
+        case 'not_marked':
+            return '<span class="badge bg-secondary">Not Marked</span>';
         default:
             return '<span class="badge bg-secondary">Unknown</span>';
     }
@@ -433,29 +426,37 @@ function quickClockIn() {
     }
     
     // Call the clock in endpoint
-    fetch(`/attendance/clock/in/${employeeId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                addRecentActivity(employeeId, employeeName, 'Clock In', 'success');
-                showSuccessMessage(data.message);
-                // Reset dropdown
-                employeeSelect.value = '';
-            } else {
-                alert(data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error recording clock in');
-        });
+    // FIX: Using POST method as defined in the route
+    fetch(`{{ url_for('attendance.clock_in_employee', employee_id=0) }}`.replace('0', employeeId), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken() // Ensure CSRF token is included
+        },
+        body: JSON.stringify({
+             employee_id: parseInt(employeeId)
+        }) 
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            addRecentActivity(employeeId, employeeName, `Clock In (${data.status})`, data.status === 'late' ? 'warning' : 'success');
+            showSuccessMessage(data.message);
+            employeeSelect.value = ''; // Reset dropdown
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error recording clock in. Check console for details.');
+    });
 }
 
 function addRecentActivity(employeeId, employeeName, action, type) {
     const recentActivity = document.getElementById('recentActivity');
-    const time = new Date().toLocaleTimeString();
+    const time = new Date().toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'});
     
-    // Remove "no activity" message if present
     if (recentActivity.children.length === 1 && recentActivity.children[0].textContent.includes('No recent activity')) {
         recentActivity.innerHTML = '';
     }
@@ -464,17 +465,14 @@ function addRecentActivity(employeeId, employeeName, action, type) {
     activityItem.className = 'list-group-item d-flex justify-content-between align-items-center';
     activityItem.innerHTML = `
         <div>
-            <strong>${employeeId}</strong><br>
-            <small class="text-muted">${employeeName}</small><br>
+            <strong>${employeeName}</strong><br>
             <small class="text-muted">${time}</small>
         </div>
         <span class="badge bg-${type}">${action}</span>
     `;
     
-    // Insert at top
     recentActivity.insertBefore(activityItem, recentActivity.firstChild);
     
-    // Keep only last 5 activities
     while (recentActivity.children.length > 5) {
         recentActivity.removeChild(recentActivity.lastChild);
     }
@@ -522,4 +520,3 @@ document.getElementById('attendanceForm').addEventListener('submit', function(e)
     this.submit();
 });
 </script>
-{% endblock %}
