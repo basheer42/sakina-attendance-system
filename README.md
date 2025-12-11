@@ -73,17 +73,17 @@ python app.py
 
 4. **Access the system:**
 - URL: http://localhost:5000
-- HR Manager: `hr_manager` / `admin123`
-- Station Manager: `dandora_manager` / `manager123`
+- HR Manager: `hr_manager` / `Manager123!`
+- Station Manager: `dandora_manager` / `Manager123!`
 
 ## 👤 Default User Accounts
 
 | Role | Username | Password | Access Level |
 |------|----------|----------|--------------|
-| HR Manager | `hr_manager` | `admin123` | Full system access |
-| Dandora Manager | `dandora_manager` | `manager123` | Dandora Station only |
-| Tassia Manager | `tassia_manager` | `manager123` | Tassia Station only |
-| Kiambu Manager | `kiambu_manager` | `manager123` | Kiambu Station only |
+| HR Manager | `hr_manager` | `Manager123!` | Full system access |
+| Dandora Manager | `dandora_manager` | `Manager123!` | Dandora Station only |
+| Tassia Manager | `tassia_manager` | `Manager123!` | Tassia Station only |
+| Kiambu Manager | `kiambu_manager` | `Manager123!` | Kiambu Station only |
 
 ⚠️ **Change these passwords after first login for security**
 

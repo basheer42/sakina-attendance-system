@@ -222,7 +222,7 @@ def add_employee():
             db.session.flush()  # Get the ID
             
             # Log the action
-            AuditLog.log_action(
+            AuditLog.log_event(
                 user_id=current_user.id,
                 action='employee_created',
                 table_name='employees',
@@ -412,7 +412,7 @@ def edit_employee(id):
             employee.last_updated = datetime.utcnow()
             
             # Log the changes
-            AuditLog.log_action(
+            AuditLog.log_event(
                 user_id=current_user.id,
                 action='employee_updated',
                 table_name='employees',
@@ -476,7 +476,7 @@ def deactivate_employee(id):
         employee.last_updated = datetime.utcnow()
         
         # Log the action
-        AuditLog.log_action(
+        AuditLog.log_event(
             user_id=current_user.id,
             action='employee_deactivated',
             table_name='employees',
@@ -523,7 +523,7 @@ def reactivate_employee(id):
         employee.last_updated = datetime.utcnow()
         
         # Log the action
-        AuditLog.log_action(
+        AuditLog.log_event(
             user_id=current_user.id,
             action='employee_reactivated',
             table_name='employees',
@@ -839,6 +839,7 @@ def get_comprehensive_employee_data(employee):
     
     try:
         # Calculate leave days used this year
+        from sqlalchemy import extract
         leave_days_used = db.session.query(func.sum(LeaveRequest.total_days)).filter(
             LeaveRequest.employee_id == employee.id,
             LeaveRequest.status == 'approved',

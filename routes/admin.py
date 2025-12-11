@@ -194,7 +194,7 @@ def create_user():
             db.session.commit()
             
             # Log action
-            AuditLog.log_action(
+            AuditLog.log_event(
                 user_id=current_user.id,
                 action='user_created',
                 description=f'Admin created user: {username}',
@@ -260,7 +260,7 @@ def edit_user(user_id):
                 'is_active': user.is_active
             }
             
-            AuditLog.log_action(
+            AuditLog.log_event(
                 user_id=current_user.id,
                 action='user_updated',
                 description=f'Admin updated user: {user.username}',
@@ -302,7 +302,7 @@ def reset_user_password(user_id):
         db.session.commit()
         
         # Log action
-        AuditLog.log_action(
+        AuditLog.log_event(
             user_id=current_user.id,
             action='password_reset',
             description=f'Admin reset password for user: {user.username}',
@@ -335,7 +335,7 @@ def toggle_user_status(user_id):
         
         # Log action
         action = 'user_activated' if user.is_active else 'user_deactivated'
-        AuditLog.log_action(
+        AuditLog.log_event(
             user_id=current_user.id,
             action=action,
             description=f'Admin {"activated" if user.is_active else "deactivated"} user: {user.username}',

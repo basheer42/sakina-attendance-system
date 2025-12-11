@@ -145,10 +145,10 @@ class Employee(db.Model):
     # Relationships
     # FIX: Use string literal for self-referential relationship
     supervisor = relationship('Employee', remote_side=[id], backref='direct_reports') 
-    attendance_records = relationship('AttendanceRecord', backref='emp_record', lazy='dynamic', cascade='all, delete-orphan')
-    leave_requests = relationship('LeaveRequest', foreign_keys='LeaveRequest.employee_id', backref='emp_leave', lazy='dynamic', cascade='all, delete-orphan')
-    performance_reviews = relationship('PerformanceReview', backref='emp_review', lazy='dynamic', cascade='all, delete-orphan')
-    disciplinary_actions = relationship('DisciplinaryAction', backref='emp_discipline', lazy='dynamic', cascade='all, delete-orphan')
+    attendance_records = relationship('AttendanceRecord', backref='employee', lazy='dynamic', cascade='all, delete-orphan') # FIX: Renamed backref to 'employee' for consistency
+    leave_requests = relationship('LeaveRequest', foreign_keys='LeaveRequest.employee_id', backref='employee', lazy='dynamic', cascade='all, delete-orphan') # FIX: Renamed backref to 'employee'
+    performance_reviews = relationship('PerformanceReview', backref='employee', lazy='dynamic', cascade='all, delete-orphan') # FIX: Renamed backref to 'employee'
+    disciplinary_actions = relationship('DisciplinaryAction', backref='employee', lazy='dynamic', cascade='all, delete-orphan') # FIX: Renamed backref to 'employee'
     
     def __init__(self, **kwargs):
         """Initialize employee with default values"""
@@ -312,14 +312,21 @@ class Employee(db.Model):
     
     def get_total_compensation(self):
         """Calculate total monthly compensation including allowances"""
-        total = float(self.basic_salary) if self.basic_salary else 0.0
+        # Ensure basic_salary is treated as Decimal for precision
+        total = Decimal(str(self.basic_salary)) if self.basic_salary else Decimal(0.0)
         
         if self.allowances:
             for allowance_type, amount in self.allowances.items():
-                if isinstance(amount, (int, float, Decimal)):
-                    total += float(amount)
+                try:
+                    # Convert amount to Decimal before adding
+                    if amount is not None:
+                         total += Decimal(str(amount))
+                except Exception:
+                     # Log or ignore invalid allowance amount
+                     pass
         
-        return total
+        # Return as float for typical presentation, or keep as Decimal for internal use
+        return float(total)
     
     def get_position_display(self):
         """Get formatted position with department"""
@@ -364,6 +371,10 @@ class Employee(db.Model):
         """Update employee allowances"""
         if self.allowances is None:
             self.allowances = {}
+        
+        # Convert all incoming float/int values to Decimal strings for storage (JSON doesn't support Decimal)
+        # However, for consistency with how it's used internally (as Decimal in get_total_compensation),
+        # we ensure conversion happens during use. Store raw JSON data.
         
         self.allowances.update(allowances_dict)
         self.last_updated = datetime.utcnow()
@@ -459,6 +470,7 @@ class Employee(db.Model):
         """Calculate leave balance for specific type (Simplified for model access)"""
         from models.leave import LeaveRequest
         from flask import current_app # Local import
+        from sqlalchemy import func
         
         if year is None:
             year = date.today().year
@@ -468,21 +480,21 @@ class Employee(db.Model):
         leave_entitlements = labor_laws.get('leave_entitlements', {})
         
         # Calculate entitlement
-        entitlement = 0.0
+        entitlement = Decimal(0.0)
         leave_config = leave_entitlements.get(leave_type, {})
 
         if leave_type == 'annual_leave':
             years_of_service = self.calculate_years_of_service()
             if years_of_service >= 1:
-                entitlement = leave_config.get('days_per_year', 21)
+                entitlement = Decimal(leave_config.get('days_per_year', 21))
             else:
                 # Prorata accrual if under 1 year
-                accrual_rate = leave_config.get('days_per_year', 21) / 12
-                entitlement = self.calculate_months_of_service() * accrual_rate
+                accrual_rate = Decimal(leave_config.get('days_per_year', 21)) / Decimal(12)
+                entitlement = Decimal(self.calculate_months_of_service()) * accrual_rate
         elif leave_type == 'sick_leave':
-            entitlement = leave_config.get('max_per_year', 30)
+            entitlement = Decimal(leave_config.get('max_per_year', 30))
         else:
-            entitlement = leave_config.get('days', 0)
+            entitlement = Decimal(leave_config.get('days', 0))
 
         # Calculate used leave for the current year
         used_leave_sum = db.session.query(func.sum(LeaveRequest.total_days)).filter(
@@ -490,8 +502,8 @@ class Employee(db.Model):
             LeaveRequest.leave_type == leave_type,
             LeaveRequest.status == 'approved',
             LeaveRequest.start_date.between(date(year, 1, 1), date(year, 12, 31))
-        ).scalar() or 0
-        used_leave = float(used_leave_sum) if used_leave_sum else 0.0
+        ).scalar() or Decimal(0.0)
+        used_leave = Decimal(str(used_leave_sum)) if used_leave_sum else Decimal(0.0)
         
         # Calculate pending leave for the current year
         pending_leave_sum = db.session.query(func.sum(LeaveRequest.total_days)).filter(
@@ -499,12 +511,13 @@ class Employee(db.Model):
             LeaveRequest.leave_type == leave_type,
             LeaveRequest.status.in_(['pending', 'pending_hr']), # FIX: Include pending_hr
             LeaveRequest.start_date.between(date(year, 1, 1), date(year, 12, 31))
-        ).scalar() or 0
-        pending_leave = float(pending_leave_sum) if pending_leave_sum else 0.0
+        ).scalar() or Decimal(0.0)
+        pending_leave = Decimal(str(pending_leave_sum)) if pending_leave_sum else Decimal(0.0)
 
-        available = max(0.0, entitlement - used_leave - pending_leave)
+        available = max(Decimal(0.0), entitlement - used_leave - pending_leave)
         
-        return round(available, 2)
+        # Return as float/Decimal based on context (keeping Decimal internally for precision)
+        return float(round(available, 2))
     
     def get_supervisor(self):
         """Get employee's supervisor"""
@@ -512,6 +525,9 @@ class Employee(db.Model):
         if self.supervisor_id:
             # FIX: Use employee_id for lookup in case 'reports_to' isn't set up yet
             return Employee.query.filter_by(employee_id=self.supervisor_id).first()
+        # FIX: Also check the self-referential relationship 'reports_to' if supervisor_id lookup fails
+        if self.reports_to:
+            return Employee.query.get(self.reports_to)
         return self.supervisor
     
     def get_direct_reports_count(self):

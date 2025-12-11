@@ -126,13 +126,14 @@ def initialize_extensions(app):
         next_url = request.url if request.endpoint != 'auth.login' else None
         return redirect(url_for('auth.login', next=next_url))
     
-        # Initialize Flask-WTF for CSRF protection
-        try:
-            from flask_wtf.csrf import CSRFProtect
-            csrf = CSRFProtect(app)
-        except ImportError:
-            # CSRF protection not available
-            pass
+    # Initialize Flask-WTF for CSRF protection
+    try:
+        from flask_wtf.csrf import CSRFProtect
+        # CSRF protection enabled unconditionally if the library is available
+        csrf = CSRFProtect(app)
+    except ImportError:
+        # CSRF protection not available (development/testing dependency not met)
+        pass
         
     # Initialize Flask-Mail with enhanced configuration
     if MAIL_AVAILABLE and app.config.get('MAIL_SERVER'):
@@ -200,13 +201,14 @@ def register_error_handlers(app):
             except:
                 pass
         
-        if request.is_json or request.content_type == 'application/json':
+        if request.is_json or request.content_type == 'application/json' or request.path.startswith('/api/'):
             return jsonify({
                 'error': 'Bad Request',
                 'message': 'The request could not be understood by the server',
                 'status': 400
             }), 400
-        return render_template('errors/400.html', error=error), 400
+        # FIX: Robust fallback (prevents crash due to missing error template)
+        return f'<h1>400 Bad Request</h1><p>Error: {str(error)}</p>', 400
 
     @app.errorhandler(401)
     def unauthorized_error(error):
@@ -227,12 +229,13 @@ def register_error_handlers(app):
             except:
                 pass
         
-        if request.is_json or request.content_type == 'application/json':
+        if request.is_json or request.content_type == 'application/json' or request.path.startswith('/api/'):
             return jsonify({
                 'error': 'Unauthorized',
                 'message': 'Authentication required',
                 'status': 401
             }), 401
+        # FIX: Robust redirect (prevents crash due to missing error template)
         return redirect(url_for('auth.login'))
 
     @app.errorhandler(403)
@@ -254,13 +257,14 @@ def register_error_handlers(app):
             except:
                 pass
         
-        if request.is_json or request.content_type == 'application/json':
+        if request.is_json or request.content_type == 'application/json' or request.path.startswith('/api/'):
             return jsonify({
                 'error': 'Forbidden',
                 'message': 'You do not have permission to access this resource',
                 'status': 403
             }), 403
-        return render_template('errors/403.html', error=error), 403
+        # FIX: Robust fallback (prevents crash due to missing error template)
+        return f'<h1>403 Forbidden</h1><p>Error: {str(error)}</p>', 403
 
     @app.errorhandler(404)
     def not_found(error):
@@ -281,13 +285,14 @@ def register_error_handlers(app):
             except:
                 pass
         
-        if request.is_json or request.content_type == 'application/json':
+        if request.is_json or request.content_type == 'application/json' or request.path.startswith('/api/'):
             return jsonify({
                 'error': 'Not Found',
                 'message': 'The requested resource was not found',
                 'status': 404
             }), 404
-        return render_template('errors/404.html', error=error), 404
+        # FIX: Robust fallback (prevents crash due to missing error template)
+        return f'<h1>404 Not Found</h1><p>Error: {str(error)}</p>', 404
 
     @app.errorhandler(429)
     def ratelimit_handler(e):
@@ -317,13 +322,14 @@ def register_error_handlers(app):
             except:
                 pass
         
-        if request.is_json or request.content_type == 'application/json':
+        if request.is_json or request.content_type == 'application/json' or request.path.startswith('/api/'):
             return jsonify({
                 'error': 'Internal Server Error',
                 'message': 'An unexpected error occurred',
                 'status': 500
             }), 500
-        return render_template('errors/500.html', error=error), 500
+        # FIX: Robust fallback (prevents crash due to missing error template)
+        return f'<h1>500 Internal Server Error</h1><p>Error: {str(error)}</p>', 500
 
 def register_context_processors(app):
     """Register template context processors"""
@@ -708,7 +714,7 @@ def initialize_database(app):
 def create_default_system_data(app, User, Employee, Holiday, AuditLog):
     """
     Create default system data with enhanced error handling
-    FIXED: Accept model classes as parameters to avoid re-importing
+    FIXED: Accept model classes as parameters and use them directly
     """
     try:
         # Check if default users already exist
@@ -763,7 +769,8 @@ def create_default_system_data(app, User, Employee, Holiday, AuditLog):
         print("✅ Default users created")
         
         # Create sample employees
-        hr_manager_db = User.query.filter_by(username='hr_manager').first()
+        # FIX: Access the committed object directly
+        hr_manager_db = hr_manager 
         
         sample_employees = [
             {
@@ -804,9 +811,7 @@ def create_default_system_data(app, User, Employee, Holiday, AuditLog):
             }
         ]
         
-        # FIX: Ensure Employee model can be called
-        from models.employee import Employee 
-        
+        # FIX: Employee model is passed as a parameter, use it directly.
         for emp_data in sample_employees:
             employee = Employee.create_employee(**emp_data)
             db.session.add(employee)
@@ -828,9 +833,7 @@ def create_default_system_data(app, User, Employee, Holiday, AuditLog):
             ('Boxing Day', date(current_year, 12, 26))
         ]
         
-        # FIX: Ensure Holiday model can be called
-        from models.holiday import Holiday
-        
+        # FIX: Holiday model is passed as a parameter, use it directly.
         for name, holiday_date in kenyan_holidays:
             holiday = Holiday(
                 name=name,
@@ -847,6 +850,7 @@ def create_default_system_data(app, User, Employee, Holiday, AuditLog):
         print("✅ Default holidays created")
         
         # Log system initialization
+        # FIX: AuditLog model is passed as a parameter, use it directly.
         AuditLog.log_event(
             event_type='system_initialization',
             description='System initialized with default data',

@@ -43,7 +43,7 @@ def login():
         if not username_or_email or not password:
             flash('Please enter both username/email and password.', 'error')
             try:
-                AuditLog.log_action(
+                AuditLog.log_event(
                     user_id=None,
                     action='login_attempt_invalid_input',
                     description=f'Invalid login attempt - missing credentials for: {username_or_email}',
@@ -72,7 +72,7 @@ def login():
         if user is None:
             # Log failed login attempt
             try:
-                AuditLog.log_action(
+                AuditLog.log_event(
                     user_id=None,
                     action='login_failed',
                     description=f'Failed login attempt for: {username_or_email}',
@@ -88,7 +88,7 @@ def login():
         # Check if account is locked (if method exists)
         if hasattr(user, 'is_account_locked') and user.is_account_locked():
             try:
-                AuditLog.log_action(
+                AuditLog.log_event(
                     user_id=user.id,
                     action='login_attempt_locked_account',
                     description=f'Login attempt on locked account: {user.username}',
@@ -104,7 +104,7 @@ def login():
         # Check if account is active
         if not user.is_active:
             try:
-                AuditLog.log_action(
+                AuditLog.log_event(
                     user_id=user.id,
                     action='login_attempt_inactive_account',
                     description=f'Login attempt on inactive account: {user.username}',
@@ -145,7 +145,7 @@ def login():
             if 'session_token' in locals():
                 details['session_token'] = session_token[:10] + '...'
             
-            AuditLog.log_action(
+            AuditLog.log_event(
                 user_id=user.id,
                 action='login_successful',
                 description=f'Successful login: {user.username}',
@@ -190,7 +190,7 @@ def logout():
         if session_token:
             details['session_token'] = session_token[:10] + '...'
         
-        AuditLog.log_action(
+        AuditLog.log_event(
             user_id=user_id,
             action='logout',
             description=f'User logged out: {username}',
@@ -272,7 +272,7 @@ def forgot_password():
             
             # Log password reset request
             try:
-                AuditLog.log_action(
+                AuditLog.log_event(
                     user_id=user.id,
                     action='password_reset_requested',
                     description=f'Password reset requested for: {user.username}',
@@ -284,7 +284,7 @@ def forgot_password():
         else:
             # Log attempt on non-existent email
             try:
-                AuditLog.log_action(
+                AuditLog.log_event(
                     user_id=None,
                     action='password_reset_invalid_email',
                     description=f'Password reset attempted for non-existent email: {email}',
@@ -346,7 +346,7 @@ def reset_password(token):
                 user.clear_password_reset_token()
             
             # Log password reset
-            AuditLog.log_action(
+            AuditLog.log_event(
                 user_id=user.id,
                 action='password_reset_completed',
                 description=f'Password reset completed for: {user.username}',

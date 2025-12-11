@@ -9,7 +9,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from sqlalchemy import func, and_, or_, case, text, distinct, desc, asc, extract
 from sqlalchemy.orm import aliased
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, time
 from collections import defaultdict, OrderedDict
 import calendar
 import json
@@ -61,7 +61,7 @@ def hr_overview():
     from models.attendance import AttendanceRecord
     from models.leave import LeaveRequest
     from models.user import User
-    from models.holiday import Holiday
+    # from models.holiday import Holiday # FIX: Commented out missing/unverified model
     
     if current_user.role != 'hr_manager':
         flash('Access denied. HR Manager privileges required.', 'error')
@@ -90,7 +90,10 @@ def hr_overview():
         todays_attendance = AttendanceRecord.query.filter(AttendanceRecord.date == today).all()
         
         # Get employees on approved leave today
-        on_leave_employees = LeaveRequest.query.filter(
+        # FIX: Explicitly join LeaveRequest and Employee to resolve AmbiguousForeignKeysError
+        on_leave_employees = LeaveRequest.query.join(
+            Employee, LeaveRequest.employee_id == Employee.id 
+        ).filter(
             LeaveRequest.status == 'approved',
             LeaveRequest.start_date <= today,
             LeaveRequest.end_date >= today
@@ -101,27 +104,21 @@ def hr_overview():
         late_count = len([a for a in todays_attendance if a.status == 'late'])
         
         # FIX: Calculate not_marked based on all active employees
-        employees_accounted_for = {a.employee_id for a in todays_attendance}
+        employees_with_attendance = {a.employee_id for a in todays_attendance}
         employees_on_leave = {l.employee_id for l in on_leave_employees}
 
-        on_leave_count = len(employees_on_leave.difference(employees_accounted_for))
-        not_marked = total_employees - len(employees_accounted_for) - on_leave_count
+        on_leave_count = len(employees_on_leave.difference(employees_with_attendance))
+        not_marked = total_employees - len(employees_with_attendance) - on_leave_count
         
         # Weekly attendance trends
-        week_stats = []
-        for i in range(7):
-            day = start_of_week + timedelta(days=i)
-            if day <= today:
-                # FIX: Use helper function for weekly stats
-                day_stats = get_weekly_attendance_trends('all') # Call with 'all' for HR view
-                if i < len(day_stats):
-                    week_stats.append(day_stats[i])
-        
+        week_stats = get_weekly_attendance_trends('all')
+
         # Leave Requests
         pending_leaves = LeaveRequest.query.filter(LeaveRequest.status.in_(['pending', 'pending_hr'])).count() # FIX: Include pending_hr
         approved_leaves_this_month = LeaveRequest.query.filter(
             LeaveRequest.status == 'approved',
-            LeaveRequest.start_date >= start_of_month
+            # FIX: Filter by leave END date or requested date, using requested_date for an accurate monthly request count
+            LeaveRequest.requested_date >= start_of_month
         ).count()
         
         # Leave type breakdown for this month
@@ -130,7 +127,7 @@ def hr_overview():
             func.count(LeaveRequest.id).label('count'),
             func.sum(LeaveRequest.total_days).label('total_days')
         ).filter(
-            LeaveRequest.start_date >= start_of_month,
+            LeaveRequest.requested_date >= start_of_month,
             LeaveRequest.status == 'approved'
         ).group_by(LeaveRequest.leave_type).all()
         
@@ -141,8 +138,10 @@ def hr_overview():
         for location_key, location_data in locations.items():
             # FIX: Use helper function to get simplified location metrics
             location_metrics = get_location_statistics(location_key)
+            # FIX: Use 'name' key for location display if 'display_name' is missing
+            display_name = location_data.get('display_name') or location_data.get('name', location_key.title())
             location_stats[location_key] = {
-                'name': location_data['display_name'],
+                'name': display_name,
                 **location_metrics
             }
             
@@ -180,6 +179,7 @@ def hr_overview():
                              today=today)
                              
     except Exception as e:
+        db.session.rollback()
         current_app.logger.error(f"Error in HR dashboard: {e}")
         flash('Error loading dashboard data. Please try again.', 'error')
         return render_template('dashboard/hr_overview.html', 
@@ -256,7 +256,9 @@ def station_overview():
         }
         
         # FIX: Get pending leave requests for the manager's location
-        location_leave_requests_pending = LeaveRequest.query.join(Employee).filter(
+        location_leave_requests_pending = LeaveRequest.query.join(
+            Employee, LeaveRequest.employee_id == Employee.id # Explicit JOIN condition
+        ).filter(
             Employee.location == user_location,
             LeaveRequest.status.in_(['pending', 'pending_hr'])
         ).all()
@@ -270,7 +272,8 @@ def station_overview():
             shift_overview={'has_shifts': bool(shift_breakdown), **shift_breakdown}, # FIX: Reformat shift_breakdown
             recent_activities=recent_activities,
             pending_items=pending_items,
-            performance_metrics=performance_metrics,
+            # FIXED: Renamed 'performance_metrics' to 'location_metrics' to match the station_overview.html template
+            location_metrics=performance_metrics, 
             staff_on_duty=staff_on_duty,
             weekly_trends=weekly_trends,
             location_alerts=location_alerts,
@@ -280,9 +283,17 @@ def station_overview():
         )
         
     except Exception as e:
+        db.session.rollback()
         current_app.logger.error(f'Error in station_overview: {e}')
         flash('Error loading station dashboard. Please try again.', 'error')
         return redirect(url_for('dashboard.main'))
+
+@dashboard_bp.route('/attendance/overview')
+@login_required
+def attendance_overview_old():
+    """Redirects old /attendance/overview path to the new details page."""
+    # FIX: Added redirect to handle deprecated route
+    return redirect(url_for('dashboard.attendance_details'))
 
 @dashboard_bp.route('/attendance-overview-details')
 @login_required
@@ -361,7 +372,9 @@ def api_dashboard_stats():
         
         # Pending leaves
         if current_user.role == 'station_manager':
-             pending_leaves = LeaveRequest.query.join(Employee).filter(
+             pending_leaves = LeaveRequest.query.join(
+                Employee, LeaveRequest.employee_id == Employee.id # Explicit JOIN condition
+             ).filter(
                 Employee.location == current_user.location,
                 LeaveRequest.status.in_(['pending', 'pending_hr'])
              ).count()
@@ -455,7 +468,10 @@ def get_hr_performance_metrics():
         total_employees = Employee.query.filter(Employee.is_active == True).count()
         
         # Average attendance rate for the month
-        month_attendance = AttendanceRecord.query.filter(
+        # FIX: Explicitly join Employee to resolve any ambiguity related to its FKs
+        month_attendance = AttendanceRecord.query.join(
+            Employee, AttendanceRecord.employee_id == Employee.id # Explicit JOIN condition
+        ).filter(
             AttendanceRecord.date >= start_of_month,
             AttendanceRecord.date <= today
         ).all()
@@ -481,6 +497,9 @@ def get_hr_alerts():
     # FIXED: Local imports
     from models.leave import LeaveRequest
     from models.employee import Employee
+    from models.attendance import AttendanceRecord # FIX: Added AttendanceRecord import
+    from database import db
+    from sqlalchemy import and_, or_
     
     alerts = []
     
@@ -496,19 +515,33 @@ def get_hr_alerts():
         
         # Employees with no attendance today
         today = date.today()
-        employees_no_attendance = Employee.query.filter(
+        
+        # FIX: The original query for employees_no_attendance did not exclude employees on approved leave.
+        # This is corrected below to only alert for active employees who are NOT marked AND NOT on leave.
+        
+        # Subquery for employees on approved leave today
+        employees_on_leave_today_ids = db.session.query(LeaveRequest.employee_id).filter(
+            LeaveRequest.status == 'approved',
+            LeaveRequest.start_date <= today,
+            LeaveRequest.end_date >= today
+        ).subquery()
+        
+        # Subquery for employees who have marked attendance today
+        employees_with_attendance_today_ids = db.session.query(AttendanceRecord.employee_id).filter(
+            AttendanceRecord.date == today
+        ).subquery()
+        
+        # Employees who are active AND (not in attendance AND not on leave)
+        employees_no_attendance_or_leave = Employee.query.filter(
             Employee.is_active == True,
-            ~Employee.id.in_(
-                db.session.query(AttendanceRecord.employee_id).filter(
-                    AttendanceRecord.date == today
-                )
-            )
+            ~Employee.id.in_(employees_with_attendance_today_ids),
+            ~Employee.id.in_(employees_on_leave_today_ids) # Exclude those on approved leave
         ).count()
         
-        if employees_no_attendance > 0:
+        if employees_no_attendance_or_leave > 0:
             alerts.append({
                 'type': 'info',
-                'message': f'{employees_no_attendance} employee(s) have not marked attendance today',
+                'message': f'{employees_no_attendance_or_leave} active employee(s) have not marked attendance (and are not on approved leave) today',
                 'action_url': url_for('dashboard.attendance_details', status='not_marked')
             })
         
@@ -534,14 +567,20 @@ def get_location_statistics(location):
         ).count()
         
         # Today's attendance
-        todays_attendance = AttendanceRecord.query.join(Employee).filter(
+        # FIX: Explicitly join Employee to resolve any ambiguity related to its FKs
+        todays_attendance = AttendanceRecord.query.join(
+            Employee, AttendanceRecord.employee_id == Employee.id # Explicit JOIN condition
+        ).filter(
             AttendanceRecord.date == today,
             Employee.location == location,
             Employee.is_active == True
         ).all()
         
         # Approved leave today
-        on_leave_requests = LeaveRequest.query.join(Employee).filter(
+        # FIX: Explicitly specify the ON clause for the JOIN due to multiple FKs on Employee model
+        on_leave_requests = LeaveRequest.query.join(
+            Employee, LeaveRequest.employee_id == Employee.id # Explicit JOIN condition
+        ).filter(
             LeaveRequest.status == 'approved',
             LeaveRequest.start_date <= today,
             LeaveRequest.end_date >= today,
@@ -561,7 +600,10 @@ def get_location_statistics(location):
         not_marked_today = total_employees - len(employees_accounted_for)
         
         # Month statistics (Attendance rate)
-        month_attendance_records = AttendanceRecord.query.join(Employee).filter(
+        # FIX: Explicitly specify the ON clause for the JOIN due to multiple FKs on Employee model
+        month_attendance_records = AttendanceRecord.query.join(
+            Employee, AttendanceRecord.employee_id == Employee.id # Explicit JOIN condition
+        ).filter(
             AttendanceRecord.date >= start_of_month,
             AttendanceRecord.date <= today,
             Employee.location == location,
@@ -572,7 +614,10 @@ def get_location_statistics(location):
         month_total = len(month_attendance_records)
         
         # Pending leaves for the location
-        pending_leaves_count = LeaveRequest.query.join(Employee).filter(
+        # FIX: Explicitly specify the ON clause for the JOIN due to multiple FKs on Employee model
+        pending_leaves_count = LeaveRequest.query.join(
+            Employee, LeaveRequest.employee_id == Employee.id # Explicit JOIN condition
+        ).filter(
             LeaveRequest.status.in_(['pending', 'pending_hr']),
             Employee.location == location
         ).count()
@@ -591,7 +636,9 @@ def get_location_statistics(location):
         
     except Exception as e:
         current_app.logger.error(f"Error getting location statistics: {e}")
-        return {}
+        # Reraise the original error for context in the HR overview query itself if needed, 
+        # but here we log and return an empty dict for graceful failure.
+        return {} 
 
 def get_todays_location_attendance(location):
     """Get today's attendance details for a location"""
@@ -602,6 +649,7 @@ def get_todays_location_attendance(location):
     today = date.today()
     
     try:
+        # FIX: Explicitly specify the ON clause for the OUTER JOIN due to multiple FKs on Employee model
         attendance_records = db.session.query(Employee, AttendanceRecord).outerjoin(
             AttendanceRecord,
             and_(Employee.id == AttendanceRecord.employee_id, AttendanceRecord.date == today)
@@ -655,7 +703,10 @@ def get_shift_breakdown(location):
                 Employee.is_active == True
             ).count()
             
-            shift_attendance = AttendanceRecord.query.join(Employee).filter(
+            # FIX: Explicitly specify the ON clause for the JOIN due to multiple FKs on Employee model
+            shift_attendance = AttendanceRecord.query.join(
+                Employee, AttendanceRecord.employee_id == Employee.id # Explicit JOIN condition
+            ).filter(
                 AttendanceRecord.date == today,
                 Employee.location == location,
                 Employee.shift == shift,
@@ -725,7 +776,10 @@ def get_pending_station_items(location):
     
     try:
         # Pending leave requests for this location
-        pending_leaves = LeaveRequest.query.join(Employee).filter(
+        # FIX: Explicitly specify the ON clause for the JOIN due to multiple FKs on Employee model
+        pending_leaves = LeaveRequest.query.join(
+            Employee, LeaveRequest.employee_id == Employee.id # Explicit JOIN condition
+        ).filter(
             LeaveRequest.status.in_(['pending', 'pending_hr']),
             Employee.location == location
         ).count()
@@ -768,7 +822,10 @@ def get_staff_on_duty_breakdown(location):
             current_shift = 'night'
         
         # Get employees on current shift who are present
-        on_duty_records = AttendanceRecord.query.join(Employee).filter(
+        # FIX: Explicitly specify the ON clause for the JOIN due to multiple FKs on Employee model
+        on_duty_records = AttendanceRecord.query.join(
+            Employee, AttendanceRecord.employee_id == Employee.id # Explicit JOIN condition
+        ).filter(
             AttendanceRecord.date == today,
             AttendanceRecord.status.in_(['present', 'late']),
             Employee.location == location,
@@ -818,7 +875,10 @@ def get_weekly_attendance_trends(location):
                 total_employees = employee_query.count()
                 
                 # Get attendance records
-                attendance_query = AttendanceRecord.query.join(Employee).filter(
+                # FIX: Explicitly specify the ON clause for the JOIN due to multiple FKs on Employee model
+                attendance_query = AttendanceRecord.query.join(
+                    Employee, AttendanceRecord.employee_id == Employee.id # Explicit JOIN condition
+                ).filter(
                     AttendanceRecord.date == day,
                     Employee.is_active == True
                 )
@@ -884,6 +944,135 @@ def get_customer_service_metrics(location):
         'average_service_time': '3:24',
         'daily_transactions': 156,
         'peak_hours': '07:00-09:00, 17:00-19:00'
+    }
+
+def get_attendance_overview_data(target_date, location_filter, department_filter, shift_filter, status_filter):
+    """Get comprehensive attendance overview data"""
+    # FIXED: Local imports
+    from models.employee import Employee
+    from models.attendance import AttendanceRecord
+    from models.leave import LeaveRequest
+    
+    # Build base query
+    employee_query = Employee.query.filter(Employee.is_active == True)
+    
+    # Apply role-based filtering
+    if current_user.role == 'station_manager':
+        employee_query = employee_query.filter(Employee.location == current_user.location)
+    elif location_filter != 'all':
+        employee_query = employee_query.filter(Employee.location == location_filter)
+    
+    # Apply other filters
+    if department_filter != 'all':
+        employee_query = employee_query.filter(Employee.department == department_filter)
+    
+    if shift_filter != 'all':
+        employee_query = employee_query.filter(Employee.shift == shift_filter)
+    
+    employees = employee_query.all()
+    total_employees = len(employees)
+    
+    # Get attendance records for the date
+    attendance_records = []
+    if employees:
+        # FIX: Explicitly join Employee to resolve any ambiguity related to its FKs (even though this query is simple)
+        attendance_query = AttendanceRecord.query.join(
+            Employee, AttendanceRecord.employee_id == Employee.id
+        ).filter(
+            AttendanceRecord.employee_id.in_([emp.id for emp in employees]),
+            AttendanceRecord.date == target_date
+        )
+        
+        if status_filter != 'all':
+            if status_filter == 'present_late':
+                attendance_query = attendance_query.filter(AttendanceRecord.status.in_(['present', 'late']))
+            else:
+                attendance_query = attendance_query.filter(AttendanceRecord.status == status_filter)
+        
+        attendance_records = attendance_query.all()
+    
+    # Get leave requests for the date
+    leave_requests = []
+    if employees:
+        # FIX: Explicitly join LeaveRequest and Employee to resolve multiple FK ambiguity
+        leave_requests = LeaveRequest.query.join(
+            Employee, LeaveRequest.employee_id == Employee.id # Explicit JOIN condition
+        ).filter(
+            LeaveRequest.employee_id.in_([emp.id for emp in employees]),
+            LeaveRequest.start_date <= target_date,
+            LeaveRequest.end_date >= target_date,
+            LeaveRequest.status == 'approved'
+        ).all()
+    
+    # Calculate statistics
+    present_count = len([r for r in attendance_records if r.status in ['present', 'late']])
+    absent_count = len([r for r in attendance_records if r.status == 'absent'])
+    late_count = len([r for r in attendance_records if r.status == 'late'])
+    
+    # FIX: Correctly calculate not_marked and on_leave to avoid double counting and ensure accuracy
+    employees_with_attendance = {r.employee_id for r in attendance_records}
+    employees_on_leave = {r.employee_id for r in leave_requests}
+    
+    # Employees who are on approved leave and do NOT have an attendance record
+    on_leave_only_count = len(employees_on_leave.difference(employees_with_attendance))
+    
+    # Employees who are accounted for (either by attendance or approved leave)
+    employees_accounted_for = employees_with_attendance.union(employees_on_leave)
+
+    not_marked_count = total_employees - len(employees_accounted_for)
+    
+    # Build detailed employee list
+    employee_details = []
+    attendance_dict = {r.employee_id: r for r in attendance_records}
+    leave_dict = {r.employee_id: r for r in leave_requests}
+    
+    for employee in employees:
+        attendance = attendance_dict.get(employee.id)
+        leave = leave_dict.get(employee.id)
+        
+        status = 'not_marked'
+        status_detail = 'Not Marked'
+        clock_in_display = None
+        clock_out_display = None
+
+        if leave and not attendance: 
+            status = 'on_leave'
+            status_detail = f"On {leave.leave_type.replace('_', ' ').title()}"
+
+        elif attendance:
+            status = attendance.status
+            status_detail = status.replace('_', ' ').title()
+            clock_in_display = attendance.clock_in_time.strftime('%H:%M') if attendance.clock_in_time else None
+            clock_out_display = attendance.clock_out_time.strftime('%H:%M') if attendance.clock_out_time else None
+
+            if clock_in_display:
+                status_detail += f" (In: {clock_in_display})"
+            if clock_out_display:
+                status_detail += f" (Out: {clock_out_display})"
+
+        # Apply filter post-calculation to return only filtered list
+        if status_filter == 'all' or \
+           status == status_filter or \
+           (status_filter == 'present_late' and status in ['present', 'late']):
+            
+            employee_details.append({
+                'employee': employee,
+                'attendance': attendance,
+                'leave': leave,
+                'status': status,
+                'status_detail': status_detail
+            })
+            
+    return {
+        'total_employees': total_employees,
+        'present_count': present_count,
+        'absent_count': absent_count,
+        'late_count': late_count,
+        'on_leave_count': on_leave_only_count, 
+        'not_marked_count': not_marked_count,
+        'attendance_rate': round((present_count / total_employees * 100), 1) if total_employees > 0 else 0,
+        'employee_details': employee_details,
+        'date': target_date
     }
 
 def get_attendance_filter_options(user):

@@ -487,6 +487,13 @@
                                class="btn btn-action btn-view">
                                 <i class="bi bi-eye"></i> View Details
                             </a>
+                            <!-- ADDED: Quick Clock In Button to easily go to the mark page -->
+                            {% if current_user.role in ['hr_manager', 'admin', 'station_manager'] %}
+                            <a href="{{ url_for('attendance.mark_attendance') }}?employee_id={{ employee.id }}" 
+                               class="btn btn-action btn-success">
+                                <i class="bi bi-clock"></i> Clock In
+                            </a>
+                            {% endif %}
                             
                             {% if current_user.role in ['hr_manager', 'admin'] or 
                                 (current_user.role == 'station_manager' and employee.location == current_user.location) %}

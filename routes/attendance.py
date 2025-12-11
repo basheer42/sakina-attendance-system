@@ -7,7 +7,7 @@ FIXED: Models imported inside functions to prevent mapper conflicts
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, g
 from flask_login import login_required, current_user
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, time # FIX: Added time import
 from sqlalchemy import func, and_, or_, desc, asc, extract
 from database import db
 import json
@@ -207,7 +207,8 @@ def mark_attendance():
                 action_details = f'Marked {status} for {employee.employee_id} ({employee.get_full_name()})'
             
             # Log the action
-            AuditLog.log_action(
+            AuditLog.log_event(
+                event_type='attendance_marked', # FIXED: Added event_type
                 user_id=current_user.id,
                 action='attendance_marked',
                 table_name='attendance_records',
@@ -348,7 +349,8 @@ def bulk_mark_attendance():
                     errors.append(f'Error processing employee {employee_id}: {str(e)}')
             
             # Log bulk action
-            AuditLog.log_action(
+            AuditLog.log_event(
+                event_type='attendance_bulk_marked', # FIXED: Added event_type
                 user_id=current_user.id,
                 action='bulk_attendance_marked',
                 description=f'Bulk attendance marking for {target_date}. Success: {success_count}, Errors: {error_count}',
@@ -415,6 +417,7 @@ def clock_in_employee(employee_id):
     from models.employee import Employee
     from models.attendance import AttendanceRecord
     from models.audit import AuditLog
+    from datetime import time # FIX: Added time import to avoid UnboundLocalError
     
     employee = Employee.query.get_or_404(employee_id)
     
@@ -459,7 +462,7 @@ def clock_in_employee(employee_id):
                 status=status,
                 shift_type=getattr(employee, 'shift', 'day'),
                 clock_in_time=current_time,
-                late_arrival_minutes=late_minutes, # FIX: Use correct column name
+                minutes_late=late_minutes, # FIX: Use minutes_late column
                 created_by=current_user.id,
                 location=employee.location,
                 clock_in_method='api_clock_in',
@@ -468,7 +471,9 @@ def clock_in_employee(employee_id):
             db.session.add(attendance)
         
         # Create audit log
-        AuditLog.log_action(
+        # FIXED: Added the missing 'event_type' argument
+        AuditLog.log_event(
+            event_type='attendance_clock_in', # <-- FIX APPLIED HERE
             user_id=current_user.id,
             action='clock_in',
             table_name='attendance_records',
@@ -501,6 +506,7 @@ def clock_out_employee(employee_id):
     from models.employee import Employee
     from models.attendance import AttendanceRecord
     from models.audit import AuditLog
+    from datetime import time # FIX: Added time import to avoid UnboundLocalError
     
     employee = Employee.query.get_or_404(employee_id)
     
@@ -532,10 +538,9 @@ def clock_out_employee(employee_id):
         attendance.clock_out_time = current_time
         attendance.updated_by = current_user.id
         
-        # Calculate hours worked and overtime
+        # Calculate work hours and overtime
         if attendance.clock_in_time:
-            # Need to handle case where clock in is a datetime object and clock out is a datetime object
-            # If clock in time is just a time object, combine it with today's date
+            # Need to handle case where clock in time is a time object or datetime object
             if isinstance(attendance.clock_in_time, time):
                  clock_in_datetime = datetime.combine(today, attendance.clock_in_time)
             elif isinstance(attendance.clock_in_time, datetime):
@@ -556,7 +561,8 @@ def clock_out_employee(employee_id):
             attendance.overtime_hours = round(overtime_hours, 2)
         
         # Create audit log
-        AuditLog.log_action(
+        AuditLog.log_event(
+            event_type='attendance_clock_out', # FIXED: Added event_type
             user_id=current_user.id,
             action='clock_out',
             table_name='attendance_records',
@@ -888,13 +894,14 @@ def get_attendance_overview_data(target_date, location_filter, department_filter
         attendance = attendance_dict.get(employee.id)
         leave = leave_dict.get(employee.id)
         
+        status = 'not_marked'
+        status_detail = 'Not Marked'
+        clock_in_display = None
+        clock_out_display = None
+
         if leave and not attendance: # Only count as on_leave if no attendance record overrides it
             status = 'on_leave'
             status_detail = f"On {leave.leave_type.replace('_', ' ').title()}"
-            on_leave_count += 1
-            present_count -= 1 if attendance and attendance.status in ['present', 'late'] else 0
-            absent_count -= 1 if attendance and attendance.status == 'absent' else 0
-            late_count -= 1 if attendance and attendance.status == 'late' else 0
 
         elif attendance:
             status = attendance.status
@@ -908,10 +915,6 @@ def get_attendance_overview_data(target_date, location_filter, department_filter
             if clock_out_display:
                 status_detail += f" (Out: {clock_out_display})"
 
-        else:
-            status = 'not_marked'
-            status_detail = 'Not Marked'
-            
         employee_details.append({
             'employee': employee,
             'attendance': attendance,
@@ -925,7 +928,7 @@ def get_attendance_overview_data(target_date, location_filter, department_filter
         'present_count': present_count,
         'absent_count': absent_count,
         'late_count': late_count,
-        'on_leave_count': on_leave_count,
+        'on_leave_count': on_leave_count, # FIX: Should be the number of employees who are only on leave
         'not_marked_count': not_marked_count,
         'attendance_rate': round((present_count / total_employees * 100), 1) if total_employees > 0 else 0,
         'employee_details': employee_details,
@@ -1099,6 +1102,7 @@ def get_history_filter_options(user):
     options = {
         'locations': [],
         'departments': list(current_app.config.get('DEPARTMENTS', {}).keys()),
+        'shifts': ['day', 'night'],
         'statuses': ['all', 'present', 'absent', 'late', 'present_late', 'half_day'],
         'employees': []
     }

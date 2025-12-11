@@ -594,7 +594,7 @@ def api_clock_in():
         db.session.commit()
         
         # Log action
-        AuditLog.log_action(
+        AuditLog.log_event(
             user_id=current_user.id,
             action='employee_clocked_in_api',
             description=f'API: {employee.get_full_name()} clocked in at {current_time.strftime("%H:%M")}' + 
@@ -688,7 +688,7 @@ def api_clock_out():
         db.session.commit()
         
         # Log action
-        AuditLog.log_action(
+        AuditLog.log_event(
             user_id=current_user.id,
             action='employee_clocked_out_api',
             description=f'API: {employee.get_full_name()} clocked out at {current_time.strftime("%H:%M")} ' +
@@ -894,7 +894,7 @@ def api_request_leave():
         db.session.flush()
         
         # Log the action
-        AuditLog.log_action(
+        AuditLog.log_event(
             user_id=current_user.id,
             action='leave_requested_api',
             table_name='leave_requests',
@@ -1011,7 +1011,7 @@ def api_approve_leave(leave_id):
         db.session.commit()
         
         # Log action
-        AuditLog.log_action(
+        AuditLog.log_event(
             user_id=current_user.id,
             action='leave_approved_api',
             table_name='leave_requests',
@@ -1070,7 +1070,7 @@ def api_reject_leave(leave_id):
         db.session.commit()
         
         # Log action
-        AuditLog.log_action(
+        AuditLog.log_event(
             user_id=current_user.id,
             action='leave_rejected_api',
             table_name='leave_requests',
@@ -1344,7 +1344,7 @@ def mark_single_attendance(data):
         
         db.session.commit()
         
-        AuditLog.log_action(
+        AuditLog.log_event(
             user_id=current_user.id,
             action='attendance_marked_api',
             description=f'API: Marked {status} for {employee.get_full_name()}',

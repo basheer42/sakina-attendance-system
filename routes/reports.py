@@ -94,7 +94,7 @@ def reports_dashboard():
         # Recent reports accessed
         recent_reports = AuditLog.query.filter(
             AuditLog.user_id == current_user.id,
-            AuditLog.action.like('report_%'),
+            AuditLog.event_action.like('report_%'),
             AuditLog.timestamp >= datetime.utcnow() - timedelta(days=30)
         ).order_by(AuditLog.timestamp.desc()).limit(5).all()
         
@@ -224,7 +224,7 @@ def attendance_reports():
             template_data['employee_data'] = employee_data
         
         # Log report access
-        AuditLog.log_action(
+        AuditLog.log_event(
             user_id=current_user.id,
             action='report_attendance_accessed',
             description=f'Attendance report accessed: {report_type} from {start_date} to {end_date}',
@@ -303,7 +303,7 @@ def leave_reports():
         leave_type_breakdown = generate_leave_type_breakdown(query)
         
         # Log report access
-        AuditLog.log_action(
+        AuditLog.log_event(
             user_id=current_user.id,
             action='report_leave_accessed',
             description=f'Leave report accessed for year {year}',
@@ -361,7 +361,7 @@ def employee_reports():
         }
         
         # Log report access
-        AuditLog.log_action(
+        AuditLog.log_event(
             user_id=current_user.id,
             action='report_employee_accessed',
             description='Employee report accessed',

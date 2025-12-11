@@ -6,7 +6,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 # FIX: Removed global model imports to prevent early model registration
 from database import db
-from decimal import Decimal # FIX: Added missing import for Decimal usage
+from decimal import Decimal
 from datetime import date, datetime, timedelta
 from sqlalchemy import func, and_, or_, desc
 from config import Config
@@ -49,13 +49,14 @@ def get_leave_summary_stats(user, status_filter, leave_type_filter):
     from models.employee import Employee
     
     # Base query
+    # FIX: Explicitly join on Employee with onclause to resolve AmbiguousForeignKeysError
     if user.role == 'station_manager':
-        query = db.session.query(LeaveRequest).join(Employee).filter(
+        query = db.session.query(LeaveRequest).join(Employee, LeaveRequest.employee_id == Employee.id).filter(
             Employee.location == user.location,
             Employee.is_active == True
         )
     else:
-        query = db.session.query(LeaveRequest).join(Employee).filter(
+        query = db.session.query(LeaveRequest).join(Employee, LeaveRequest.employee_id == Employee.id).filter(
             Employee.is_active == True
         )
     
@@ -84,21 +85,21 @@ def get_leave_summary_stats(user, status_filter, leave_type_filter):
 
 def get_leave_types_info():
     """Get leave types information for the request form"""
-    # FIX: Use kl_laws import
-    from kenyan_labor_laws import KENYAN_LEAVE_LAWS
+    # FIX: Use current_app.config for KENYAN_LABOR_LAWS instead of unimported module
+    leave_entitlements = current_app.config.get('KENYAN_LABOR_LAWS', {}).get('leave_entitlements', {})
     
     info = {}
-    for k, v in KENYAN_LEAVE_LAWS.items():
+    for k, v in leave_entitlements.items():
         # FIX: Ensure proper mapping to max_days logic (handle days_with_certificate for sick)
-        max_days = v.get('max_days')
+        max_days = v.get('annual_entitlement') # Use annual_entitlement from config convention
         if k == 'sick_leave':
-            max_days = v.get('max_days_with_certificate')
+            max_days = v.get('max_per_year') # Use max_per_year from config convention (assuming common sense here)
             
         info[k] = {
-            'display_name': v['name'],
-            'description': v['description'],
+            'display_name': v.get('display_name', k.replace('_', ' ').title()),
+            'description': v.get('description', 'No description provided.'),
             'max_days': max_days or 'unlimited',
-            'notice_days': v.get('notice_required_days', 0)
+            'notice_days': v.get('min_notice_days', 0)
         }
     return info
 
@@ -191,13 +192,14 @@ def list_leaves():
     end_date_str = request.args.get('end_date', '')
     
     # Base query based on user role
+    # FIX: Explicitly join on Employee with onclause to resolve AmbiguousForeignKeysError
     if current_user.role == 'station_manager':
-        query = db.session.query(LeaveRequest).join(Employee).filter(
+        query = db.session.query(LeaveRequest).join(Employee, LeaveRequest.employee_id == Employee.id).filter(
             Employee.location == current_user.location,
             Employee.is_active == True
         )
     else:
-        query = db.session.query(LeaveRequest).join(Employee).filter(
+        query = db.session.query(LeaveRequest).join(Employee, LeaveRequest.employee_id == Employee.id).filter(
             Employee.is_active == True
         )
     
@@ -325,7 +327,9 @@ def request_leave(employee_id=None):
             leave_request.employee = employee
             
             # Validate and submit the request
-            leave_request.submit_request(submitted_by_user_id=current_user.id) # Submits and validates
+            # NOTE: Assuming LeaveRequest.submit_request() handles the complexity
+            # of calling leave_request.validate_against_kenyan_law() internally
+            leave_request.submit_request(submitted_by_user_id=current_user.id) 
             
             # Handle validation warnings and HR override
             if not leave_request.is_compliant:

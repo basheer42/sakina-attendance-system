@@ -1,0 +1,49 @@
+
+---
+
+## **CATEGORY 11: POTENTIAL CIRCULAR IMPORT RISKS (Low)**
+
+### Error 11.1: Model Import Order
+**Location:** `database.py` imports models in a specific order.
+
+**Problem:** If any model tries to import another model at module level, circular imports occur.
+
+**Status:** The code has been written to use local imports within functions. This is correct. Just need to ensure no one accidentally adds global imports.
+
+---
+
+## **CATEGORY 12: STATIC FILE DEPENDENCIES (Low)**
+
+### Error 12.1: Logo and Static Assets
+**Location:** Templates reference `/static/images/logo.png`
+
+**Problem:** If file doesn't exist, pages show broken images.
+
+**Fix:** Ensure `static/images/logo.png` exists or create a placeholder.
+
+---
+
+## **SUMMARY: Priority Fix Order**
+
+### **Phase 1 - Critical (Login/Core Flow Broken)**
+1. ✅ Fix password documentation inconsistency (`Manager123!` everywhere)
+2. ✅ Fix `AuditLog.log_action()` vs `log_event()` inconsistency
+3. ✅ Fix `auth.profile` → `profile.view_profile` in templates
+4. ✅ Fix `leaves.list_requests` → `leaves.list_leaves` in templates
+5. ✅ Remove duplicate Flask-WTF from requirements.txt
+
+### **Phase 2 - Medium (Features May Fail)**
+6. Verify/add missing helper functions in routes
+7. Verify template variables match route context
+8. Confirm KENYAN_LABOR_LAWS configuration is complete
+9. Fix CSRF handling consistency
+10. Verify `validate_against_kenyan_law()` method exists
+
+### **Phase 3 - Low (Polish/Edge Cases)**
+11. Review model relationships for consistency
+12. Ensure all static files exist
+13. Test leave request and approval workflow end-to-end
+
+---
+
+Would you like me to start implementing these fixes, beginning with the critical Phase 1 items?

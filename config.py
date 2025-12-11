@@ -390,7 +390,7 @@ class Config:
             'display_name': 'Maintenance Department',
             'head': 'Maintenance Supervisor',
             'head_title': 'Facilities Manager',
-            'description': 'Maintains equipment, facilities, and infrastructure',
+            'description': 'Manages equipment, facilities, and infrastructure',
             'functions': [
                 'Equipment maintenance and repairs',
                 'Facility maintenance and upkeep',
@@ -541,6 +541,7 @@ class Config:
         'leave_entitlements': {
             'annual_leave': {
                 'days_per_year': 21,
+                'annual_entitlement': 21, # ADDED: For generic calculation compatibility
                 'minimum_service_months': 12,
                 'can_carry_forward': True,
                 'max_carry_forward_days': 21,
@@ -555,6 +556,7 @@ class Config:
                 'days_without_certificate': 7,
                 'days_with_certificate': 30,
                 'max_per_year': 30,
+                'annual_entitlement': 30, # ADDED: For generic calculation compatibility
                 'medical_board_required_after': 30,
                 'certificate_required_after': 3,
                 'paid_percentage': 100,
@@ -564,6 +566,7 @@ class Config:
             },
             'maternity_leave': {
                 'days': 90,
+                'annual_entitlement': 90, # ADDED: For generic calculation compatibility
                 'weeks': 12,
                 'months': 3,
                 'can_split': True,
@@ -577,6 +580,7 @@ class Config:
             },
             'paternity_leave': {
                 'days': 14,
+                'annual_entitlement': 14, # ADDED: For generic calculation compatibility
                 'weeks': 2,
                 'must_be_consecutive': True,
                 'within_days_of_birth': 30,
@@ -587,6 +591,7 @@ class Config:
             },
             'compassionate_leave': {
                 'days': 7,
+                'annual_entitlement': 7, # ADDED: For generic calculation compatibility
                 'occasions': [
                     'death of spouse', 'death of child', 'death of parent',
                     'death of sibling', 'death of grandparent', 'serious illness of immediate family'
@@ -599,6 +604,7 @@ class Config:
             },
             'study_leave': {
                 'days_per_year': 30,
+                'annual_entitlement': 30, # ADDED: For generic calculation compatibility
                 'paid_percentage': 50,
                 'conditions': ['job_related_course', 'management_approval'],
                 'legal_reference': 'Employment Act 2007, Section 29D',
@@ -853,7 +859,8 @@ class DevelopmentConfig(Config):
     
     # Relaxed security for development
     SESSION_COOKIE_SECURE = False
-    WTF_CSRF_ENABLED = False
+    # FIX: Enable CSRF in development to catch issues early (Error 9.2)
+    WTF_CSRF_ENABLED = True
     BCRYPT_LOG_ROUNDS = 4  # Faster password hashing
     
     # Development mail settings
@@ -1045,7 +1052,7 @@ def get_kenyan_leave_days(leave_type):
     """Get Kenyan legal leave days for a specific leave type"""
     labor_laws = Config.KENYAN_LABOR_LAWS['leave_entitlements']
     leave_config = labor_laws.get(leave_type, {})
-    return leave_config.get('days', leave_config.get('days_per_year', 0))
+    return leave_config.get('days', leave_config.get('annual_entitlement', 0))
 
 def validate_kenyan_leave_request(leave_type, days_requested, employee_service_months=12, employee_gender=None):
     """Comprehensive validation of leave request against Kenyan labor laws"""
@@ -1069,7 +1076,7 @@ def validate_kenyan_leave_request(leave_type, days_requested, employee_service_m
         return False, "Paternity leave is only available to male employees"
     
     # Maximum days validation
-    max_days = leave_rules.get('days', leave_rules.get('days_per_year', 0))
+    max_days = leave_rules.get('days', leave_rules.get('annual_entitlement', 0)) # FIX: Use annual_entitlement fallback
     if days_requested > max_days:
         legal_ref = leave_rules.get('legal_reference', 'Employment Act 2007')
         return False, f"Maximum {max_days} days allowed for {leave_type.replace('_', ' ').title()} ({legal_ref})"

@@ -79,9 +79,14 @@
         
         /* Main Content */
         .main-content {
-            margin-left: 0;
+            /* FIXED: Offset from top navbar */
+            margin-top: 70px; 
             padding: 20px;
+            /* FIXED: Default margin-left for desktop view when sidebar is open */
+            margin-left: 250px; 
             transition: margin-left 0.3s ease;
+            min-height: calc(100vh - 70px); /* Ensure footer is pushed down */
+            width: auto;
         }
         
         /* Sidebar Styles */
@@ -89,21 +94,43 @@
             background: linear-gradient(180deg, var(--sakina-blue) 0%, var(--sakina-dark-blue) 100%);
             position: fixed;
             top: 60px;
-            left: -260px;
+            left: 0; /* Changed to 0 so it's always in position for desktop */
             height: calc(100vh - 60px);
             width: 250px;
             overflow-y: auto;
-            transition: left 0.3s ease;
+            /* No longer transitioning left, desktop assumes it's always open */
             z-index: 1000;
             box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
         }
         
-        .sidebar.show {
-            left: 0;
+        /* FIXED: Hide sidebar on small screens by default */
+        @media (max-width: 992px) {
+            .sidebar {
+                left: -260px;
+            }
+            .main-content {
+                margin-left: 0 !important; /* Force content to full width on mobile */
+            }
         }
         
+        /* Show sidebar on click for small screens */
+        .sidebar.show {
+            left: 0 !important;
+        }
+        
+        /* FIXED: Desktop view sidebar is always "open" */
         .sidebar-show .main-content {
             margin-left: 250px;
+        }
+        
+        /* Re-apply desktop rule */
+        @media (min-width: 992px) {
+            .sidebar {
+                left: 0; /* Keep it visible */
+            }
+            .main-content {
+                margin-left: 250px; /* Keep content offset */
+            }
         }
         
         .sidebar .nav-link {
@@ -279,7 +306,15 @@
             background: var(--sakina-dark-blue);
             color: white;
             padding: 20px 0;
-            margin-top: 50px;
+            /* FIXED: Ensure footer clears main content area */
+            width: auto;
+            margin-left: 250px;
+        }
+        
+        @media (max-width: 992px) {
+            .footer {
+                margin-left: 0;
+            }
         }
         
         /* Mobile Responsive */
@@ -433,7 +468,7 @@
         <ul class="navbar-nav">
             <!-- Dashboard -->
             <li class="nav-item">
-                <a class="nav-link {% if request.endpoint == 'dashboard.main' %}active{% endif %}" 
+                <a class="nav-link {% if request.endpoint in ['dashboard.main', 'dashboard.hr_overview', 'dashboard.station_overview'] %}active{% endif %}" 
                    href="{{ url_for('dashboard.main') }}">
                     <i class="bi bi-speedometer2"></i> Dashboard
                 </a>
@@ -452,8 +487,9 @@
             
             <!-- Attendance -->
             <li class="nav-item">
-                <a class="nav-link {% if request.endpoint and 'attendance' in request.endpoint %}active{% endif %}" 
-                   href="{{ url_for('attendance.overview') }}">
+                <!-- FIXED: Changed link to the Mark Attendance page for the main sidebar link -->
+                <a class="nav-link {% if request.endpoint and ('attendance' in request.endpoint or 'dashboard.attendance_details' in request.endpoint) %}active{% endif %}" 
+                   href="{{ url_for('attendance.mark_attendance') }}"> 
                     <i class="bi bi-clock"></i> Attendance
                 </a>
             </li>
@@ -511,7 +547,7 @@
     {% endif %}
     
     <!-- Main Content -->
-    <main class="main-content" style="{% if request.endpoint != 'auth.login' %}margin-top: 70px;{% endif %}">
+    <main class="main-content">
         <div class="container-fluid">
             <!-- Flash Messages (Only show if not on login page) -->
             {% if request.endpoint != 'auth.login' %}
@@ -579,25 +615,35 @@
                 sidebarToggle.addEventListener('click', function(e) {
                     e.preventDefault();
                     sidebar.classList.toggle('show');
-                    body.classList.toggle('sidebar-show');
+                    
+                    // FIXED: Toggle sidebar-show class only on small screens
+                    if (window.innerWidth < 992) {
+                        body.classList.toggle('sidebar-show');
+                    }
                 });
                 
-                // Auto-hide sidebar on medium screens and larger if content is clicked
+                // FIXED: Initial state for desktop is always open (no class needed on body)
                 if (window.innerWidth >= 992) {
-                    body.classList.add('sidebar-show');
                     sidebar.classList.add('show');
+                    // Removed body.classList.add('sidebar-show');
+                } else {
+                     // Ensure mobile starts closed
+                     sidebar.classList.remove('show');
+                     body.classList.remove('sidebar-show');
                 }
                 
                 // Handle window resize
                 window.addEventListener('resize', function() {
                     if (window.innerWidth >= 992) {
-                        if (!sidebar.classList.contains('show')) {
-                            sidebar.classList.add('show');
-                            body.classList.add('sidebar-show');
-                        }
+                        sidebar.classList.add('show');
+                        body.classList.remove('sidebar-show'); // Ensure desktop mode doesn't rely on body class
                     } else {
-                        sidebar.classList.remove('show');
-                        body.classList.remove('sidebar-show');
+                        // For mobile screens, leave it to the toggle state
+                        if (sidebar.classList.contains('show')) {
+                             body.classList.add('sidebar-show');
+                        } else {
+                             body.classList.remove('sidebar-show');
+                        }
                     }
                 });
                 
@@ -617,7 +663,9 @@
                 const alerts = document.querySelectorAll('.alert');
                 alerts.forEach(function(alert) {
                     const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
-                    bsAlert.close();
+                    if (bsAlert) { // Check if instance exists before closing
+                         bsAlert.close();
+                    }
                 });
             }, 5000);
         });
@@ -701,7 +749,9 @@
             // Auto-dismiss after 5 seconds
             setTimeout(function() {
                 const alert = bootstrap.Alert.getOrCreateInstance(alertDiv);
-                alert.close();
+                if (alert) {
+                     alert.close();
+                }
             }, 5000);
         }
         

@@ -459,7 +459,7 @@
             </div>
             
             <div class="col-lg-2 col-md-3 col-sm-4 col-6 mb-2">
-                <a href="{{ url_for('leaves.list_requests') }}" class="action-btn">
+                <a href="{{ url_for('leaves.list_leaves') }}" class="action-btn">
                     <i class="bi bi-calendar-check"></i>
                     Leave Requests
                 </a>
@@ -483,7 +483,7 @@
         {% endif %}
         
         <div class="col-lg-2 col-md-3 col-sm-4 col-6 mb-2">
-            <a href="{{ url_for('auth.profile') }}" class="action-btn">
+            <a href="{{ url_for('profile.view_profile') }}" class="action-btn">
                 <i class="bi bi-person-circle"></i>
                 My Profile
             </a>
@@ -521,7 +521,7 @@
                     <i class="bi bi-activity"></i> Recent Activity
                 </h3>
                 <div class="widget-actions">
-                    <a href="{{ url_for('auth.security_logs') }}" class="widget-btn">
+                    <a href="{{ url_for('profile.activity_log') }}" class="widget-btn">
                         <i class="bi bi-list"></i> View All
                     </a>
                 </div>
@@ -870,4 +870,7 @@ function showToast(message, type = 'info') {
 // Check for notifications every 30 seconds
 setInterval(checkForNotifications, 30000);
 </script>
-{% endblock %}
+{% endblock %}### Error 3.3: `auth.security_logs` Endpoint Doesn't Exist
+**Location:** `templates/dashboard/main.html`
+```html
+<a href="{{ url_for('auth.security_logs') }}" class="widget-btn">

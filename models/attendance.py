@@ -253,45 +253,71 @@ class AttendanceRecord(db.Model):
     
     def __init__(self, **kwargs):
         """Initialize attendance record with comprehensive defaults"""
-        super(AttendanceRecord, self).__init__()
+        # Note: Calling super().__init__() is enough, but preserving user's explicit style.
+        # super(AttendanceRecord, self).__init__() 
         
-        # Set default metadata structures
-        self.attendance_metadata = {}
-        self.audit_trail = []
-        self.device_info = {}
-        self.break_periods = []
-        self.project_hours = {}
-        self.department_activities = {}
-        self.external_factors = {}
-        self.training_topics = []
-        self.certifications_earned = []
-        self.previous_versions = []
+        # Set default metadata structures (only necessary if JSON columns default is not properly set in SQLAlchemy dialect)
+        if 'attendance_metadata' not in kwargs:
+             self.attendance_metadata = {}
+        if 'audit_trail' not in kwargs:
+             self.audit_trail = []
+        if 'device_info' not in kwargs:
+             self.device_info = {}
+        if 'break_periods' not in kwargs:
+             self.break_periods = []
+        if 'project_hours' not in kwargs:
+             self.project_hours = {}
+        if 'department_activities' not in kwargs:
+             self.department_activities = {}
+        if 'external_factors' not in kwargs:
+             self.external_factors = {}
+        if 'training_topics' not in kwargs:
+             self.training_topics = []
+        if 'certifications_earned' not in kwargs:
+             self.certifications_earned = []
+        if 'previous_versions' not in kwargs:
+             self.previous_versions = []
         
-        # Set creation timestamp
-        self.created_date = datetime.utcnow()
-        self.version_number = 1
+        # Set creation timestamp and version
+        if 'created_date' not in kwargs:
+             self.created_date = datetime.utcnow()
+        if 'version_number' not in kwargs:
+             self.version_number = 1
         
-        # Initialize performance scores
-        self.punctuality_score = 100.0
-        self.reliability_score = 100.0
-        self.compliance_score = 100.0
-        self.data_quality_score = 100.0
+        # Initialize performance scores (Decimal initialization is important)
+        if 'punctuality_score' not in kwargs:
+             self.punctuality_score = Decimal(100.0)
+        if 'reliability_score' not in kwargs:
+             self.reliability_score = Decimal(100.0)
+        if 'compliance_score' not in kwargs:
+             self.compliance_score = Decimal(100.0)
+        if 'data_quality_score' not in kwargs:
+             self.data_quality_score = Decimal(100.0)
         
         # Apply any provided kwargs
         for key, value in kwargs.items():
             if hasattr(self, key):
-                setattr(self, key, value)
+                # Handle Decimal conversions for Numeric types
+                if isinstance(getattr(self.__class__, key).type, (Numeric)) and value is not None:
+                    setattr(self, key, Decimal(str(value)))
+                # Set DateTime objects directly
+                elif isinstance(getattr(self.__class__, key).type, (DateTime, Date, Time)) and value is not None:
+                     setattr(self, key, value)
+                # Set others
+                else:
+                    setattr(self, key, value)
     
     def calculate_worked_hours(self):
         """Calculate actual worked hours with advanced logic"""
         if not self.actual_start_time or not self.actual_end_time:
-            return 0.0
+            self.worked_hours = Decimal(0.0)
+            return self.worked_hours
         
-        # Convert times to datetime for calculation
+        # Convert times to datetime for calculation (self.date is a Date object)
         start_datetime = datetime.combine(self.date, self.actual_start_time)
         end_datetime = datetime.combine(self.date, self.actual_end_time)
         
-        # Handle overnight shifts
+        # Handle overnight shifts (if end time is earlier than start time on the same date, assume it's the next day)
         if end_datetime < start_datetime:
             end_datetime = datetime.combine(self.date + timedelta(days=1), self.actual_end_time)
         
@@ -314,17 +340,22 @@ class AttendanceRecord(db.Model):
         # Update worked hours
         self.worked_hours = round(Decimal(net_hours), 2)
         
+        # Use Decimal for all calculations involving Numeric fields
+        scheduled_hours = self.scheduled_hours if self.scheduled_hours else Decimal(0.0)
+        
         # Calculate overtime and regular hours
-        if self.worked_hours > self.scheduled_hours:
-            self.regular_hours = self.scheduled_hours
-            self.overtime_hours = round(self.worked_hours - self.scheduled_hours, 2)
+        if self.worked_hours > scheduled_hours:
+            self.regular_hours = scheduled_hours
+            self.overtime_hours = round(self.worked_hours - scheduled_hours, 2)
+            self.undertime_hours = Decimal(0.0)
         else:
             self.regular_hours = self.worked_hours
             self.overtime_hours = Decimal(0.0)
-            self.undertime_hours = round(self.scheduled_hours - self.worked_hours, 2)
+            self.undertime_hours = round(scheduled_hours - self.worked_hours, 2)
         
-        # Calculate productive hours (excluding non-productive activities)
-        self.total_productive_hours = self.worked_hours - self.training_hours
+        # Calculate productive hours (excluding non-productive activities like training)
+        training_hours = self.training_hours if self.training_hours else Decimal(0.0)
+        self.total_productive_hours = self.worked_hours - training_hours
         
         return self.worked_hours
     
@@ -332,24 +363,24 @@ class AttendanceRecord(db.Model):
         """Calculate duration of a single break period"""
         try:
             if isinstance(break_period, dict) and 'start' in break_period and 'end' in break_period:
-                # FIX: Ensure proper datetime conversion for time strings
                 
-                # Check if values are datetime.time objects (from model instance)
-                if isinstance(break_period['start'], time):
-                     start_time = break_period['start']
-                     end_time = break_period['end']
-                else:
-                     start_time = datetime.strptime(break_period['start'], '%H:%M').time()
-                     end_time = datetime.strptime(break_period['end'], '%H:%M').time()
+                # Handling Time/String conversion
+                start_val = break_period['start']
+                end_val = break_period['end']
+                
+                start_time = start_val if isinstance(start_val, time) else datetime.strptime(start_val, '%H:%M').time()
+                end_time = end_val if isinstance(end_val, time) else datetime.strptime(end_val, '%H:%M').time()
                 
                 start_datetime = datetime.combine(self.date, start_time)
                 end_datetime = datetime.combine(self.date, end_time)
                 
+                # Handle breaks that cross midnight
                 if end_datetime < start_datetime:
                     end_datetime += timedelta(days=1)
                 
                 return (end_datetime - start_datetime).total_seconds() / 60
-        except:
+        except Exception as e:
+            # Log error if needed: current_app.logger.error(f"Break duration error: {e}")
             pass
         return 0
     
@@ -360,18 +391,20 @@ class AttendanceRecord(db.Model):
         self.clock_in_location = location
         self.clock_in_method = method
         
-        # FIX: Ensure actual_start_time is a time object
+        # FIX: Ensure actual_start_time is a time object from the DateTime object
         if isinstance(self.clock_in_time, datetime):
             self.actual_start_time = self.clock_in_time.time()
         elif self.clock_in_time:
-             # Assuming it is already a time object if not a datetime
+             # Assuming it is already a time object if not a datetime (unlikely for clock-in)
              self.actual_start_time = self.clock_in_time
         
         if device_info:
+            if not self.device_info:
+                 self.device_info = {}
             self.device_info.update({'clock_in': device_info})
         
         # Calculate lateness
-        if self.scheduled_start_time:
+        if self.scheduled_start_time and self.actual_start_time:
             self.late_arrival_minutes = self.get_lateness_minutes()
             if self.late_arrival_minutes > 0:
                 self.status = 'late'
@@ -391,7 +424,9 @@ class AttendanceRecord(db.Model):
         self.worked_hours = Decimal(0.0)
         self.regular_hours = Decimal(0.0)
         self.overtime_hours = Decimal(0.0)
-        self.undertime_hours = self.scheduled_hours
+        # Use Decimal for comparison
+        scheduled_hours = self.scheduled_hours if self.scheduled_hours else Decimal(0.0)
+        self.undertime_hours = scheduled_hours 
         
         if requires_documentation:
             self.doctor_note_required = True
@@ -409,7 +444,7 @@ class AttendanceRecord(db.Model):
         self.clock_out_location = location
         self.clock_out_method = method or self.clock_in_method
         
-        # FIX: Ensure actual_end_time is a time object
+        # FIX: Ensure actual_end_time is a time object from the DateTime object
         if isinstance(self.clock_out_time, datetime):
             self.actual_end_time = self.clock_out_time.time()
         elif self.clock_out_time:
@@ -421,7 +456,7 @@ class AttendanceRecord(db.Model):
             self.device_info['clock_out'] = device_info
         
         # Calculate early departure
-        if self.scheduled_end_time:
+        if self.scheduled_end_time and self.actual_end_time:
             self.early_departure_minutes = self.get_early_departure_minutes()
         
         # Calculate worked hours
@@ -443,13 +478,17 @@ class AttendanceRecord(db.Model):
         if not self.break_periods:
             self.break_periods = []
         
+        # Format times as strings for JSON persistence if they are time objects
+        start_str = start_time.strftime('%H:%M') if isinstance(start_time, time) else start_time
+        end_str = end_time.strftime('%H:%M') if isinstance(end_time, time) else end_time
+        
         break_period = {
-            'start': start_time.strftime('%H:%M') if isinstance(start_time, time) else start_time,
-            'end': end_time.strftime('%H:%M') if isinstance(end_time, time) else end_time,
+            'start': start_str,
+            'end': end_str,
             'type': break_type,
             'duration_minutes': self._calculate_break_duration({
-                'start': start_time.strftime('%H:%M') if isinstance(start_time, time) else start_time,
-                'end': end_time.strftime('%H:%M') if isinstance(end_time, time) else end_time
+                'start': start_str,
+                'end': end_str
             })
         }
         
@@ -469,6 +508,8 @@ class AttendanceRecord(db.Model):
         """Check if employee was late"""
         if not self.actual_start_time or not self.scheduled_start_time:
             return False
+        
+        # Compare Time objects directly
         return self.actual_start_time > self.scheduled_start_time
     
     def get_lateness_minutes(self):
@@ -505,28 +546,33 @@ class AttendanceRecord(db.Model):
     def update_performance_scores(self):
         """Update performance scores based on attendance data"""
         # Punctuality score
-        if self.late_arrival_minutes == 0:
-            self.punctuality_score = Decimal(100.0)
-        elif self.late_arrival_minutes <= 15:
-            self.punctuality_score = Decimal(85.0)
-        elif self.late_arrival_minutes <= 30:
-            self.punctuality_score = Decimal(70.0)
-        else:
-            self.punctuality_score = Decimal(50.0)
+        # Use Decimal for consistency
+        punctuality_score_val = Decimal(100.0)
+        if self.late_arrival_minutes > 0:
+            if self.late_arrival_minutes <= 15:
+                punctuality_score_val = Decimal(85.0)
+            elif self.late_arrival_minutes <= 30:
+                punctuality_score_val = Decimal(70.0)
+            else:
+                punctuality_score_val = Decimal(50.0)
+        self.punctuality_score = punctuality_score_val
         
         # Efficiency score based on worked vs scheduled hours
-        if self.scheduled_hours and self.scheduled_hours > 0:
-             efficiency = min(Decimal(100.0), (self.worked_hours / self.scheduled_hours) * Decimal(100.0))
+        scheduled_hours = self.scheduled_hours if self.scheduled_hours else Decimal(0.0)
+        if scheduled_hours > Decimal(0):
+             efficiency = min(Decimal(100.0), (self.worked_hours / scheduled_hours) * Decimal(100.0))
         else:
              efficiency = Decimal(100.0)
         
         self.efficiency_rating = self._get_efficiency_rating(efficiency)
         
         # Overall performance score
+        productivity_score = self.productivity_score if self.productivity_score else Decimal(80.0)
+        
         self.overall_performance_score = (
             self.punctuality_score * Decimal(0.4) +
             efficiency * Decimal(0.4) +
-            (self.productivity_score or Decimal(80.0)) * Decimal(0.2)
+            productivity_score * Decimal(0.2)
         )
         
         # Check for perfect attendance
@@ -534,13 +580,13 @@ class AttendanceRecord(db.Model):
             self.status == 'present' and
             self.late_arrival_minutes == 0 and
             self.early_departure_minutes == 0 and
-            self.worked_hours >= self.scheduled_hours
+            self.worked_hours >= scheduled_hours
         )
         
         # Check for exceptional performance
         self.is_exceptional_performance = (
             self.overall_performance_score >= Decimal(95.0) and
-            self.overtime_hours > Decimal(0.0)
+            (self.overtime_hours or Decimal(0.0)) > Decimal(0.0)
         )
     
     def _get_efficiency_rating(self, efficiency_score):
@@ -602,7 +648,7 @@ class AttendanceRecord(db.Model):
         anomalies = []
         
         # Check for unusual working hours
-        if self.worked_hours and self.worked_hours > 16:
+        if (self.worked_hours or Decimal(0.0)) > 16:
             anomalies.append('excessive_hours')
         
         # Check for multiple clock-ins on same day
@@ -648,6 +694,15 @@ class AttendanceRecord(db.Model):
     
     def to_dict(self):
         """Convert attendance record to dictionary for API responses"""
+        # Ensure Decimal values are converted to float/str
+        worked_hours = float(self.worked_hours) if self.worked_hours is not None else 0.0
+        scheduled_hours = float(self.scheduled_hours) if self.scheduled_hours is not None else 0.0
+        regular_hours = float(self.regular_hours) if self.regular_hours is not None else 0.0
+        overtime_hours = float(self.overtime_hours) if self.overtime_hours is not None else 0.0
+        punctuality_score = float(self.punctuality_score) if self.punctuality_score is not None else None
+        overall_performance_score = float(self.overall_performance_score) if self.overall_performance_score is not None else None
+        sales_amount = float(self.sales_amount) if self.sales_amount is not None else None
+        
         data = {
             'id': self.id,
             'employee_id': self.employee_id,
@@ -655,21 +710,21 @@ class AttendanceRecord(db.Model):
             'status': self.status,
             'shift': self.shift,
             'location': self.location,
-            # FIX: Ensure proper ISO/string formatting for mixed Time/DateTime types if they exist
+            # Ensure proper ISO/string formatting for mixed Time/DateTime types if they exist
             'clock_in_time': self.clock_in_time.isoformat() if isinstance(self.clock_in_time, datetime) else str(self.clock_in_time) if self.clock_in_time else None,
             'clock_out_time': self.clock_out_time.isoformat() if isinstance(self.clock_out_time, datetime) else str(self.clock_out_time) if self.clock_out_time else None,
-            'scheduled_hours': float(self.scheduled_hours) if self.scheduled_hours else 0.0,
-            'worked_hours': float(self.worked_hours) if self.worked_hours else 0.0,
-            'regular_hours': float(self.regular_hours) if self.regular_hours else 0.0,
-            'overtime_hours': float(self.overtime_hours) if self.overtime_hours else 0.0,
+            'scheduled_hours': scheduled_hours,
+            'worked_hours': worked_hours,
+            'regular_hours': regular_hours,
+            'overtime_hours': overtime_hours,
             'is_late': self.is_late(),
             'lateness_minutes': self.get_lateness_minutes(),
             'is_approved': self.is_approved,
             'notes': self.notes,
             'manager_notes': self.manager_notes,
             'efficiency_rating': self.efficiency_rating,
-            'punctuality_score': float(self.punctuality_score) if self.punctuality_score else None,
-            'overall_performance_score': float(self.overall_performance_score) if self.overall_performance_score else None,
+            'punctuality_score': punctuality_score,
+            'overall_performance_score': overall_performance_score,
             'is_perfect_attendance': self.is_perfect_attendance,
             'requires_follow_up': self.requires_follow_up,
             'created_date': self.created_date.isoformat() if self.created_date else None,
@@ -683,8 +738,8 @@ class AttendanceRecord(db.Model):
         if self.leave_request_id:
             data['leave_request_id'] = self.leave_request_id
         
-        if self.sales_amount:
-            data['sales_amount'] = float(self.sales_amount)
+        if sales_amount:
+            data['sales_amount'] = sales_amount
         
         if self.customers_served:
             data['customers_served'] = self.customers_served
@@ -723,6 +778,7 @@ class AttendanceRecord(db.Model):
         """Get attendance summary for date range with detailed statistics"""
         from models.employee import Employee
         
+        # Use str conversion for Numeric/Decimal types in aggregation results
         query = db.session.query(
             cls.status,
             func.count(cls.id).label('count'),
@@ -745,6 +801,7 @@ class AttendanceRecord(db.Model):
         
         summary = {}
         for result in results:
+            # Conversion from result Decimal/Numeric to float for presentation layer
             summary[result.status] = {
                 'count': result.count,
                 'avg_hours': float(result.avg_hours or 0),
@@ -777,13 +834,18 @@ class AttendanceRecord(db.Model):
         perfect_attendance = len([r for r in records if r.is_perfect_attendance])
         exceptional_performance = len([r for r in records if r.is_exceptional_performance])
         
+        # Ensure Decimal fields are converted before summation/average
+        avg_punctuality = sum([float(r.punctuality_score) or 0 for r in records]) / total_records if total_records else 0
+        avg_performance = sum([float(r.overall_performance_score) or 0 for r in records]) / total_records if total_records else 0
+        total_overtime = sum([float(r.overtime_hours) for r in records if r.overtime_hours])
+        
         return {
             'total_records': total_records,
             'perfect_attendance_rate': (perfect_attendance / total_records) * 100,
             'exceptional_performance_rate': (exceptional_performance / total_records) * 100,
-            'average_punctuality': sum([float(r.punctuality_score) or 0 for r in records]) / total_records,
-            'average_performance': sum([float(r.overall_performance_score) or 0 for r in records]) / total_records,
-            'total_overtime_hours': sum([float(r.overtime_hours) for r in records if r.overtime_hours])
+            'average_punctuality': avg_punctuality,
+            'average_performance': avg_performance,
+            'total_overtime_hours': total_overtime
         }
     
     @classmethod
@@ -802,12 +864,12 @@ class AttendanceRecord(db.Model):
     def __repr__(self):
         """String representation of attendance record"""
         try:
-            if hasattr(self, 'employee') and self.employee:
-                employee_name = f"{self.employee.first_name} {self.employee.last_name}"
-            else:
-                employee_name = f"Employee {self.employee_id}"
+            # FIX: Access relationship via 'employee' property
+            employee_name = f"{self.employee.first_name} {self.employee.last_name}" if hasattr(self, 'employee') and self.employee else f"Employee {self.employee_id}"
             
-            return f'<AttendanceRecord {employee_name}: {self.date} - {self.status} ({self.worked_hours}h)>'
+            worked_hours_display = float(self.worked_hours) if self.worked_hours is not None else 0.0
+            
+            return f'<AttendanceRecord {employee_name}: {self.date} - {self.status} ({worked_hours_display:.2f}h)>'
         except:
             return f'<AttendanceRecord ID:{self.id} Employee:{self.employee_id} Date:{self.date}>'
 

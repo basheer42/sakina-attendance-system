@@ -153,7 +153,7 @@ def edit_profile():
                 'language': getattr(current_user, 'language', '')
             }
             
-            AuditLog.log_action(
+            AuditLog.log_event(
                 user_id=current_user.id,
                 action='profile_updated',
                 table_name='users',
@@ -196,7 +196,7 @@ def change_password():
             flash('Current password is incorrect.', 'error')
             
             # Log failed password change attempt
-            AuditLog.log_action(
+            AuditLog.log_event(
                 user_id=current_user.id,
                 action='password_change_failed',
                 description=f'Failed password change attempt for {current_user.username} - incorrect current password',
@@ -241,7 +241,7 @@ def change_password():
             db.session.commit()
             
             # Log successful password change
-            AuditLog.log_action(
+            AuditLog.log_event(
                 user_id=current_user.id,
                 action='password_changed',
                 description=f'User {current_user.username} successfully changed their password',

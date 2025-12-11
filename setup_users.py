@@ -86,7 +86,7 @@ def create_simple_user_table(app):
                     'role': 'hr_manager',
                     'location': 'head_office',
                     'department': 'Human Resources',
-                    'password': 'manager123' # FIX: Use consistent password
+                    'password': 'Manager123!' # FIX: Use consistent password
                 },
                 {
                     'username': 'dandora_manager',
@@ -96,7 +96,7 @@ def create_simple_user_table(app):
                     'role': 'station_manager',
                     'location': 'dandora',
                     'department': 'Operations',
-                    'password': 'manager123' # FIX: Use consistent password
+                    'password': 'Manager123!' # FIX: Use consistent password
                 },
                 {
                     'username': 'tassia_manager',
@@ -106,7 +106,7 @@ def create_simple_user_table(app):
                     'role': 'station_manager',
                     'location': 'tassia',
                     'department': 'Operations',
-                    'password': 'manager123' # FIX: Use consistent password
+                    'password': 'Manager123!' # FIX: Use consistent password
                 },
                 {
                     'username': 'kiambu_manager',
@@ -116,7 +116,7 @@ def create_simple_user_table(app):
                     'role': 'station_manager',
                     'location': 'kiambu',
                     'department': 'Operations',
-                    'password': 'manager123' # FIX: Use consistent password
+                    'password': 'Manager123!' # FIX: Use consistent password
                 }
             ]
             
@@ -173,10 +173,10 @@ def create_simple_user_table(app):
             print("   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
             print("   │ Username         │ Password         │ Role           │")
             print("   ├──────────────────┼──────────────────┼────────────────┤")
-            print("   │ hr_manager       │ manager123       │ HR Manager     │") # FIX: Use consistent password
-            print("   │ dandora_manager  │ manager123       │ Station Mgr    │") # FIX: Use consistent password
-            print("   │ tassia_manager   │ manager123       │ Station Mgr    │") # FIX: Use consistent password
-            print("   │ kiambu_manager   │ manager123       │ Station Mgr    │") # FIX: Use consistent password
+            print("   │ hr_manager       │ Manager123!       │ HR Manager     │") # FIX: Use consistent password
+            print("   │ dandora_manager  │ Manager123!       │ Station Mgr    │") # FIX: Use consistent password
+            print("   │ tassia_manager   │ Manager123!       │ Station Mgr    │") # FIX: Use consistent password
+            print("   │ kiambu_manager   │ Manager123!       │ Station Mgr    │") # FIX: Use consistent password
             print("   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
             print("\n⚠️  IMPORTANT: Change these passwords after first login!")
             

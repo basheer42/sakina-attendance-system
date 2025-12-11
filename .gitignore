@@ -10,7 +10,7 @@ app_data.db
 instance/
 
 # CRITICAL: Configuration files with secrets
-secrets.py
+app_secrets.py
 config_production.py
 .env
 .env.local

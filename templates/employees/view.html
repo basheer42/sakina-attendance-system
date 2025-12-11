@@ -431,6 +431,10 @@
                         <li><a class="dropdown-item" href="#attendance-section">
                             <i class="bi bi-clock"></i> View Attendance
                         </a></li>
+                        <!-- FIXED: Corrected Attendance link to the Mark Attendance page -->
+                        <li><a class="dropdown-item" href="{{ url_for('attendance.mark_attendance') }}"> 
+                            <i class="bi bi-check-circle"></i> Mark Attendance
+                        </a></li>
                         <li><a class="dropdown-item" href="#leave-section">
                             <i class="bi bi-calendar"></i> Leave History
                         </a></li>

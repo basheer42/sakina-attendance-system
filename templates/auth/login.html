@@ -272,10 +272,10 @@
             <div class="default-credentials">
                 <h6><i class="bi bi-key"></i> Default Login Credentials</h6>
                 <div class="credential-item">
-                    <strong>HR Manager:</strong> hr_manager / manager123
+                    <strong>HR Manager:</strong> hr_manager / Manager123!
                 </div>
                 <div class="credential-item">
-                    <strong>Station Manager:</strong> dandora_manager / manager123
+                    <strong>Station Manager:</strong> dandora_manager / Manager123!
                 </div>
                 <small class="text-muted">
                     <i class="bi bi-info-circle"></i> 
@@ -286,9 +286,7 @@
             <!-- Login Form -->
             <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm" novalidate>
                 <!-- CSRF Protection -->
-                {% if csrf_token %}
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                {% endif %}
                 
                 <div class="form-floating mb-3">
                     <input type="text" 
@@ -438,7 +436,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (event.key === 'F1') {
             event.preventDefault();
             usernameInput.value = 'hr_manager';
-            passwordInput.value = 'manager123';
+            passwordInput.value = 'Manager123!';
             usernameInput.classList.add('is-valid');
             passwordInput.classList.add('is-valid');
         }
@@ -447,7 +445,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (event.key === 'F2') {
             event.preventDefault();
             usernameInput.value = 'dandora_manager';
-            passwordInput.value = 'manager123';
+            passwordInput.value = 'Manager123!';
             usernameInput.classList.add('is-valid');
             passwordInput.classList.add('is-valid');
         }

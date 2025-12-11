@@ -187,6 +187,10 @@
                             <small class="text-muted mt-2 d-block">
                                 <i class="bi bi-info-circle"></i> You can change the status by selecting a different option above
                             </small>
+                            <!-- FIXED: Added link to the Attendance Overview Details page -->
+                            <a href="{{ url_for('dashboard.attendance_details') }}" class="btn btn-sm btn-outline-info mt-2">
+                                <i class="bi bi-list-ul"></i> View Attendance Report
+                            </a>
                         </div>
 
                         <!-- Submit Button -->
@@ -267,6 +271,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const nairobiTime = new Date().toLocaleString("en-US", {timeZone: "Africa/Nairobi"});
     const currentTime = new Date(nairobiTime).toTimeString().slice(0,5);
     document.getElementById('clock_in_time').value = currentTime;
+    
+    // Check if employee_id is passed in URL (e.g., from employees/list.html Quick Clock In)
+    const urlParams = new URLSearchParams(window.location.search);
+    const employeeIdFromUrl = urlParams.get('employee_id');
+    if (employeeIdFromUrl) {
+        document.getElementById('employee_id').value = employeeIdFromUrl;
+        document.getElementById('employee_id').dispatchEvent(new Event('change')); // Trigger change event to load details
+    }
 });
 
 function updateCurrentTime() {
@@ -426,30 +438,47 @@ function quickClockIn() {
     }
     
     // Call the clock in endpoint
-    // FIX: Using POST method as defined in the route
     fetch(`{{ url_for('attendance.clock_in_employee', employee_id=0) }}`.replace('0', employeeId), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken() // Ensure CSRF token is included
+            'X-CSRFToken': getCsrfToken() 
         },
         body: JSON.stringify({
              employee_id: parseInt(employeeId)
         }) 
     })
-    .then(response => response.json())
+    .then(response => {
+        // FIXED: Handle non-200 responses more cleanly
+        if (response.status === 500) {
+            // Read response as text for the error message
+            return response.text().then(text => {
+                // The expected Python error is here, which we want to log but not show raw to the user
+                console.error("Server 500 Error Trace:", text);
+                throw new Error("Internal Server Error. Please contact admin."); 
+            });
+        }
+        if (!response.ok) {
+             return response.json().then(data => {
+                throw new Error(data.message || `API call failed with status ${response.status}`);
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             addRecentActivity(employeeId, employeeName, `Clock In (${data.status})`, data.status === 'late' ? 'warning' : 'success');
             showSuccessMessage(data.message);
             employeeSelect.value = ''; // Reset dropdown
         } else {
-            alert(data.message);
+            // FIXED: Show alert with data.message if available
+            alert(data.message || 'Error recording clock in. Check console for details.');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error recording clock in. Check console for details.');
+        // FIXED: The user sees this alert, now with a cleaned error message
+        alert(`Error clocking in: ${error.message || 'An unknown error occurred. See console.'}`); 
     });
 }
 
@@ -519,4 +548,10 @@ document.getElementById('attendanceForm').addEventListener('submit', function(e)
     // Submit the form normally
     this.submit();
 });
+
+// Utility function to get CSRF Token
+function getCsrfToken() {
+    return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+}
 </script>
+{% endblock %}
