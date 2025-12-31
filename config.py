@@ -855,7 +855,7 @@ class DevelopmentConfig(Config):
     # Development-specific database
     SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or \
         'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance', 'sakina_attendance_dev.db')
-    SQLALCHEMY_ECHO = True  # Log all SQL statements
+    SQLALCHEMY_ECHO = False  # Log all SQL statements
     
     # Relaxed security for development
     SESSION_COOKIE_SECURE = False

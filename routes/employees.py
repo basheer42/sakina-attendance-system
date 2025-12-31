@@ -477,10 +477,10 @@ def deactivate_employee(id):
         
         # Log the action
         AuditLog.log_event(
+            event_type='employee_deactivated',
             user_id=current_user.id,
-            action='employee_deactivated',
-            table_name='employees',
-            record_id=employee.id,
+            target_type='employees',
+            target_id=employee.id,
             description=f'Deactivated employee: {employee.get_full_name()} ({employee.employee_id}). Reason: {reason}',
             old_values=old_values,
             new_values=employee.to_dict()
@@ -524,10 +524,10 @@ def reactivate_employee(id):
         
         # Log the action
         AuditLog.log_event(
+            event_type='employee_reactivated',
             user_id=current_user.id,
-            action='employee_reactivated',
-            table_name='employees',
-            record_id=employee.id,
+            target_type='employees',
+            target_id=employee.id,
             description=f'Reactivated employee: {employee.get_full_name()} ({employee.employee_id})',
             old_values=old_values,
             new_values=employee.to_dict()

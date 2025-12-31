@@ -54,6 +54,7 @@
         transition: all 0.3s ease;
         min-width: 150px;
         justify-content: center;
+        cursor: pointer;
     }
     
     .step.active {
@@ -156,7 +157,7 @@
         padding: 20px 30px;
         border-top: 1px solid #e9ecef;
         display: flex;
-        justify-content: between;
+        justify-content: space-between;
         gap: 15px;
     }
     
@@ -277,7 +278,7 @@
     <div class="row justify-content-center">
         <div class="col-xl-10">
             <form method="POST" action="{{ url_for('employees.add_employee') }}" id="addEmployeeForm" novalidate>
-                <!-- CSRF Protection FIX -->
+                <!-- CSRF Protection -->
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <div class="form-wizard">
@@ -359,7 +360,7 @@
                                         <label class="form-label">Date of Birth</label>
                                         <input type="date" class="form-control" name="date_of_birth"
                                                value="{{ form_data.date_of_birth if form_data else '' }}"
-                                               max="{{ (moment().subtract(18, 'years').format('YYYY-MM-DD')) if moment else '2006-01-01' }}">
+                                               max="2006-01-01">
                                         <div class="help-text">Employee must be at least 18 years old</div>
                                     </div>
                                 </div>
@@ -420,14 +421,23 @@
                             <div class="row">
                                 <div class="col-md-4">
                                     <div class="form-group">
+                                        <label class="form-label">Employee ID <span class="required">*</span></label>
+                                        <input type="text" class="form-control" name="employee_id" required
+                                               value="{{ form_data.employee_id if form_data else '' }}"
+                                               placeholder="e.g., EMP001">
+                                        <div class="help-text">Unique employee identifier</div>
+                                        <div class="invalid-feedback">Please provide an employee ID.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
                                         <label class="form-label">Location <span class="required">*</span></label>
                                         <select class="form-select" name="location" required>
                                             <option value="">Select Location</option>
-                                            {% for location in locations %}
-                                                <option value="{{ location }}" {% if form_data and form_data.location == location %}selected{% endif %}>
-                                                    {{ location|replace('_', ' ')|title }}
-                                                </option>
-                                            {% endfor %}
+                                            <option value="head_office" {% if form_data and form_data.location == 'head_office' %}selected{% endif %}>Head Office</option>
+                                            <option value="dandora" {% if form_data and form_data.location == 'dandora' %}selected{% endif %}>Dandora Station</option>
+                                            <option value="tassia" {% if form_data and form_data.location == 'tassia' %}selected{% endif %}>Tassia Station</option>
+                                            <option value="kiambu" {% if form_data and form_data.location == 'kiambu' %}selected{% endif %}>Kiambu Station</option>
                                         </select>
                                         <div class="invalid-feedback">Please select a location.</div>
                                     </div>
@@ -437,15 +447,19 @@
                                         <label class="form-label">Department <span class="required">*</span></label>
                                         <select class="form-select" name="department" required>
                                             <option value="">Select Department</option>
-                                            {% for department in departments %}
-                                                <option value="{{ department }}" {% if form_data and form_data.department == department %}selected{% endif %}>
-                                                    {{ department|replace('_', ' ')|title }}
-                                                </option>
-                                            {% endfor %}
+                                            <option value="operations" {% if form_data and form_data.department == 'operations' %}selected{% endif %}>Operations</option>
+                                            <option value="hr" {% if form_data and form_data.department == 'hr' %}selected{% endif %}>Human Resources</option>
+                                            <option value="finance" {% if form_data and form_data.department == 'finance' %}selected{% endif %}>Finance</option>
+                                            <option value="sales" {% if form_data and form_data.department == 'sales' %}selected{% endif %}>Sales</option>
+                                            <option value="security" {% if form_data and form_data.department == 'security' %}selected{% endif %}>Security</option>
+                                            <option value="maintenance" {% if form_data and form_data.department == 'maintenance' %}selected{% endif %}>Maintenance</option>
                                         </select>
                                         <div class="invalid-feedback">Please select a department.</div>
                                     </div>
                                 </div>
+                            </div>
+                            
+                            <div class="row">
                                 <div class="col-md-4">
                                     <div class="form-group">
                                         <label class="form-label">Employment Type</label>
@@ -457,6 +471,23 @@
                                         </select>
                                     </div>
                                 </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Shift</label>
+                                        <select class="form-select" name="shift">
+                                            <option value="day" {% if form_data and form_data.shift == 'day' %}selected{% endif %}>Day Shift (6AM - 6PM)</option>
+                                            <option value="night" {% if form_data and form_data.shift == 'night' %}selected{% endif %}>Night Shift (6PM - 6AM)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Hire Date <span class="required">*</span></label>
+                                        <input type="date" class="form-control" name="hire_date" required
+                                               value="{{ form_data.hire_date if form_data else '' }}">
+                                        <div class="invalid-feedback">Please provide a hire date.</div>
+                                    </div>
+                                </div>
                             </div>
                             
                             <div class="row">
@@ -465,7 +496,7 @@
                                         <label class="form-label">Position/Job Title <span class="required">*</span></label>
                                         <input type="text" class="form-control" name="position" required
                                                value="{{ form_data.position if form_data else '' }}"
-                                               placeholder="e.g., Sales Manager, Attendant, Security Guard">
+                                               placeholder="e.g., Station Attendant, Security Guard">
                                         <div class="invalid-feedback">Please provide a job position.</div>
                                     </div>
                                 </div>
@@ -476,4 +507,486 @@
                                                value="{{ form_data.job_title if form_data else '' }}"
                                                placeholder="Official title as per contract">
                                     </div>
-                                end of file
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 3: Contact & Address -->
+                        <div class="step-content" id="step3">
+                            <div class="section-title">
+                                <i class="bi bi-geo-alt"></i>
+                                Contact & Address Information
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label class="form-label">Email Address</label>
+                                        <input type="email" class="form-control" name="email"
+                                               value="{{ form_data.email if form_data else '' }}"
+                                               placeholder="employee@example.com">
+                                        <div class="help-text">Work email address (optional)</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label class="form-label">Phone Number <span class="required">*</span></label>
+                                        <input type="tel" class="form-control" name="phone_number" required
+                                               value="{{ form_data.phone_number if form_data else '' }}"
+                                               placeholder="0712345678">
+                                        <div class="help-text">Kenyan mobile number format</div>
+                                        <div class="invalid-feedback">Please provide a valid phone number.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="form-group">
+                                        <label class="form-label">Residential Address</label>
+                                        <textarea class="form-control" name="address" rows="3"
+                                                  placeholder="Enter full residential address">{{ form_data.address if form_data else '' }}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="section-title mt-4">
+                                <i class="bi bi-telephone"></i>
+                                Emergency Contact
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Emergency Contact Name</label>
+                                        <input type="text" class="form-control" name="emergency_contact_name"
+                                               value="{{ form_data.emergency_contact_name if form_data else '' }}"
+                                               placeholder="Full name">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Emergency Contact Phone</label>
+                                        <input type="tel" class="form-control" name="emergency_contact_phone"
+                                               value="{{ form_data.emergency_contact_phone if form_data else '' }}"
+                                               placeholder="0712345678">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Relationship</label>
+                                        <select class="form-select" name="emergency_contact_relationship">
+                                            <option value="">Select Relationship</option>
+                                            <option value="spouse" {% if form_data and form_data.emergency_contact_relationship == 'spouse' %}selected{% endif %}>Spouse</option>
+                                            <option value="parent" {% if form_data and form_data.emergency_contact_relationship == 'parent' %}selected{% endif %}>Parent</option>
+                                            <option value="sibling" {% if form_data and form_data.emergency_contact_relationship == 'sibling' %}selected{% endif %}>Sibling</option>
+                                            <option value="child" {% if form_data and form_data.emergency_contact_relationship == 'child' %}selected{% endif %}>Child</option>
+                                            <option value="friend" {% if form_data and form_data.emergency_contact_relationship == 'friend' %}selected{% endif %}>Friend</option>
+                                            <option value="other" {% if form_data and form_data.emergency_contact_relationship == 'other' %}selected{% endif %}>Other</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 4: Banking & Legal -->
+                        <div class="step-content" id="step4">
+                            <div class="section-title">
+                                <i class="bi bi-bank"></i>
+                                Banking Information
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Bank Name</label>
+                                        <select class="form-select" name="bank_name">
+                                            <option value="">Select Bank</option>
+                                            <option value="kcb" {% if form_data and form_data.bank_name == 'kcb' %}selected{% endif %}>KCB Bank</option>
+                                            <option value="equity" {% if form_data and form_data.bank_name == 'equity' %}selected{% endif %}>Equity Bank</option>
+                                            <option value="cooperative" {% if form_data and form_data.bank_name == 'cooperative' %}selected{% endif %}>Co-operative Bank</option>
+                                            <option value="absa" {% if form_data and form_data.bank_name == 'absa' %}selected{% endif %}>ABSA Bank</option>
+                                            <option value="stanbic" {% if form_data and form_data.bank_name == 'stanbic' %}selected{% endif %}>Stanbic Bank</option>
+                                            <option value="ncba" {% if form_data and form_data.bank_name == 'ncba' %}selected{% endif %}>NCBA Bank</option>
+                                            <option value="standard_chartered" {% if form_data and form_data.bank_name == 'standard_chartered' %}selected{% endif %}>Standard Chartered</option>
+                                            <option value="dtb" {% if form_data and form_data.bank_name == 'dtb' %}selected{% endif %}>DTB Bank</option>
+                                            <option value="family" {% if form_data and form_data.bank_name == 'family' %}selected{% endif %}>Family Bank</option>
+                                            <option value="mpesa" {% if form_data and form_data.bank_name == 'mpesa' %}selected{% endif %}>M-Pesa (Paybill)</option>
+                                            <option value="other" {% if form_data and form_data.bank_name == 'other' %}selected{% endif %}>Other</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Account Number</label>
+                                        <input type="text" class="form-control" name="account_number"
+                                               value="{{ form_data.account_number if form_data else '' }}"
+                                               placeholder="Enter account number">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Bank Branch</label>
+                                        <input type="text" class="form-control" name="bank_branch"
+                                               value="{{ form_data.bank_branch if form_data else '' }}"
+                                               placeholder="Enter bank branch">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="section-title mt-4">
+                                <i class="bi bi-cash-stack"></i>
+                                Salary & Allowances
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Basic Salary (KES) <span class="required">*</span></label>
+                                        <input type="number" class="form-control" name="basic_salary" required
+                                               value="{{ form_data.basic_salary if form_data else '' }}"
+                                               placeholder="e.g., 25000" min="0" step="100">
+                                        <div class="invalid-feedback">Please provide a valid salary amount.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Transport Allowance (KES)</label>
+                                        <input type="number" class="form-control" name="transport_allowance"
+                                               value="{{ form_data.transport_allowance if form_data else '' }}"
+                                               placeholder="e.g., 3000" min="0" step="100">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">Housing Allowance (KES)</label>
+                                        <input type="number" class="form-control" name="housing_allowance"
+                                               value="{{ form_data.housing_allowance if form_data else '' }}"
+                                               placeholder="e.g., 5000" min="0" step="100">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="section-title mt-4">
+                                <i class="bi bi-file-earmark-text"></i>
+                                Legal & Statutory
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">KRA PIN</label>
+                                        <input type="text" class="form-control" name="kra_pin"
+                                               value="{{ form_data.kra_pin if form_data else '' }}"
+                                               placeholder="e.g., A123456789B">
+                                        <div class="help-text">Kenya Revenue Authority PIN</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">NSSF Number</label>
+                                        <input type="text" class="form-control" name="nssf_number"
+                                               value="{{ form_data.nssf_number if form_data else '' }}"
+                                               placeholder="Enter NSSF number">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">NHIF Number</label>
+                                        <input type="text" class="form-control" name="nhif_number"
+                                               value="{{ form_data.nhif_number if form_data else '' }}"
+                                               placeholder="Enter NHIF number">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 5: Review & Submit -->
+                        <div class="step-content" id="step5">
+                            <div class="section-title">
+                                <i class="bi bi-check-circle"></i>
+                                Review Employee Information
+                            </div>
+                            
+                            <div class="preview-card">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="preview-section">
+                                            <h6><i class="bi bi-person"></i> Personal Information</h6>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Full Name:</span>
+                                                <span class="preview-value" id="preview-name">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Date of Birth:</span>
+                                                <span class="preview-value" id="preview-dob">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Gender:</span>
+                                                <span class="preview-value" id="preview-gender">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">National ID:</span>
+                                                <span class="preview-value" id="preview-national-id">-</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="preview-section">
+                                            <h6><i class="bi bi-briefcase"></i> Employment Details</h6>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Employee ID:</span>
+                                                <span class="preview-value" id="preview-emp-id">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Position:</span>
+                                                <span class="preview-value" id="preview-position">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Department:</span>
+                                                <span class="preview-value" id="preview-department">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Location:</span>
+                                                <span class="preview-value" id="preview-location">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Hire Date:</span>
+                                                <span class="preview-value" id="preview-hire-date">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="preview-section">
+                                            <h6><i class="bi bi-telephone"></i> Contact Information</h6>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Phone:</span>
+                                                <span class="preview-value" id="preview-phone">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Email:</span>
+                                                <span class="preview-value" id="preview-email">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Emergency Contact:</span>
+                                                <span class="preview-value" id="preview-emergency">-</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="preview-section">
+                                            <h6><i class="bi bi-cash-stack"></i> Salary & Banking</h6>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Basic Salary:</span>
+                                                <span class="preview-value" id="preview-salary">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Bank:</span>
+                                                <span class="preview-value" id="preview-bank">-</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Account:</span>
+                                                <span class="preview-value" id="preview-account">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i>
+                                Please review all information carefully before submitting. You can go back to any step to make corrections.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Wizard Actions -->
+                    <div class="wizard-actions">
+                        <button type="button" class="btn btn-wizard btn-prev" id="prevBtn" style="display: none;">
+                            <i class="bi bi-arrow-left"></i> Previous
+                        </button>
+                        <div class="ms-auto d-flex gap-2">
+                            <a href="{{ url_for('employees.list_employees') }}" class="btn btn-outline-secondary btn-wizard">
+                                <i class="bi bi-x-lg"></i> Cancel
+                            </a>
+                            <button type="button" class="btn btn-wizard btn-next" id="nextBtn">
+                                Next <i class="bi bi-arrow-right"></i>
+                            </button>
+                            <button type="submit" class="btn btn-wizard btn-submit" id="submitBtn" style="display: none;">
+                                <i class="bi bi-check-lg"></i> Add Employee
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentStep = 1;
+    const totalSteps = 5;
+    
+    const steps = document.querySelectorAll('.step');
+    const stepContents = document.querySelectorAll('.step-content');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    const form = document.getElementById('addEmployeeForm');
+    
+    function showStep(step) {
+        // Update step indicators
+        steps.forEach((s, index) => {
+            s.classList.remove('active', 'completed');
+            if (index + 1 < step) {
+                s.classList.add('completed');
+            } else if (index + 1 === step) {
+                s.classList.add('active');
+            }
+        });
+        
+        // Update step content
+        stepContents.forEach((content, index) => {
+            content.classList.remove('active');
+            if (index + 1 === step) {
+                content.classList.add('active');
+            }
+        });
+        
+        // Update buttons
+        prevBtn.style.display = step > 1 ? 'block' : 'none';
+        
+        if (step === totalSteps) {
+            nextBtn.style.display = 'none';
+            submitBtn.style.display = 'block';
+            updatePreview();
+        } else {
+            nextBtn.style.display = 'block';
+            submitBtn.style.display = 'none';
+        }
+        
+        currentStep = step;
+        
+        // Scroll to top of form
+        document.querySelector('.form-wizard').scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    function validateStep(step) {
+        const currentContent = document.getElementById('step' + step);
+        const requiredFields = currentContent.querySelectorAll('[required]');
+        let isValid = true;
+        
+        requiredFields.forEach(field => {
+            if (!field.value.trim()) {
+                field.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                field.classList.remove('is-invalid');
+                field.classList.add('is-valid');
+            }
+        });
+        
+        return isValid;
+    }
+    
+    function updatePreview() {
+        // Personal Info
+        const firstName = document.querySelector('[name="first_name"]').value || '';
+        const middleName = document.querySelector('[name="middle_name"]').value || '';
+        const lastName = document.querySelector('[name="last_name"]').value || '';
+        document.getElementById('preview-name').textContent = `${firstName} ${middleName} ${lastName}`.trim() || '-';
+        
+        document.getElementById('preview-dob').textContent = document.querySelector('[name="date_of_birth"]').value || '-';
+        document.getElementById('preview-gender').textContent = document.querySelector('[name="gender"]').value || '-';
+        document.getElementById('preview-national-id').textContent = document.querySelector('[name="national_id"]').value || '-';
+        
+        // Employment Info
+        document.getElementById('preview-emp-id').textContent = document.querySelector('[name="employee_id"]').value || '-';
+        document.getElementById('preview-position').textContent = document.querySelector('[name="position"]').value || '-';
+        
+        const deptSelect = document.querySelector('[name="department"]');
+        document.getElementById('preview-department').textContent = deptSelect.options[deptSelect.selectedIndex]?.text || '-';
+        
+        const locSelect = document.querySelector('[name="location"]');
+        document.getElementById('preview-location').textContent = locSelect.options[locSelect.selectedIndex]?.text || '-';
+        
+        document.getElementById('preview-hire-date').textContent = document.querySelector('[name="hire_date"]').value || '-';
+        
+        // Contact Info
+        document.getElementById('preview-phone').textContent = document.querySelector('[name="phone_number"]').value || '-';
+        document.getElementById('preview-email').textContent = document.querySelector('[name="email"]').value || '-';
+        
+        const emergencyName = document.querySelector('[name="emergency_contact_name"]').value || '';
+        const emergencyPhone = document.querySelector('[name="emergency_contact_phone"]').value || '';
+        document.getElementById('preview-emergency').textContent = emergencyName ? `${emergencyName} (${emergencyPhone})` : '-';
+        
+        // Salary & Banking
+        const salary = document.querySelector('[name="basic_salary"]').value;
+        document.getElementById('preview-salary').textContent = salary ? `KES ${parseInt(salary).toLocaleString()}` : '-';
+        
+        const bankSelect = document.querySelector('[name="bank_name"]');
+        document.getElementById('preview-bank').textContent = bankSelect.options[bankSelect.selectedIndex]?.text || '-';
+        
+        document.getElementById('preview-account').textContent = document.querySelector('[name="account_number"]').value || '-';
+    }
+    
+    // Event Listeners
+    nextBtn.addEventListener('click', function() {
+        if (validateStep(currentStep)) {
+            if (currentStep < totalSteps) {
+                showStep(currentStep + 1);
+            }
+        }
+    });
+    
+    prevBtn.addEventListener('click', function() {
+        if (currentStep > 1) {
+            showStep(currentStep - 1);
+        }
+    });
+    
+    // Click on step indicators
+    steps.forEach((step, index) => {
+        step.addEventListener('click', function() {
+            const targetStep = index + 1;
+            // Only allow going back or to completed steps
+            if (targetStep < currentStep || this.classList.contains('completed')) {
+                showStep(targetStep);
+            }
+        });
+    });
+    
+    // Form validation on submit
+    form.addEventListener('submit', function(e) {
+        // Validate all steps before submit
+        for (let i = 1; i <= totalSteps; i++) {
+            if (!validateStep(i)) {
+                e.preventDefault();
+                showStep(i);
+                return;
+            }
+        }
+    });
+    
+    // Real-time validation
+    document.querySelectorAll('.form-control, .form-select').forEach(field => {
+        field.addEventListener('change', function() {
+            if (this.hasAttribute('required')) {
+                if (this.value.trim()) {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                } else {
+                    this.classList.remove('is-valid');
+                    this.classList.add('is-invalid');
+                }
+            }
+        });
+    });
+    
+    // Initialize
+    showStep(1);
+});
+</script>
+{% endblock %}

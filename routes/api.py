@@ -595,10 +595,10 @@ def api_clock_in():
         
         # Log action
         AuditLog.log_event(
+            event_type='employee_clocked_in_api',
             user_id=current_user.id,
-            action='employee_clocked_in_api',
             description=f'API: {employee.get_full_name()} clocked in at {current_time.strftime("%H:%M")}' + 
-                       f' ({late_minutes} minutes late)' if is_late else '',
+                       (f' ({late_minutes} minutes late)' if is_late else ''),
             ip_address=g.client_ip
         )
         
@@ -689,8 +689,8 @@ def api_clock_out():
         
         # Log action
         AuditLog.log_event(
+            event_type='employee_clocked_out_api',
             user_id=current_user.id,
-            action='employee_clocked_out_api',
             description=f'API: {employee.get_full_name()} clocked out at {current_time.strftime("%H:%M")} ' +
                        f'(Worked {work_hours:.2f} hours)',
             ip_address=g.client_ip
@@ -1012,10 +1012,10 @@ def api_approve_leave(leave_id):
         
         # Log action
         AuditLog.log_event(
+            event_type='leave_approved_api',
             user_id=current_user.id,
-            action='leave_approved_api',
-            table_name='leave_requests',
-            record_id=leave_request.id,
+            target_type='leave_requests',
+            target_id=leave_request.id,
             description=f'API: Approved {leave_request.leave_type} for {leave_request.employee.get_full_name()}',
             ip_address=g.client_ip
         )
@@ -1071,10 +1071,10 @@ def api_reject_leave(leave_id):
         
         # Log action
         AuditLog.log_event(
+            event_type='leave_rejected_api',
             user_id=current_user.id,
-            action='leave_rejected_api',
-            table_name='leave_requests',
-            record_id=leave_request.id,
+            target_type='leave_requests',
+            target_id=leave_request.id,
             description=f'API: Rejected {leave_request.leave_type} for {leave_request.employee.get_full_name()}',
             ip_address=g.client_ip
         )

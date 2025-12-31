@@ -2,12 +2,19 @@
 Kenyan Labor Laws Compliance Module
 Employment Act 2007 - Leave Entitlements and Validations
 Complete implementation with all required functions
+
+Sakina Gas Company - Attendance Management System
+Version 3.0 - COMPLETE FILE WITH ALL FIXES
 """
 
 from decimal import Decimal
 from datetime import date, timedelta
 
-# Kenyan Employment Act 2007 - Leave Entitlements
+
+# =============================================================================
+# KENYAN EMPLOYMENT ACT 2007 - LEAVE ENTITLEMENTS
+# =============================================================================
+
 KENYAN_LEAVE_LAWS = {
     'annual_leave': {
         'max_days': 21,
@@ -21,7 +28,7 @@ KENYAN_LEAVE_LAWS = {
     'sick_leave': {
         'max_days_without_certificate': 7,
         'max_days_with_certificate': 30,
-        'name': 'Sick Leave', 
+        'name': 'Sick Leave',
         'description': 'Up to 7 days without certificate, 30 days with medical certificate',
         'notice_required_days': 0,
         'requires_medical_certificate_after': 7,
@@ -38,7 +45,7 @@ KENYAN_LEAVE_LAWS = {
     },
     'paternity_leave': {
         'max_days': 14,
-        'name': 'Paternity Leave', 
+        'name': 'Paternity Leave',
         'description': 'Maximum 14 consecutive days',
         'notice_required_days': 7,
         'must_be_consecutive': True,
@@ -63,7 +70,11 @@ KENYAN_LEAVE_LAWS = {
     }
 }
 
-# Working hours constants
+
+# =============================================================================
+# WORKING HOURS CONSTANTS
+# =============================================================================
+
 WORKING_HOURS = {
     'normal_hours_per_day': 8,
     'normal_hours_per_week': 45,
@@ -78,6 +89,10 @@ WORKING_HOURS = {
     'legal_reference': 'Employment Act 2007, Section 27'
 }
 
+
+# =============================================================================
+# WORKING DAYS CALCULATION FUNCTIONS
+# =============================================================================
 
 def calculate_working_days(start_date, end_date, holiday_checker=None):
     """
@@ -139,6 +154,10 @@ def calculate_calendar_days(start_date, end_date):
     
     return (end_date - start_date).days + 1
 
+
+# =============================================================================
+# LEAVE ENTITLEMENT FUNCTIONS
+# =============================================================================
 
 def get_leave_entitlement(leave_type):
     """
@@ -213,6 +232,10 @@ def validate_leave_notice(leave_type, start_date, request_date=None):
     
     return True, f"Notice period requirement met ({actual_notice} days provided, {required_notice} required)."
 
+
+# =============================================================================
+# KENYAN LABOR LAWS VALIDATION CLASS
+# =============================================================================
 
 class KenyanLaborLaws:
     """Kenyan labor law compliance validator"""
@@ -325,7 +348,7 @@ class KenyanLaborLaws:
         return warnings
     
     @staticmethod
-    def validate_leave_request(leave_type, employee, days_requested, start_date, **kwargs):
+    def validate_leave_request_internal(leave_type, employee, days_requested, start_date, **kwargs):
         """
         Main validation method that routes to specific leave type validators.
         
@@ -437,7 +460,10 @@ class KenyanLaborLaws:
         }
 
 
-# Utility functions for external use
+# =============================================================================
+# STATUTORY DEDUCTIONS AND TERMINATION FUNCTIONS
+# =============================================================================
+
 def get_statutory_deductions():
     """
     Get information about statutory deductions in Kenya.
@@ -505,17 +531,99 @@ def calculate_severance_pay(monthly_salary, years_of_service):
     return daily_salary * severance_days * Decimal(str(years_of_service))
 
 
-# Export commonly used items
+# =============================================================================
+# FIX: MISSING FUNCTIONS REQUIRED BY models/leave.py
+# =============================================================================
+
+def create_leave_warning_message(warnings_list):
+    """
+    Create a consolidated warning message from a list of validation warnings.
+    
+    This function is called by models/leave.py in the validate_against_kenyan_law() method.
+    
+    Args:
+        warnings_list: List of warning dictionaries with 'level', 'message', and 'law_reference' keys
+        
+    Returns:
+        String message summarizing all warnings
+    """
+    if not warnings_list:
+        return "Leave request complies with Kenyan labor laws."
+    
+    errors = [w for w in warnings_list if w.get('level') == 'error']
+    warnings = [w for w in warnings_list if w.get('level') == 'warning']
+    
+    message_parts = []
+    
+    if errors:
+        message_parts.append("LEGAL VIOLATIONS:")
+        for i, error in enumerate(errors, 1):
+            message_parts.append(f"  {i}. {error.get('message', 'Unknown error')} ({error.get('law_reference', 'Employment Act 2007')})")
+    
+    if warnings:
+        if message_parts:
+            message_parts.append("")  # Add blank line between sections
+        message_parts.append("WARNINGS:")
+        for i, warning in enumerate(warnings, 1):
+            message_parts.append(f"  {i}. {warning.get('message', 'Unknown warning')} ({warning.get('law_reference', 'Employment Act 2007')})")
+    
+    return "\n".join(message_parts)
+
+
+def validate_leave_request(employee, leave_type, days_requested, start_date, **kwargs):
+    """
+    Wrapper function that calls the KenyanLaborLaws class method.
+    This function exists to provide a module-level callable that models/leave.py can import.
+    
+    IMPORTANT: The argument order here is (employee, leave_type, ...) to match 
+    the call signature in models/leave.py validate_against_kenyan_law() method.
+    
+    Args:
+        employee: Employee object
+        leave_type: String identifier for leave type
+        days_requested: Number of days requested
+        start_date: Start date of leave
+        **kwargs: Additional arguments (employee_service_months, employee_gender, etc.)
+        
+    Returns:
+        List of warning dictionaries (NOT a tuple - just the warnings list)
+    """
+    # Call the internal validation method with correct argument order
+    is_compliant, warnings = KenyanLaborLaws.validate_leave_request_internal(
+        leave_type, employee, days_requested, start_date, **kwargs
+    )
+    
+    # Return just the warnings list as expected by models/leave.py
+    return warnings
+
+
+# =============================================================================
+# EXPORT CONFIGURATION
+# =============================================================================
+
 __all__ = [
+    # Constants
     'KENYAN_LEAVE_LAWS',
     'WORKING_HOURS',
+    
+    # Working days functions
     'calculate_working_days',
     'calculate_calendar_days',
+    
+    # Leave entitlement functions
     'get_leave_entitlement',
     'get_max_leave_days',
     'get_notice_required_days',
     'validate_leave_notice',
+    
+    # Main validation functions (FIXED - these were missing)
+    'validate_leave_request',
+    'create_leave_warning_message',
+    
+    # Class
     'KenyanLaborLaws',
+    
+    # Statutory functions
     'get_statutory_deductions',
     'get_termination_notice_period',
     'calculate_severance_pay'

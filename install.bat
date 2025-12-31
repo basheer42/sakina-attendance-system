@@ -53,7 +53,7 @@ echo.
 echo 🌐 Access the system at: http://localhost:5000
 echo 🔑 Login credentials:
 echo    Username: hr_manager
-echo    Password: manager123
+echo    Password: Manager123!
 echo.
 echo 📝 If you encounter any issues, try running: python simple_app.py
 echo.

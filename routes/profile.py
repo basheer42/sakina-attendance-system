@@ -154,10 +154,10 @@ def edit_profile():
             }
             
             AuditLog.log_event(
+                event_type='profile_updated',
                 user_id=current_user.id,
-                action='profile_updated',
-                table_name='users',
-                record_id=current_user.id,
+                target_type='users',
+                target_id=current_user.id,
                 description=f'Profile updated for user: {current_user.username}',
                 old_values=old_values,
                 new_values=new_values
@@ -197,8 +197,8 @@ def change_password():
             
             # Log failed password change attempt
             AuditLog.log_event(
+                event_type='password_change_failed',
                 user_id=current_user.id,
-                action='password_change_failed',
                 description=f'Failed password change attempt for {current_user.username} - incorrect current password',
                 ip_address=request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
             )
@@ -242,8 +242,8 @@ def change_password():
             
             # Log successful password change
             AuditLog.log_event(
+                event_type='password_changed',
                 user_id=current_user.id,
-                action='password_changed',
                 description=f'User {current_user.username} successfully changed their password',
                 ip_address=request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
             )

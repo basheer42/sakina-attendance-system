@@ -225,8 +225,8 @@ def attendance_reports():
         
         # Log report access
         AuditLog.log_event(
+            event_type='report_attendance_accessed',
             user_id=current_user.id,
-            action='report_attendance_accessed',
             description=f'Attendance report accessed: {report_type} from {start_date} to {end_date}',
             ip_address=request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
         )
@@ -304,8 +304,8 @@ def leave_reports():
         
         # Log report access
         AuditLog.log_event(
+            event_type='report_leave_accessed',
             user_id=current_user.id,
-            action='report_leave_accessed',
             description=f'Leave report accessed for year {year}',
             ip_address=request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
         )
@@ -362,8 +362,8 @@ def employee_reports():
         
         # Log report access
         AuditLog.log_event(
+            event_type='report_employee_accessed',
             user_id=current_user.id,
-            action='report_employee_accessed',
             description='Employee report accessed',
             ip_address=request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
         )
