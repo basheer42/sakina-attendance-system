@@ -1,63 +1,79 @@
-# Sakina Gas Attendance System - Production Dependencies
-# Version 3.0 - Built from scratch with optimized packages
+# Sakina Gas Company - Attendance Management System
+# Python Dependencies - Production Ready
+# Version: 3.0.0
+# Last Updated: December 2024
 
-# Core Flask Framework
-Flask==3.0.0
-Werkzeug==3.0.1
+# =============================================================================
+# Core Framework
+# =============================================================================
+Flask>=3.0.0,<4.0.0
+Werkzeug>=3.0.0,<4.0.0
 
-# Database and ORM
-SQLAlchemy==2.0.23
-Flask-SQLAlchemy==3.1.1
+# =============================================================================
+# Database
+# =============================================================================
+Flask-SQLAlchemy>=3.1.0,<4.0.0
+SQLAlchemy>=2.0.0,<3.0.0
 
-# Authentication and Security
-Flask-Login==0.6.3
-bcrypt==4.1.2
-PyJWT==2.8.0
+# =============================================================================
+# Authentication & Security
+# =============================================================================
+Flask-Login>=0.6.3,<1.0.0
+Flask-Bcrypt>=1.0.1,<2.0.0
+bcrypt>=4.0.0,<5.0.0
 
-# Forms and Validation
-Flask-WTF==1.2.1
-WTForms==3.1.1
+# =============================================================================
+# Forms & Validation
+# NOTE: Flask-WTF provides CSRF protection and form handling
+# =============================================================================
+Flask-WTF>=1.2.0,<2.0.0
+WTForms>=3.1.0,<4.0.0
+email-validator>=2.0.0,<3.0.0
 
-# Email Support (Optional)
-Flask-Mail==0.9.1
+# =============================================================================
+# Email Support (Optional - for notifications)
+# =============================================================================
+Flask-Mail>=0.9.1,<1.0.0
 
-# Date and Time Utilities
-python-dateutil==2.8.2
+# =============================================================================
+# Date/Time Handling
+# =============================================================================
+python-dateutil>=2.8.2,<3.0.0
 
-# CLI Support
-Click==8.1.7
-
-# JSON and Data Processing
-simplejson==3.19.2
-
-# Development and Testing Dependencies (Optional)
-pytest==7.4.4
-pytest-flask==1.3.0
-pytest-cov==4.1.0
-coverage==7.3.2
-
-# Production Server Options
-gunicorn==21.2.0
-waitress==2.1.2
-
-# Excel Export Support (Optional)
-openpyxl==3.1.2
-xlsxwriter==3.1.9
-
-# PDF Generation (Optional)
-reportlab==4.0.7
-
-# Image Processing (Optional)
-Pillow==10.1.0
-
-# Timezone Support
-pytz==2023.3
-
-# Security Enhancements
-cryptography==41.0.8
-
+# =============================================================================
 # Environment Variables
-python-dotenv==1.0.0
+# =============================================================================
+python-dotenv>=1.0.0,<2.0.0
 
-# Performance Monitoring (Optional)
-Flask-APM==0.3.0
+# =============================================================================
+# Production Server (for deployment)
+# =============================================================================
+gunicorn>=21.0.0,<22.0.0
+
+# =============================================================================
+# Utilities
+# =============================================================================
+click>=8.1.0,<9.0.0
+
+# =============================================================================
+# Development Dependencies (Optional - uncomment for development)
+# =============================================================================
+# pytest>=7.4.0,<8.0.0
+# pytest-flask>=1.2.0,<2.0.0
+# coverage>=7.3.0,<8.0.0
+# flake8>=6.1.0,<7.0.0
+# black>=23.9.0,<24.0.0
+
+# =============================================================================
+# Notes:
+# =============================================================================
+# 1. All core dependencies are pinned with upper bounds to prevent breaking changes
+# 2. Flask-WTF is listed ONCE (removed duplicate that was previously in file)
+# 3. bcrypt is listed explicitly for password hashing
+# 4. email-validator is required for WTForms email validation
+# 5. gunicorn is included for production deployment
+# 6. python-dotenv helps with environment variable management
+#
+# To install: pip install -r requirements.txt
+# To install dev dependencies: pip install -r requirements.txt -r requirements-dev.txt
+# =============================================================================

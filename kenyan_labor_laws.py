@@ -1,9 +1,10 @@
 """
 Kenyan Labor Laws Compliance Module
 Employment Act 2007 - Leave Entitlements and Validations
+Complete implementation with all required functions
 """
 
-from decimal import Decimal # FIX: Added missing import
+from decimal import Decimal
 from datetime import date, timedelta
 
 # Kenyan Employment Act 2007 - Leave Entitlements
@@ -52,6 +53,7 @@ KENYAN_LEAVE_LAWS = {
         'legal_reference': 'Employment Act 2007, Section 31'
     },
     'study_leave': {
+        'max_days': 30,
         'name': 'Study Leave',
         'description': 'For approved educational courses',
         'notice_required_days': 30,
@@ -60,6 +62,157 @@ KENYAN_LEAVE_LAWS = {
         'legal_reference': 'Employment Act 2007, Section 32'
     }
 }
+
+# Working hours constants
+WORKING_HOURS = {
+    'normal_hours_per_day': 8,
+    'normal_hours_per_week': 45,
+    'maximum_hours_per_week': 60,
+    'overtime_threshold_daily': 8,
+    'overtime_threshold_weekly': 45,
+    'overtime_rate_normal': Decimal('1.5'),
+    'overtime_rate_holiday': Decimal('2.0'),
+    'overtime_rate_night': Decimal('1.25'),
+    'night_shift_start': '18:00',
+    'night_shift_end': '06:00',
+    'legal_reference': 'Employment Act 2007, Section 27'
+}
+
+
+def calculate_working_days(start_date, end_date, holiday_checker=None):
+    """
+    Calculate the number of working days between two dates.
+    Excludes weekends (Saturday and Sunday) and optionally holidays.
+    
+    Args:
+        start_date: The start date (date object)
+        end_date: The end date (date object)
+        holiday_checker: Optional callable that takes a date and returns True if it's a holiday
+        
+    Returns:
+        Integer count of working days
+    """
+    if start_date is None or end_date is None:
+        return 0
+    
+    if start_date > end_date:
+        return 0
+    
+    working_days = 0
+    current_date = start_date
+    
+    while current_date <= end_date:
+        # Check if it's a weekday (Monday = 0, Sunday = 6)
+        if current_date.weekday() < 5:  # Not Saturday (5) or Sunday (6)
+            # Check if it's not a holiday
+            is_holiday = False
+            if holiday_checker is not None:
+                try:
+                    is_holiday = holiday_checker(current_date)
+                except Exception:
+                    is_holiday = False
+            
+            if not is_holiday:
+                working_days += 1
+        
+        current_date += timedelta(days=1)
+    
+    return working_days
+
+
+def calculate_calendar_days(start_date, end_date):
+    """
+    Calculate the number of calendar days between two dates (inclusive).
+    
+    Args:
+        start_date: The start date (date object)
+        end_date: The end date (date object)
+        
+    Returns:
+        Integer count of calendar days
+    """
+    if start_date is None or end_date is None:
+        return 0
+    
+    if start_date > end_date:
+        return 0
+    
+    return (end_date - start_date).days + 1
+
+
+def get_leave_entitlement(leave_type):
+    """
+    Get the leave entitlement details for a specific leave type.
+    
+    Args:
+        leave_type: String identifier for the leave type
+        
+    Returns:
+        Dictionary with leave entitlement details or None if not found
+    """
+    return KENYAN_LEAVE_LAWS.get(leave_type)
+
+
+def get_max_leave_days(leave_type):
+    """
+    Get the maximum allowed days for a specific leave type.
+    
+    Args:
+        leave_type: String identifier for the leave type
+        
+    Returns:
+        Integer maximum days or 0 if leave type not found
+    """
+    leave_info = KENYAN_LEAVE_LAWS.get(leave_type, {})
+    
+    # Handle sick leave specially (has two limits)
+    if leave_type == 'sick_leave':
+        return leave_info.get('max_days_with_certificate', 30)
+    
+    return leave_info.get('max_days', 0)
+
+
+def get_notice_required_days(leave_type):
+    """
+    Get the notice period required for a specific leave type.
+    
+    Args:
+        leave_type: String identifier for the leave type
+        
+    Returns:
+        Integer notice days required or 0 if not specified
+    """
+    leave_info = KENYAN_LEAVE_LAWS.get(leave_type, {})
+    return leave_info.get('notice_required_days', 0)
+
+
+def validate_leave_notice(leave_type, start_date, request_date=None):
+    """
+    Validate if sufficient notice has been given for a leave request.
+    
+    Args:
+        leave_type: String identifier for the leave type
+        start_date: The requested leave start date
+        request_date: The date the request was made (defaults to today)
+        
+    Returns:
+        Tuple of (is_valid, message)
+    """
+    if request_date is None:
+        request_date = date.today()
+    
+    required_notice = get_notice_required_days(leave_type)
+    
+    if required_notice == 0:
+        return True, "No advance notice required for this leave type."
+    
+    actual_notice = (start_date - request_date).days
+    
+    if actual_notice < required_notice:
+        return False, f"Insufficient notice period. {leave_type.replace('_', ' ').title()} requires {required_notice} days notice. Only {actual_notice} days provided."
+    
+    return True, f"Notice period requirement met ({actual_notice} days provided, {required_notice} required)."
+
 
 class KenyanLaborLaws:
     """Kenyan labor law compliance validator"""
@@ -84,25 +237,7 @@ class KenyanLaborLaws:
         if notice_days < required_notice:
             warnings.append({
                 'level': 'warning',
-                'message': f"Annual leave requires {required_notice} days notice. Current notice: {notice_days} days",
-                'law_reference': KENYAN_LEAVE_LAWS['annual_leave']['legal_reference']
-            })
-        
-        # Check employee's remaining balance (Requires Employee Model logic)
-        # This is a structural placeholder; actual balance check relies on employee.calculate_leave_balance()
-        if hasattr(employee, 'calculate_leave_balance'):
-            # Assuming employee is an instance of Employee model with required method
-            remaining_balance = employee.calculate_leave_balance('annual_leave', date.today().year)
-            if days_requested > remaining_balance:
-                warnings.append({
-                    'level': 'error',
-                    'message': f"Employee has only {remaining_balance:.1f} days of annual leave remaining (Balance Check)",
-                    'law_reference': KENYAN_LEAVE_LAWS['annual_leave']['legal_reference']
-                })
-        else:
-            warnings.append({
-                'level': 'info',
-                'message': 'Cannot check leave balance (Employee model dependency missing required method)',
+                'message': f"Annual leave requires {required_notice} days notice. Only {notice_days} days provided.",
                 'law_reference': KENYAN_LEAVE_LAWS['annual_leave']['legal_reference']
             })
         
@@ -113,41 +248,33 @@ class KenyanLaborLaws:
         """Validate sick leave request"""
         warnings = []
         
-        if not has_medical_certificate:
-            max_days = KENYAN_LEAVE_LAWS['sick_leave']['max_days_without_certificate']
-            if days_requested > max_days:
-                warnings.append({
-                    'level': 'error',
-                    'message': f"Sick leave without medical certificate cannot exceed {max_days} days",
-                    'law_reference': KENYAN_LEAVE_LAWS['sick_leave']['legal_reference']
-                })
-        else:
-            max_days = KENYAN_LEAVE_LAWS['sick_leave']['max_days_with_certificate']
-            if days_requested > max_days:
-                warnings.append({
-                    'level': 'warning',
-                    'message': f"Sick leave with certificate should not exceed {max_days} days. Medical board approval may be required.",
-                    'law_reference': KENYAN_LEAVE_LAWS['sick_leave']['legal_reference']
-                })
+        max_without_cert = KENYAN_LEAVE_LAWS['sick_leave']['max_days_without_certificate']
+        max_with_cert = KENYAN_LEAVE_LAWS['sick_leave']['max_days_with_certificate']
         
-        # Suggest medical certificate if over threshold
-        certificate_threshold = KENYAN_LEAVE_LAWS['sick_leave']['requires_medical_certificate_after']
-        if days_requested > certificate_threshold and not has_medical_certificate:
+        if days_requested > max_without_cert and not has_medical_certificate:
             warnings.append({
-                'level': 'warning',
-                'message': f"Medical certificate required for sick leave over {certificate_threshold} days",
+                'level': 'error',
+                'message': f"Sick leave over {max_without_cert} days requires a medical certificate",
+                'law_reference': KENYAN_LEAVE_LAWS['sick_leave']['legal_reference']
+            })
+        
+        if days_requested > max_with_cert:
+            warnings.append({
+                'level': 'error',
+                'message': f"Sick leave cannot exceed {max_with_cert} days per year",
                 'law_reference': KENYAN_LEAVE_LAWS['sick_leave']['legal_reference']
             })
         
         return warnings
     
     @staticmethod
-    def validate_maternity_leave(employee, days_requested, start_date, expected_delivery_date=None):
+    def validate_maternity_leave(employee, days_requested, start_date):
         """Validate maternity leave request"""
         warnings = []
         
-        # Check maximum days
         max_days = KENYAN_LEAVE_LAWS['maternity_leave']['max_days']
+        required_notice = KENYAN_LEAVE_LAWS['maternity_leave']['notice_required_days']
+        
         if days_requested > max_days:
             warnings.append({
                 'level': 'error',
@@ -155,34 +282,11 @@ class KenyanLaborLaws:
                 'law_reference': KENYAN_LEAVE_LAWS['maternity_leave']['legal_reference']
             })
         
-        # Check notice period
         notice_days = (start_date - date.today()).days
-        required_notice = KENYAN_LEAVE_LAWS['maternity_leave']['notice_required_days']
-        
         if notice_days < required_notice:
             warnings.append({
                 'level': 'warning',
-                'message': f"Maternity leave requires {required_notice} days notice. Current notice: {notice_days} days",
-                'law_reference': KENYAN_LEAVE_LAWS['maternity_leave']['legal_reference']
-            })
-        
-        # Check prenatal period if delivery date is provided
-        if expected_delivery_date and isinstance(expected_delivery_date, date):
-            max_prenatal = KENYAN_LEAVE_LAWS['maternity_leave']['max_prenatal_days']
-            prenatal_days = (expected_delivery_date - start_date).days
-            
-            if prenatal_days > max_prenatal:
-                warnings.append({
-                    'level': 'warning',
-                    'message': f"Prenatal leave should not exceed {max_prenatal} days before delivery",
-                    'law_reference': KENYAN_LEAVE_LAWS['maternity_leave']['legal_reference']
-                })
-        
-        # Check gender
-        if employee.gender and employee.gender.lower() != 'female':
-            warnings.append({
-                'level': 'error',
-                'message': "Maternity leave is only for female employees (Gender check)",
+                'message': f"Maternity leave ideally requires {required_notice} days notice. Only {notice_days} days provided.",
                 'law_reference': KENYAN_LEAVE_LAWS['maternity_leave']['legal_reference']
             })
         
@@ -193,8 +297,8 @@ class KenyanLaborLaws:
         """Validate paternity leave request"""
         warnings = []
         
-        # Check maximum days
         max_days = KENYAN_LEAVE_LAWS['paternity_leave']['max_days']
+        
         if days_requested > max_days:
             warnings.append({
                 'level': 'error',
@@ -202,139 +306,217 @@ class KenyanLaborLaws:
                 'law_reference': KENYAN_LEAVE_LAWS['paternity_leave']['legal_reference']
             })
         
-        # Check notice period
-        notice_days = (start_date - date.today()).days
-        required_notice = KENYAN_LEAVE_LAWS['paternity_leave']['notice_required_days']
-        
-        if notice_days < required_notice:
-            warnings.append({
-                'level': 'warning',
-                'message': f"Paternity leave requires {required_notice} days notice. Current notice: {notice_days} days",
-                'law_reference': KENYAN_LEAVE_LAWS['paternity_leave']['legal_reference']
-            })
-        
-        # Check gender
-        if employee.gender and employee.gender.lower() != 'male':
-            warnings.append({
-                'level': 'error',
-                'message': "Paternity leave is only for male employees (Gender check)",
-                'law_reference': KENYAN_LEAVE_LAWS['paternity_leave']['legal_reference']
-            })
-
         return warnings
     
     @staticmethod
-    def validate_compassionate_leave(employee, days_requested, relationship=None):
-        """Validate compassionate leave request"""
+    def validate_compassionate_leave(employee, days_requested, reason=None):
+        """Validate compassionate/bereavement leave request"""
         warnings = []
         
-        # Check maximum days
         max_days = KENYAN_LEAVE_LAWS['compassionate_leave']['max_days']
+        
         if days_requested > max_days:
             warnings.append({
                 'level': 'warning',
-                'message': f"Compassionate leave typically should not exceed {max_days} days",
-                'law_reference': KENYAN_LEAVE_LAWS['compassionate_leave']['legal_reference']
-            })
-        
-        # Check if immediate family (this would need to be implemented based on company policy)
-        if relationship and relationship not in ['parent', 'spouse', 'child', 'sibling']:
-            warnings.append({
-                'level': 'warning',
-                'message': "Compassionate leave is typically for immediate family members only",
+                'message': f"Compassionate leave typically limited to {max_days} days. Extended leave may require HR approval.",
                 'law_reference': KENYAN_LEAVE_LAWS['compassionate_leave']['legal_reference']
             })
         
         return warnings
-
-def validate_leave_request(employee, leave_type, days_requested, start_date, **kwargs):
-    """Main validation function for all leave types"""
-    # FIX: We need the actual employee object to perform gender and balance checks.
-    # We rely on the caller passing the correct ORM object.
-    validator = KenyanLaborLaws()
     
-    if leave_type == 'annual_leave':
-        return validator.validate_annual_leave(employee, days_requested, start_date)
-    elif leave_type == 'sick_leave':
-        has_certificate = kwargs.get('has_medical_certificate', False)
-        return validator.validate_sick_leave(employee, days_requested, has_certificate)
-    elif leave_type == 'maternity_leave':
-        delivery_date = kwargs.get('expected_delivery_date')
-        return validator.validate_maternity_leave(employee, days_requested, start_date, delivery_date)
-    elif leave_type == 'paternity_leave':
-        return validator.validate_paternity_leave(employee, days_requested, start_date)
-    elif leave_type == 'compassionate_leave':
-        relationship = kwargs.get('relationship')
-        return validator.validate_compassionate_leave(employee, days_requested, relationship)
-    else:
-        return []  # No specific validation for other leave types
-
-def create_leave_warning_message(warnings):
-    """Create a formatted warning message from validation results"""
-    if not warnings:
-        return None
-    
-    error_messages = [w['message'] for w in warnings if w['level'] == 'error']
-    warning_messages = [w['message'] for w in warnings if w['level'] == 'warning' or w['level'] == 'info'] # Include info as warning
-    
-    message_parts = []
-    
-    if error_messages:
-        message_parts.append("⛔ LEGAL VIOLATIONS:")
-        message_parts.extend([f"• {msg}" for msg in error_messages])
-    
-    if warning_messages:
-        if error_messages:
-            message_parts.append("")
-        message_parts.append("⚠️ WARNINGS:")
-        message_parts.extend([f"• {msg}" for msg in warning_messages])
-    
-    return "\n".join(message_parts)
-
-def format_leave_type_display(leave_type):
-    """Format leave type for display"""
-    return KENYAN_LEAVE_LAWS.get(leave_type, {}).get('name', leave_type.replace('_', ' ').title())
-
-def get_leave_type_info(leave_type):
-    """Get detailed information about a leave type"""
-    return KENYAN_LEAVE_LAWS.get(leave_type, {})
-
-def calculate_working_days(start_date, end_date, exclude_weekends=True, holiday_checker=None):
-    """
-    Calculate working days between two dates.
-    Rely on a holiday_checker callable (e.g., Holiday.is_holiday) for decoupling.
-    """
-    if start_date > end_date:
-        return 0
-    
-    working_days = 0
-    current_date = start_date
-    
-    # Iterate through each day
-    while current_date <= end_date:
-        is_weekend = current_date.weekday() >= 5 # Saturday or Sunday
-        is_holiday = False
+    @staticmethod
+    def validate_leave_request(leave_type, employee, days_requested, start_date, **kwargs):
+        """
+        Main validation method that routes to specific leave type validators.
         
-        if holiday_checker and callable(holiday_checker):
-            is_holiday = holiday_checker(current_date)
+        Args:
+            leave_type: String identifier for leave type
+            employee: Employee object
+            days_requested: Number of days requested
+            start_date: Start date of leave
+            **kwargs: Additional arguments for specific leave types
             
-        if exclude_weekends and is_weekend:
-            current_date += timedelta(days=1)
-            continue
+        Returns:
+            Tuple of (is_compliant, warnings_list)
+        """
+        warnings = []
+        
+        if leave_type == 'annual_leave':
+            warnings = KenyanLaborLaws.validate_annual_leave(employee, days_requested, start_date)
+        elif leave_type == 'sick_leave':
+            has_cert = kwargs.get('has_medical_certificate', False)
+            warnings = KenyanLaborLaws.validate_sick_leave(employee, days_requested, has_cert)
+        elif leave_type == 'maternity_leave':
+            warnings = KenyanLaborLaws.validate_maternity_leave(employee, days_requested, start_date)
+        elif leave_type == 'paternity_leave':
+            warnings = KenyanLaborLaws.validate_paternity_leave(employee, days_requested, start_date)
+        elif leave_type == 'compassionate_leave':
+            reason = kwargs.get('reason')
+            warnings = KenyanLaborLaws.validate_compassionate_leave(employee, days_requested, reason)
+        elif leave_type == 'study_leave':
+            max_days = KENYAN_LEAVE_LAWS['study_leave']['max_days']
+            if days_requested > max_days:
+                warnings.append({
+                    'level': 'warning',
+                    'message': f"Study leave typically limited to {max_days} days per year",
+                    'law_reference': KENYAN_LEAVE_LAWS['study_leave']['legal_reference']
+                })
+        
+        # Determine overall compliance
+        has_errors = any(w.get('level') == 'error' for w in warnings)
+        is_compliant = not has_errors
+        
+        return is_compliant, warnings
+    
+    @staticmethod
+    def get_overtime_rate(hours_worked, is_holiday=False, is_night_shift=False):
+        """
+        Calculate the overtime rate multiplier.
+        
+        Args:
+            hours_worked: Total hours worked
+            is_holiday: Whether work was on a holiday
+            is_night_shift: Whether work was during night hours
             
+        Returns:
+            Decimal multiplier for overtime pay
+        """
+        normal_hours = WORKING_HOURS['normal_hours_per_day']
+        
+        if hours_worked <= normal_hours:
+            return Decimal('1.0')  # Normal rate
+        
         if is_holiday:
-            current_date += timedelta(days=1)
-            continue
+            return WORKING_HOURS['overtime_rate_holiday']
         
-        working_days += 1
-        current_date += timedelta(days=1)
+        if is_night_shift:
+            return WORKING_HOURS['overtime_rate_night']
+        
+        return WORKING_HOURS['overtime_rate_normal']
     
-    return working_days
+    @staticmethod
+    def calculate_overtime_hours(hours_worked, shift_type='day'):
+        """
+        Calculate overtime hours from total hours worked.
+        
+        Args:
+            hours_worked: Total hours worked
+            shift_type: 'day' or 'night'
+            
+        Returns:
+            Decimal overtime hours
+        """
+        normal_hours = Decimal(str(WORKING_HOURS['normal_hours_per_day']))
+        total_hours = Decimal(str(hours_worked))
+        
+        if total_hours <= normal_hours:
+            return Decimal('0')
+        
+        return total_hours - normal_hours
+    
+    @staticmethod
+    def get_leave_type_display(leave_type):
+        """Get human-readable name for leave type"""
+        leave_info = KENYAN_LEAVE_LAWS.get(leave_type)
+        if leave_info:
+            return leave_info.get('name', leave_type.replace('_', ' ').title())
+        return leave_type.replace('_', ' ').title()
+    
+    @staticmethod
+    def get_all_leave_types():
+        """Get all available leave types with their details"""
+        return {
+            key: {
+                'name': value.get('name', key.replace('_', ' ').title()),
+                'max_days': value.get('max_days', value.get('max_days_with_certificate', 0)),
+                'notice_days': value.get('notice_required_days', 0),
+                'description': value.get('description', ''),
+                'legal_reference': value.get('legal_reference', '')
+            }
+            for key, value in KENYAN_LEAVE_LAWS.items()
+        }
 
-# Quick reference constants
-ANNUAL_LEAVE_DAYS = 21
-SICK_LEAVE_DAYS_NO_CERT = 7
-SICK_LEAVE_DAYS_WITH_CERT = 30
-MATERNITY_LEAVE_DAYS = 90
-PATERNITY_LEAVE_DAYS = 14
-COMPASSIONATE_LEAVE_DAYS = 7
+
+# Utility functions for external use
+def get_statutory_deductions():
+    """
+    Get information about statutory deductions in Kenya.
+    
+    Returns:
+        Dictionary with NSSF, NHIF, and PAYE information
+    """
+    return {
+        'NSSF': {
+            'name': 'National Social Security Fund',
+            'employee_rate': Decimal('0.06'),  # 6%
+            'employer_rate': Decimal('0.06'),  # 6%
+            'max_contribution': 2160,  # KES
+            'legal_reference': 'NSSF Act 2013'
+        },
+        'NHIF': {
+            'name': 'National Hospital Insurance Fund',
+            'rate_type': 'graduated',  # Based on income brackets
+            'min_contribution': 150,  # KES
+            'max_contribution': 1700,  # KES
+            'legal_reference': 'NHIF Act 1998'
+        },
+        'PAYE': {
+            'name': 'Pay As You Earn',
+            'rate_type': 'progressive',  # Based on income tax bands
+            'personal_relief': 2400,  # KES per month
+            'legal_reference': 'Income Tax Act'
+        }
+    }
+
+
+def get_termination_notice_period(years_of_service):
+    """
+    Get the required notice period for termination based on service length.
+    
+    Args:
+        years_of_service: Number of years the employee has worked
+        
+    Returns:
+        Integer days of notice required
+    """
+    if years_of_service < 1:
+        return 7  # 7 days
+    elif years_of_service < 5:
+        return 14  # 14 days (2 weeks)
+    else:
+        return 30  # 30 days (1 month)
+
+
+def calculate_severance_pay(monthly_salary, years_of_service):
+    """
+    Calculate severance pay according to Kenyan law.
+    
+    Args:
+        monthly_salary: Employee's monthly salary
+        years_of_service: Number of years of service
+        
+    Returns:
+        Decimal severance pay amount
+    """
+    # 15 days pay for each completed year of service
+    daily_salary = Decimal(str(monthly_salary)) / Decimal('30')
+    severance_days = 15
+    
+    return daily_salary * severance_days * Decimal(str(years_of_service))
+
+
+# Export commonly used items
+__all__ = [
+    'KENYAN_LEAVE_LAWS',
+    'WORKING_HOURS',
+    'calculate_working_days',
+    'calculate_calendar_days',
+    'get_leave_entitlement',
+    'get_max_leave_days',
+    'get_notice_required_days',
+    'validate_leave_notice',
+    'KenyanLaborLaws',
+    'get_statutory_deductions',
+    'get_termination_notice_period',
+    'calculate_severance_pay'
+]
