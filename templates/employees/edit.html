@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Add Employee - Sakina Gas Company{% endblock %}
+{% block title %}Edit Employee - {{ employee.get_full_name() }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -181,14 +181,14 @@
     
     .btn-next,
     .btn-submit {
-        background: linear-gradient(135deg, var(--sakina-orange) 0%, #FF8C5A 100%);
+        background: linear-gradient(135deg, var(--sakina-blue) 0%, var(--sakina-light-blue) 100%);
         color: white;
         border: none;
     }
     
     .btn-next:hover,
     .btn-submit:hover {
-        background: linear-gradient(135deg, #e85a2e 0%, #e67a4d 100%);
+        background: linear-gradient(135deg, var(--sakina-blue) 0%, #0066a3 100%);
         color: white;
         transform: translateY(-2px);
     }
@@ -277,7 +277,8 @@
 <div class="container-fluid">
     <div class="row justify-content-center">
         <div class="col-xl-10">
-            <form method="POST" action="{{ url_for('employees.add_employee') }}" id="addEmployeeForm" novalidate>
+            <!-- Form action points to the edit_employee route with the employee ID -->
+            <form method="POST" action="{{ url_for('employees.edit_employee', id=employee.id) }}" id="editEmployeeForm" novalidate>
                 <!-- CSRF Protection -->
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
@@ -285,9 +286,9 @@
                     <!-- Wizard Header -->
                     <div class="wizard-header">
                         <h1 class="wizard-title">
-                            <i class="bi bi-person-plus"></i> Add New Employee
+                            <i class="bi bi-pencil-square"></i> Edit Employee: {{ employee.get_full_name() }}
                         </h1>
-                        <p class="wizard-subtitle">Complete all steps to add a new employee to the system</p>
+                        <p class="wizard-subtitle">Update and review the employee's information</p>
                     </div>
                     
                     <!-- Step Indicators -->
@@ -311,7 +312,7 @@
                             </div>
                             <div class="step" data-step="5">
                                 <div class="step-number">5</div>
-                                <span>Review & Submit</span>
+                                <span>Review & Save</span>
                             </div>
                         </div>
                     </div>
@@ -330,7 +331,7 @@
                                     <div class="form-group">
                                         <label class="form-label">First Name <span class="required">*</span></label>
                                         <input type="text" class="form-control" name="first_name" required
-                                               value="{{ form_data.first_name if form_data else '' }}"
+                                               value="{{ employee.first_name or '' }}"
                                                placeholder="Enter first name">
                                         <div class="invalid-feedback">Please provide a valid first name.</div>
                                     </div>
@@ -339,7 +340,7 @@
                                     <div class="form-group">
                                         <label class="form-label">Middle Name</label>
                                         <input type="text" class="form-control" name="middle_name"
-                                               value="{{ form_data.middle_name if form_data else '' }}"
+                                               value="{{ employee.middle_name or '' }}"
                                                placeholder="Enter middle name (optional)">
                                     </div>
                                 </div>
@@ -347,7 +348,7 @@
                                     <div class="form-group">
                                         <label class="form-label">Last Name <span class="required">*</span></label>
                                         <input type="text" class="form-control" name="last_name" required
-                                               value="{{ form_data.last_name if form_data else '' }}"
+                                               value="{{ employee.last_name or '' }}"
                                                placeholder="Enter last name">
                                         <div class="invalid-feedback">Please provide a valid last name.</div>
                                     </div>
@@ -359,7 +360,7 @@
                                     <div class="form-group">
                                         <label class="form-label">Date of Birth</label>
                                         <input type="date" class="form-control" name="date_of_birth"
-                                               value="{{ form_data.date_of_birth if form_data else '' }}"
+                                               value="{{ employee.date_of_birth.strftime('%Y-%m-%d') if employee.date_of_birth else '' }}"
                                                max="2006-01-01">
                                         <div class="help-text">Employee must be at least 18 years old</div>
                                     </div>
@@ -369,9 +370,9 @@
                                         <label class="form-label">Gender</label>
                                         <select class="form-select" name="gender">
                                             <option value="">Select Gender</option>
-                                            <option value="male" {% if form_data and form_data.gender == 'male' %}selected{% endif %}>Male</option>
-                                            <option value="female" {% if form_data and form_data.gender == 'female' %}selected{% endif %}>Female</option>
-                                            <option value="other" {% if form_data and form_data.gender == 'other' %}selected{% endif %}>Other</option>
+                                            {% for key, display in form_data.genders %}
+                                                <option value="{{ key }}" {% if employee.gender == key %}selected{% endif %}>{{ display }}</option>
+                                            {% endfor %}
                                         </select>
                                     </div>
                                 </div>
@@ -380,10 +381,9 @@
                                         <label class="form-label">Marital Status</label>
                                         <select class="form-select" name="marital_status">
                                             <option value="">Select Status</option>
-                                            <option value="single" {% if form_data and form_data.marital_status == 'single' %}selected{% endif %}>Single</option>
-                                            <option value="married" {% if form_data and form_data.marital_status == 'married' %}selected{% endif %}>Married</option>
-                                            <option value="divorced" {% if form_data and form_data.marital_status == 'divorced' %}selected{% endif %}>Divorced</option>
-                                            <option value="widowed" {% if form_data and form_data.marital_status == 'widowed' %}selected{% endif %}>Widowed</option>
+                                            {% for key, display in form_data.marital_statuses %}
+                                                <option value="{{ key }}" {% if employee.marital_status == key %}selected{% endif %}>{{ display }}</option>
+                                            {% endfor %}
                                         </select>
                                     </div>
                                 </div>
@@ -393,8 +393,9 @@
                                 <div class="col-md-6">
                                     <div class="form-group">
                                         <label class="form-label">National ID <span class="required">*</span></label>
+                                        <!-- National ID field should be editable if not being validated against unique constraint in Python backend -->
                                         <input type="text" class="form-control" name="national_id" required
-                                               value="{{ form_data.national_id if form_data else '' }}"
+                                               value="{{ employee.national_id or '' }}"
                                                placeholder="Enter National ID number">
                                         <div class="help-text">Valid Kenyan National ID (7-8 digits)</div>
                                         <div class="invalid-feedback">Please provide a valid National ID.</div>
@@ -404,7 +405,7 @@
                                     <div class="form-group">
                                         <label class="form-label">Nationality</label>
                                         <input type="text" class="form-control" name="nationality" 
-                                               value="{{ form_data.nationality if form_data else 'Kenyan' }}"
+                                               value="{{ employee.nationality or 'Kenyan' }}"
                                                placeholder="Enter nationality">
                                     </div>
                                 </div>
@@ -422,11 +423,10 @@
                                 <div class="col-md-4">
                                     <div class="form-group">
                                         <label class="form-label">Employee ID <span class="required">*</span></label>
-                                        <input type="text" class="form-control" name="employee_id" required
-                                               value="{{ form_data.employee_id if form_data else '' }}"
-                                               placeholder="e.g., EMP001">
-                                        <div class="help-text">Unique employee identifier</div>
-                                        <div class="invalid-feedback">Please provide an employee ID.</div>
+                                        <!-- Employee ID should generally not be editable after creation, making it readonly -->
+                                        <input type="text" class="form-control" name="employee_id" required readonly
+                                               value="{{ employee.employee_id or '' }}">
+                                        <div class="help-text">Unique employee identifier (Read-only)</div>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
@@ -434,10 +434,9 @@
                                         <label class="form-label">Location <span class="required">*</span></label>
                                         <select class="form-select" name="location" required>
                                             <option value="">Select Location</option>
-                                            <option value="head_office" {% if form_data and form_data.location == 'head_office' %}selected{% endif %}>Head Office</option>
-                                            <option value="dandora" {% if form_data and form_data.location == 'dandora' %}selected{% endif %}>Dandora Station</option>
-                                            <option value="tassia" {% if form_data and form_data.location == 'tassia' %}selected{% endif %}>Tassia Station</option>
-                                            <option value="kiambu" {% if form_data and form_data.location == 'kiambu' %}selected{% endif %}>Kiambu Station</option>
+                                            {% for key, display in form_data.locations.items() %}
+                                                <option value="{{ key }}" {% if employee.location == key %}selected{% endif %}>{{ display }}</option>
+                                            {% endfor %}
                                         </select>
                                         <div class="invalid-feedback">Please select a location.</div>
                                     </div>
@@ -447,12 +446,9 @@
                                         <label class="form-label">Department <span class="required">*</span></label>
                                         <select class="form-select" name="department" required>
                                             <option value="">Select Department</option>
-                                            <option value="operations" {% if form_data and form_data.department == 'operations' %}selected{% endif %}>Operations</option>
-                                            <option value="hr" {% if form_data and form_data.department == 'hr' %}selected{% endif %}>Human Resources</option>
-                                            <option value="finance" {% if form_data and form_data.department == 'finance' %}selected{% endif %}>Finance</option>
-                                            <option value="sales" {% if form_data and form_data.department == 'sales' %}selected{% endif %}>Sales</option>
-                                            <option value="security" {% if form_data and form_data.department == 'security' %}selected{% endif %}>Security</option>
-                                            <option value="maintenance" {% if form_data and form_data.department == 'maintenance' %}selected{% endif %}>Maintenance</option>
+                                            {% for key, display in form_data.departments.items() %}
+                                                <option value="{{ key }}" {% if employee.department == key %}selected{% endif %}>{{ display }}</option>
+                                            {% endfor %}
                                         </select>
                                         <div class="invalid-feedback">Please select a department.</div>
                                     </div>
@@ -464,10 +460,9 @@
                                     <div class="form-group">
                                         <label class="form-label">Employment Type</label>
                                         <select class="form-select" name="employment_type">
-                                            <option value="permanent" {% if form_data and form_data.employment_type == 'permanent' %}selected{% endif %}>Permanent</option>
-                                            <option value="contract" {% if form_data and form_data.employment_type == 'contract' %}selected{% endif %}>Contract</option>
-                                            <option value="casual" {% if form_data and form_data.employment_type == 'casual' %}selected{% endif %}>Casual</option>
-                                            <option value="intern" {% if form_data and form_data.employment_type == 'intern' %}selected{% endif %}>Intern</option>
+                                            {% for key, display in form_data.employment_types %}
+                                                <option value="{{ key }}" {% if employee.employment_type == key %}selected{% endif %}>{{ display }}</option>
+                                            {% endfor %}
                                         </select>
                                     </div>
                                 </div>
@@ -475,8 +470,9 @@
                                     <div class="form-group">
                                         <label class="form-label">Shift</label>
                                         <select class="form-select" name="shift">
-                                            <option value="day" {% if form_data and form_data.shift == 'day' %}selected{% endif %}>Day Shift (6AM - 6PM)</option>
-                                            <option value="night" {% if form_data and form_data.shift == 'night' %}selected{% endif %}>Night Shift (6PM - 6AM)</option>
+                                            {% for key, display in form_data.shifts %}
+                                                <option value="{{ key }}" {% if employee.shift == key %}selected{% endif %}>{{ display }}</option>
+                                            {% endfor %}
                                         </select>
                                     </div>
                                 </div>
@@ -484,7 +480,7 @@
                                     <div class="form-group">
                                         <label class="form-label">Hire Date <span class="required">*</span></label>
                                         <input type="date" class="form-control" name="hire_date" required
-                                               value="{{ form_data.hire_date if form_data else '' }}">
+                                               value="{{ employee.hire_date.strftime('%Y-%m-%d') if employee.hire_date else '' }}">
                                         <div class="invalid-feedback">Please provide a hire date.</div>
                                     </div>
                                 </div>
@@ -495,7 +491,7 @@
                                     <div class="form-group">
                                         <label class="form-label">Position/Job Title <span class="required">*</span></label>
                                         <input type="text" class="form-control" name="position" required
-                                               value="{{ form_data.position if form_data else '' }}"
+                                               value="{{ employee.position or '' }}"
                                                placeholder="e.g., Station Attendant, Security Guard">
                                         <div class="invalid-feedback">Please provide a job position.</div>
                                     </div>
@@ -503,8 +499,9 @@
                                 <div class="col-md-6">
                                     <div class="form-group">
                                         <label class="form-label">Official Job Title</label>
+                                        <!-- Note: employee model doesn't seem to have a 'job_title', but the add form had it, sticking to 'position' for now -->
                                         <input type="text" class="form-control" name="job_title"
-                                               value="{{ form_data.job_title if form_data else '' }}"
+                                               value="{{ employee.position or '' }}"
                                                placeholder="Official title as per contract">
                                     </div>
                                 </div>
@@ -523,7 +520,7 @@
                                     <div class="form-group">
                                         <label class="form-label">Email Address</label>
                                         <input type="email" class="form-control" name="email"
-                                               value="{{ form_data.email if form_data else '' }}"
+                                               value="{{ employee.email or '' }}"
                                                placeholder="employee@example.com">
                                         <div class="help-text">Work email address (optional)</div>
                                     </div>
@@ -532,7 +529,7 @@
                                     <div class="form-group">
                                         <label class="form-label">Phone Number <span class="required">*</span></label>
                                         <input type="tel" class="form-control" name="phone_number" required
-                                               value="{{ form_data.phone_number if form_data else '' }}"
+                                               value="{{ employee.phone_number or '' }}"
                                                placeholder="0712345678">
                                         <div class="help-text">Kenyan mobile number format</div>
                                         <div class="invalid-feedback">Please provide a valid phone number.</div>
@@ -545,7 +542,7 @@
                                     <div class="form-group">
                                         <label class="form-label">Residential Address</label>
                                         <textarea class="form-control" name="address" rows="3"
-                                                  placeholder="Enter full residential address">{{ form_data.address if form_data else '' }}</textarea>
+                                                  placeholder="Enter full residential address">{{ employee.address or '' }}</textarea>
                                     </div>
                                 </div>
                             </div>
@@ -560,7 +557,7 @@
                                     <div class="form-group">
                                         <label class="form-label">Emergency Contact Name</label>
                                         <input type="text" class="form-control" name="emergency_contact_name"
-                                               value="{{ form_data.emergency_contact_name if form_data else '' }}"
+                                               value="{{ employee.emergency_contact_name or '' }}"
                                                placeholder="Full name">
                                     </div>
                                 </div>
@@ -568,7 +565,7 @@
                                     <div class="form-group">
                                         <label class="form-label">Emergency Contact Phone</label>
                                         <input type="tel" class="form-control" name="emergency_contact_phone"
-                                               value="{{ form_data.emergency_contact_phone if form_data else '' }}"
+                                               value="{{ employee.emergency_contact_phone or '' }}"
                                                placeholder="0712345678">
                                     </div>
                                 </div>
@@ -577,12 +574,12 @@
                                         <label class="form-label">Relationship</label>
                                         <select class="form-select" name="emergency_contact_relationship">
                                             <option value="">Select Relationship</option>
-                                            <option value="spouse" {% if form_data and form_data.emergency_contact_relationship == 'spouse' %}selected{% endif %}>Spouse</option>
-                                            <option value="parent" {% if form_data and form_data.emergency_contact_relationship == 'parent' %}selected{% endif %}>Parent</option>
-                                            <option value="sibling" {% if form_data and form_data.emergency_contact_relationship == 'sibling' %}selected{% endif %}>Sibling</option>
-                                            <option value="child" {% if form_data and form_data.emergency_contact_relationship == 'child' %}selected{% endif %}>Child</option>
-                                            <option value="friend" {% if form_data and form_data.emergency_contact_relationship == 'friend' %}selected{% endif %}>Friend</option>
-                                            <option value="other" {% if form_data and form_data.emergency_contact_relationship == 'other' %}selected{% endif %}>Other</option>
+                                            <option value="spouse" {% if employee.emergency_contact_relationship == 'spouse' %}selected{% endif %}>Spouse</option>
+                                            <option value="parent" {% if employee.emergency_contact_relationship == 'parent' %}selected{% endif %}>Parent</option>
+                                            <option value="sibling" {% if employee.emergency_contact_relationship == 'sibling' %}selected{% endif %}>Sibling</option>
+                                            <option value="child" {% if employee.emergency_contact_relationship == 'child' %}selected{% endif %}>Child</option>
+                                            <option value="friend" {% if employee.emergency_contact_relationship == 'friend' %}selected{% endif %}>Friend</option>
+                                            <option value="other" {% if employee.emergency_contact_relationship == 'other' %}selected{% endif %}>Other</option>
                                         </select>
                                     </div>
                                 </div>
@@ -602,17 +599,17 @@
                                         <label class="form-label">Bank Name</label>
                                         <select class="form-select" name="bank_name">
                                             <option value="">Select Bank</option>
-                                            <option value="kcb" {% if form_data and form_data.bank_name == 'kcb' %}selected{% endif %}>KCB Bank</option>
-                                            <option value="equity" {% if form_data and form_data.bank_name == 'equity' %}selected{% endif %}>Equity Bank</option>
-                                            <option value="cooperative" {% if form_data and form_data.bank_name == 'cooperative' %}selected{% endif %}>Co-operative Bank</option>
-                                            <option value="absa" {% if form_data and form_data.bank_name == 'absa' %}selected{% endif %}>ABSA Bank</option>
-                                            <option value="stanbic" {% if form_data and form_data.bank_name == 'stanbic' %}selected{% endif %}>Stanbic Bank</option>
-                                            <option value="ncba" {% if form_data and form_data.bank_name == 'ncba' %}selected{% endif %}>NCBA Bank</option>
-                                            <option value="standard_chartered" {% if form_data and form_data.bank_name == 'standard_chartered' %}selected{% endif %}>Standard Chartered</option>
-                                            <option value="dtb" {% if form_data and form_data.bank_name == 'dtb' %}selected{% endif %}>DTB Bank</option>
-                                            <option value="family" {% if form_data and form_data.bank_name == 'family' %}selected{% endif %}>Family Bank</option>
-                                            <option value="mpesa" {% if form_data and form_data.bank_name == 'mpesa' %}selected{% endif %}>M-Pesa (Paybill)</option>
-                                            <option value="other" {% if form_data and form_data.bank_name == 'other' %}selected{% endif %}>Other</option>
+                                            <option value="kcb" {% if employee.bank_name == 'kcb' %}selected{% endif %}>KCB Bank</option>
+                                            <option value="equity" {% if employee.bank_name == 'equity' %}selected{% endif %}>Equity Bank</option>
+                                            <option value="cooperative" {% if employee.bank_name == 'cooperative' %}selected{% endif %}>Co-operative Bank</option>
+                                            <option value="absa" {% if employee.bank_name == 'absa' %}selected{% endif %}>ABSA Bank</option>
+                                            <option value="stanbic" {% if employee.bank_name == 'stanbic' %}selected{% endif %}>Stanbic Bank</option>
+                                            <option value="ncba" {% if employee.bank_name == 'ncba' %}selected{% endif %}>NCBA Bank</option>
+                                            <option value="standard_chartered" {% if employee.bank_name == 'standard_chartered' %}selected{% endif %}>Standard Chartered</option>
+                                            <option value="dtb" {% if employee.bank_name == 'dtb' %}selected{% endif %}>DTB Bank</option>
+                                            <option value="family" {% if employee.bank_name == 'family' %}selected{% endif %}>Family Bank</option>
+                                            <option value="mpesa" {% if employee.bank_name == 'mpesa' %}selected{% endif %}>M-Pesa (Paybill)</option>
+                                            <option value="other" {% if employee.bank_name == 'other' %}selected{% endif %}>Other</option>
                                         </select>
                                     </div>
                                 </div>
@@ -620,7 +617,7 @@
                                     <div class="form-group">
                                         <label class="form-label">Account Number</label>
                                         <input type="text" class="form-control" name="account_number"
-                                               value="{{ form_data.account_number if form_data else '' }}"
+                                               value="{{ employee.account_number or '' }}"
                                                placeholder="Enter account number">
                                     </div>
                                 </div>
@@ -628,7 +625,7 @@
                                     <div class="form-group">
                                         <label class="form-label">Bank Branch</label>
                                         <input type="text" class="form-control" name="bank_branch"
-                                               value="{{ form_data.bank_branch if form_data else '' }}"
+                                               value="{{ employee.bank_branch or '' }}"
                                                placeholder="Enter bank branch">
                                     </div>
                                 </div>
@@ -644,7 +641,7 @@
                                     <div class="form-group">
                                         <label class="form-label">Basic Salary (KES) <span class="required">*</span></label>
                                         <input type="number" class="form-control" name="basic_salary" required
-                                               value="{{ form_data.basic_salary if form_data else '' }}"
+                                               value="{{ employee.basic_salary or '' }}"
                                                placeholder="e.g., 25000" min="0" step="100">
                                         <div class="invalid-feedback">Please provide a valid salary amount.</div>
                                     </div>
@@ -653,7 +650,7 @@
                                     <div class="form-group">
                                         <label class="form-label">Transport Allowance (KES)</label>
                                         <input type="number" class="form-control" name="transport_allowance"
-                                               value="{{ form_data.transport_allowance if form_data else '' }}"
+                                               value="{{ employee.allowances.transport or '' }}"
                                                placeholder="e.g., 3000" min="0" step="100">
                                     </div>
                                 </div>
@@ -661,7 +658,7 @@
                                     <div class="form-group">
                                         <label class="form-label">Housing Allowance (KES)</label>
                                         <input type="number" class="form-control" name="housing_allowance"
-                                               value="{{ form_data.housing_allowance if form_data else '' }}"
+                                               value="{{ employee.allowances.housing or '' }}"
                                                placeholder="e.g., 5000" min="0" step="100">
                                     </div>
                                 </div>
@@ -677,7 +674,7 @@
                                     <div class="form-group">
                                         <label class="form-label">KRA PIN</label>
                                         <input type="text" class="form-control" name="kra_pin"
-                                               value="{{ form_data.kra_pin if form_data else '' }}"
+                                               value="{{ employee.kra_pin or '' }}"
                                                placeholder="e.g., A123456789B">
                                         <div class="help-text">Kenya Revenue Authority PIN</div>
                                     </div>
@@ -686,7 +683,7 @@
                                     <div class="form-group">
                                         <label class="form-label">NSSF Number</label>
                                         <input type="text" class="form-control" name="nssf_number"
-                                               value="{{ form_data.nssf_number if form_data else '' }}"
+                                               value="{{ employee.nssf_number or '' }}"
                                                placeholder="Enter NSSF number">
                                     </div>
                                 </div>
@@ -694,18 +691,23 @@
                                     <div class="form-group">
                                         <label class="form-label">NHIF Number</label>
                                         <input type="text" class="form-control" name="nhif_number"
-                                               value="{{ form_data.nhif_number if form_data else '' }}"
+                                               value="{{ employee.nhif_number or '' }}"
                                                placeholder="Enter NHIF number">
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- Step 5: Review & Submit -->
+                        <!-- Step 5: Review & Save -->
                         <div class="step-content" id="step5">
                             <div class="section-title">
                                 <i class="bi bi-check-circle"></i>
                                 Review Employee Information
+                            </div>
+                            
+                            <div class="alert alert-warning">
+                                <i class="bi bi-info-circle"></i>
+                                Changes made in the form below will override the current information. Please review all fields before clicking 'Save Changes'.
                             </div>
                             
                             <div class="preview-card">
@@ -735,7 +737,7 @@
                                             <h6><i class="bi bi-briefcase"></i> Employment Details</h6>
                                             <div class="preview-item">
                                                 <span class="preview-label">Employee ID:</span>
-                                                <span class="preview-value" id="preview-emp-id">-</span>
+                                                <span class="preview-value">{{ employee.employee_id or '-' }}</span>
                                             </div>
                                             <div class="preview-item">
                                                 <span class="preview-label">Position:</span>
@@ -791,11 +793,6 @@
                                     </div>
                                 </div>
                             </div>
-                            
-                            <div class="alert alert-info">
-                                <i class="bi bi-info-circle"></i>
-                                Please review all information carefully before submitting. You can go back to any step to make corrections.
-                            </div>
                         </div>
                     </div>
                     
@@ -805,14 +802,14 @@
                             <i class="bi bi-arrow-left"></i> Previous
                         </button>
                         <div class="ms-auto d-flex gap-2">
-                            <a href="{{ url_for('employees.list_employees') }}" class="btn btn-outline-secondary btn-wizard">
+                            <a href="{{ url_for('employees.view_employee', id=employee.id) }}" class="btn btn-outline-secondary btn-wizard">
                                 <i class="bi bi-x-lg"></i> Cancel
                             </a>
                             <button type="button" class="btn btn-wizard btn-next" id="nextBtn">
                                 Next <i class="bi bi-arrow-right"></i>
                             </button>
                             <button type="submit" class="btn btn-wizard btn-submit" id="submitBtn" style="display: none;">
-                                <i class="bi bi-check-lg"></i> Add Employee
+                                <i class="bi bi-save"></i> Save Changes
                             </button>
                         </div>
                     </div>
@@ -834,7 +831,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
     const submitBtn = document.getElementById('submitBtn');
-    const form = document.getElementById('addEmployeeForm');
+    const form = document.getElementById('editEmployeeForm');
     
     function showStep(step) {
         // Update step indicators
@@ -879,7 +876,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let isValid = true;
         
         requiredFields.forEach(field => {
-            if (!field.value.trim()) {
+            if (!field.value.trim() && !field.readOnly) {
                 field.classList.add('is-invalid');
                 isValid = false;
             } else {
@@ -892,44 +889,45 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function updatePreview() {
+        // Utility function to get display text from a select field
+        const getSelectDisplayText = (name) => {
+            const select = document.querySelector(`[name="${name}"]`);
+            return select.options[select.selectedIndex]?.text || '-';
+        };
+
+        // Utility function to get text value
+        const getInputValue = (name) => document.querySelector(`[name="${name}"]`)?.value || '-';
+
         // Personal Info
-        const firstName = document.querySelector('[name="first_name"]').value || '';
-        const middleName = document.querySelector('[name="middle_name"]').value || '';
-        const lastName = document.querySelector('[name="last_name"]').value || '';
+        const firstName = getInputValue('first_name');
+        const middleName = getInputValue('middle_name');
+        const lastName = getInputValue('last_name');
         document.getElementById('preview-name').textContent = `${firstName} ${middleName} ${lastName}`.trim() || '-';
         
-        document.getElementById('preview-dob').textContent = document.querySelector('[name="date_of_birth"]').value || '-';
-        document.getElementById('preview-gender').textContent = document.querySelector('[name="gender"]').value || '-';
-        document.getElementById('preview-national-id').textContent = document.querySelector('[name="national_id"]').value || '-';
+        document.getElementById('preview-dob').textContent = getInputValue('date_of_birth');
+        document.getElementById('preview-gender').textContent = getSelectDisplayText('gender');
+        document.getElementById('preview-national-id').textContent = getInputValue('national_id');
         
         // Employment Info
-        document.getElementById('preview-emp-id').textContent = document.querySelector('[name="employee_id"]').value || '-';
-        document.getElementById('preview-position').textContent = document.querySelector('[name="position"]').value || '-';
-        
-        const deptSelect = document.querySelector('[name="department"]');
-        document.getElementById('preview-department').textContent = deptSelect.options[deptSelect.selectedIndex]?.text || '-';
-        
-        const locSelect = document.querySelector('[name="location"]');
-        document.getElementById('preview-location').textContent = locSelect.options[locSelect.selectedIndex]?.text || '-';
-        
-        document.getElementById('preview-hire-date').textContent = document.querySelector('[name="hire_date"]').value || '-';
+        document.getElementById('preview-position').textContent = getInputValue('position');
+        document.getElementById('preview-department').textContent = getSelectDisplayText('department');
+        document.getElementById('preview-location').textContent = getSelectDisplayText('location');
+        document.getElementById('preview-hire-date').textContent = getInputValue('hire_date');
         
         // Contact Info
-        document.getElementById('preview-phone').textContent = document.querySelector('[name="phone_number"]').value || '-';
-        document.getElementById('preview-email').textContent = document.querySelector('[name="email"]').value || '-';
+        document.getElementById('preview-phone').textContent = getInputValue('phone_number');
+        document.getElementById('preview-email').textContent = getInputValue('email');
         
-        const emergencyName = document.querySelector('[name="emergency_contact_name"]').value || '';
-        const emergencyPhone = document.querySelector('[name="emergency_contact_phone"]').value || '';
+        const emergencyName = getInputValue('emergency_contact_name');
+        const emergencyPhone = getInputValue('emergency_contact_phone');
         document.getElementById('preview-emergency').textContent = emergencyName ? `${emergencyName} (${emergencyPhone})` : '-';
         
         // Salary & Banking
-        const salary = document.querySelector('[name="basic_salary"]').value;
+        const salary = getInputValue('basic_salary');
         document.getElementById('preview-salary').textContent = salary ? `KES ${parseInt(salary).toLocaleString()}` : '-';
         
-        const bankSelect = document.querySelector('[name="bank_name"]');
-        document.getElementById('preview-bank').textContent = bankSelect.options[bankSelect.selectedIndex]?.text || '-';
-        
-        document.getElementById('preview-account').textContent = document.querySelector('[name="account_number"]').value || '-';
+        document.getElementById('preview-bank').textContent = getSelectDisplayText('bank_name');
+        document.getElementById('preview-account').textContent = getInputValue('account_number');
     }
     
     // Event Listeners

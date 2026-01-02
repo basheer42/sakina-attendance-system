@@ -3,6 +3,7 @@ Sakina Gas Company - Attendance Records Model (COMPLETE VERSION)
 Built from scratch with comprehensive attendance tracking and analytics
 Version 3.0 - Enterprise grade with full complexity - NO TRUNCATION
 FIXED: SQLAlchemy relationship conflicts resolved
+FIXED: Added get_status_display() to resolve Template/Model attribute error
 """
 
 from database import db
@@ -307,6 +308,19 @@ class AttendanceRecord(db.Model):
                 else:
                     setattr(self, key, value)
     
+    # --- FIX START: Add the missing method ---
+    def get_status_display(self):
+        """Returns a human-readable string for the status."""
+        status_map = {
+            'present': 'Present',
+            'late': 'Late',
+            'absent': 'Absent',
+            'half_day': 'Half Day',
+            'on_leave': 'On Leave'
+        }
+        return status_map.get(self.status, self.status.replace('_', ' ').title())
+    # --- FIX END ---
+
     def calculate_worked_hours(self):
         """Calculate actual worked hours with advanced logic"""
         if not self.actual_start_time or not self.actual_end_time:

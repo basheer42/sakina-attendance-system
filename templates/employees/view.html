@@ -417,10 +417,10 @@
                         </button>
                     {% endif %}
                     
-                    <a href="{{ url_for('employees.promote_employee', id=employee.id) }}" 
+                    {# <a href="{{ url_for('employees.promote_employee', id=employee.id) }}" 
                        class="action-btn">
                         <i class="bi bi-arrow-up-circle"></i> Promote
-                    </a>
+                    </a> #} <!-- FIXED: Commented out the non-existent 'promote_employee' link -->
                 {% endif %}
                 
                 <div class="dropdown">

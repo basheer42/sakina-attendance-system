@@ -223,10 +223,10 @@ def add_employee():
             
             # Log the action
             AuditLog.log_event(
+                event_type='employee_created', # <-- FIXED: Added event_type as the first positional argument
                 user_id=current_user.id,
-                action='employee_created',
-                table_name='employees',
-                record_id=employee.id,
+                target_type='employees', # <-- FIXED: Changed table_name to target_type
+                target_id=employee.id, # <-- FIXED: Changed record_id to target_id
                 description=f'Created employee: {employee.get_full_name()} ({employee.employee_id})',
                 new_values=employee.to_dict()
             )
@@ -413,10 +413,10 @@ def edit_employee(id):
             
             # Log the changes
             AuditLog.log_event(
+                event_type='employee_updated',
                 user_id=current_user.id,
-                action='employee_updated',
-                table_name='employees',
-                record_id=employee.id,
+                target_type='employees',
+                target_id=employee.id,
                 description=f'Updated employee: {employee.get_full_name()} ({employee.employee_id})',
                 old_values=old_values,
                 new_values=employee.to_dict()
