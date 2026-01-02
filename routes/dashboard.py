@@ -524,12 +524,12 @@ def get_hr_alerts():
             LeaveRequest.status == 'approved',
             LeaveRequest.start_date <= today,
             LeaveRequest.end_date >= today
-        ).subquery()
+        ).scalar_subquery()
         
         # Subquery for employees who have marked attendance today
         employees_with_attendance_today_ids = db.session.query(AttendanceRecord.employee_id).filter(
             AttendanceRecord.date == today
-        ).subquery()
+        ).scalar_subquery()
         
         # Employees who are active AND (not in attendance AND not on leave)
         employees_no_attendance_or_leave = Employee.query.filter(
@@ -739,7 +739,7 @@ def get_recent_location_activities(location):
         location_employee_ids = db.session.query(Employee.id).filter(
             Employee.location == location,
             Employee.is_active == True
-        ).subquery()
+        ).scalar_subquery()
         
         recent_logs = AuditLog.query.filter(
             or_(

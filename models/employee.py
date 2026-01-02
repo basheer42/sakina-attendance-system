@@ -150,6 +150,17 @@ class Employee(db.Model):
     performance_reviews = relationship('PerformanceReview', backref='employee', lazy='dynamic', cascade='all, delete-orphan') # FIX: Renamed backref to 'employee'
     disciplinary_actions = relationship('DisciplinaryAction', backref='employee', lazy='dynamic', cascade='all, delete-orphan') # FIX: Renamed backref to 'employee'
     
+    # Property aliases for backward compatibility
+    @property
+    def phone_number(self):
+        """Alias for phone field for backward compatibility"""
+        return self.phone
+    
+    @phone_number.setter
+    def phone_number(self, value):
+        """Setter for phone_number alias"""
+        self.phone = value
+    
     def __init__(self, **kwargs):
         """Initialize employee with default values"""
         super(Employee, self).__init__()

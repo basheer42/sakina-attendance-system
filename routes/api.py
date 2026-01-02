@@ -136,7 +136,7 @@ def api_employees():
                 'last_name': employee.last_name,
                 'full_name': employee.get_full_name(),
                 'email': employee.email,
-                'phone_number': employee.phone_number,
+                'phone': employee.phone,
                 'department': employee.department,
                 'position': employee.position,
                 'location': employee.location,
@@ -224,7 +224,7 @@ def api_employee_detail(employee_id):
                 'last_name': employee.last_name,
                 'full_name': employee.get_full_name(),
                 'email': employee.email,
-                'phone_number': employee.phone_number,
+                'phone': employee.phone,
                 'date_of_birth': employee.date_of_birth.isoformat() if employee.date_of_birth else None,
                 'gender': getattr(employee, 'gender', None),
                 'national_id': getattr(employee, 'national_id', None)

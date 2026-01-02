@@ -155,7 +155,7 @@
                                     <small class="text-muted">{{ activity.description[:50] }}...</small>
                                 </div>
                                 <small class="text-muted text-end">
-                                    {{ (datetime.utcnow() - activity.timestamp).total_seconds() | int // 3600 }}h ago
+                                    {{ activity.timestamp.strftime('%d %b %Y, %H:%M') }}
                                 </small>
                             </div>
                             {% endfor %}

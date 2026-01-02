@@ -135,8 +135,15 @@ def add_employee():
         flash('You do not have permission to add employees.', 'error')
         return redirect(url_for('employees.list_employees'))
     
+    # Initialize employee_data for potential error re-display
+    employee_data = {}
+    
     if request.method == 'POST':
         try:
+            # ============================================================
+            # PHASE 1: Collect and validate ALL data BEFORE any DB writes
+            # ============================================================
+            
             # Comprehensive form data collection
             employee_data = {
                 'employee_id': request.form.get('employee_id', '').strip(),
@@ -146,7 +153,6 @@ def add_employee():
                 'email': request.form.get('email', '').strip() or None,
                 'phone_number': request.form.get('phone_number', '').strip() or None,
                 'national_id': request.form.get('national_id', '').strip() or None,
-                'date_of_birth': datetime.strptime(request.form.get('date_of_birth'), '%Y-%m-%d').date() if request.form.get('date_of_birth') else None,
                 'gender': request.form.get('gender', ''),
                 'marital_status': request.form.get('marital_status', ''),
                 'address': request.form.get('address', '').strip() or None,
@@ -155,8 +161,6 @@ def add_employee():
                 'location': request.form.get('location', ''),
                 'shift': request.form.get('shift', 'day'),
                 'employment_type': request.form.get('employment_type', 'permanent'),
-                'hire_date': datetime.strptime(request.form.get('hire_date'), '%Y-%m-%d').date(),
-                'basic_salary': float(request.form.get('basic_salary', 0)),
                 'bank_name': request.form.get('bank_name', '').strip() or None,
                 'account_number': request.form.get('account_number', '').strip() or None,
                 'bank_branch': request.form.get('bank_branch', '').strip() or None,
@@ -167,7 +171,42 @@ def add_employee():
                 'notes': request.form.get('notes', '').strip() or None
             }
             
-            # Comprehensive validation
+            # Parse date fields separately to catch format errors early
+            try:
+                if request.form.get('date_of_birth'):
+                    employee_data['date_of_birth'] = datetime.strptime(request.form.get('date_of_birth'), '%Y-%m-%d').date()
+                else:
+                    employee_data['date_of_birth'] = None
+            except ValueError:
+                flash('Invalid date of birth format. Please use the date picker.', 'error')
+                return render_template('employees/add.html', 
+                                     form_data=get_employee_form_data(),
+                                     employee_data=employee_data)
+            
+            try:
+                if request.form.get('hire_date'):
+                    employee_data['hire_date'] = datetime.strptime(request.form.get('hire_date'), '%Y-%m-%d').date()
+                else:
+                    flash('Hire date is required.', 'error')
+                    return render_template('employees/add.html', 
+                                         form_data=get_employee_form_data(),
+                                         employee_data=employee_data)
+            except ValueError:
+                flash('Invalid hire date format. Please use the date picker.', 'error')
+                return render_template('employees/add.html', 
+                                     form_data=get_employee_form_data(),
+                                     employee_data=employee_data)
+            
+            # Parse salary
+            try:
+                employee_data['basic_salary'] = float(request.form.get('basic_salary', 0) or 0)
+            except ValueError:
+                flash('Invalid salary format. Please enter a valid number.', 'error')
+                return render_template('employees/add.html', 
+                                     form_data=get_employee_form_data(),
+                                     employee_data=employee_data)
+            
+            # Comprehensive validation (no DB operations here)
             validation_errors = validate_employee_data(employee_data)
             if validation_errors:
                 for error in validation_errors:
@@ -176,7 +215,7 @@ def add_employee():
                                      form_data=get_employee_form_data(),
                                      employee_data=employee_data)
             
-            # Check for duplicates
+            # Check for duplicates (read-only DB operations - safe)
             if Employee.query.filter_by(employee_id=employee_data['employee_id']).first():
                 flash('Employee ID already exists. Please use a different ID.', 'error')
                 return render_template('employees/add.html',
@@ -197,12 +236,18 @@ def add_employee():
             
             # Handle allowances
             allowances = {}
-            if request.form.get('transport_allowance'):
-                allowances['transport'] = float(request.form.get('transport_allowance', 0))
-            if request.form.get('housing_allowance'):
-                allowances['housing'] = float(request.form.get('housing_allowance', 0))
-            if request.form.get('meal_allowance'):
-                allowances['meal'] = float(request.form.get('meal_allowance', 0))
+            try:
+                if request.form.get('transport_allowance'):
+                    allowances['transport'] = float(request.form.get('transport_allowance', 0))
+                if request.form.get('housing_allowance'):
+                    allowances['housing'] = float(request.form.get('housing_allowance', 0))
+                if request.form.get('meal_allowance'):
+                    allowances['meal'] = float(request.form.get('meal_allowance', 0))
+            except ValueError:
+                flash('Invalid allowance format. Please enter valid numbers.', 'error')
+                return render_template('employees/add.html', 
+                                     form_data=get_employee_form_data(),
+                                     employee_data=employee_data)
             employee_data['allowances'] = allowances
             
             # Handle skills
@@ -213,43 +258,58 @@ def add_employee():
             
             # Set probation period if new employee
             if employee_data['employment_type'] == 'permanent':
-                probation_months = int(request.form.get('probation_months', 3))
+                try:
+                    probation_months = int(request.form.get('probation_months', 3) or 3)
+                except ValueError:
+                    probation_months = 3
                 employee_data['probation_end_date'] = employee_data['hire_date'] + timedelta(days=30 * probation_months)
             
-            # Create employee
+            # ============================================================
+            # PHASE 2: All validation passed - NOW do the database write
+            # ============================================================
+            
+            # Create employee object
             employee = Employee(**employee_data)
+            
+            # Add to session but DON'T flush yet
             db.session.add(employee)
-            db.session.flush()  # Get the ID
             
-            # Log the action
-            AuditLog.log_event(
-                event_type='employee_created', # <-- FIXED: Added event_type as the first positional argument
-                user_id=current_user.id,
-                target_type='employees', # <-- FIXED: Changed table_name to target_type
-                target_id=employee.id, # <-- FIXED: Changed record_id to target_id
-                description=f'Created employee: {employee.get_full_name()} ({employee.employee_id})',
-                new_values=employee.to_dict()
-            )
-            
+            # Commit the employee first to get the ID
             db.session.commit()
+            
+            # Now log the action (separate transaction - if this fails, employee is still saved)
+            try:
+                AuditLog.log_event(
+                    event_type='employee_created',
+                    user_id=current_user.id,
+                    target_type='employee',
+                    target_id=employee.id,
+                    description=f'Created employee: {employee.get_full_name()} ({employee.employee_id})',
+                    new_values=employee.to_dict()
+                )
+                db.session.commit()
+            except Exception as audit_error:
+                # Log the audit error but don't fail the employee creation
+                current_app.logger.warning(f'Audit log failed for new employee: {audit_error}')
             
             flash(f'Employee {employee.get_full_name()} has been added successfully.', 'success')
             return redirect(url_for('employees.view_employee', id=employee.id))
             
         except ValueError as e:
-            flash(f'Invalid data provided: {str(e)}', 'error')
             db.session.rollback()
+            flash(f'Invalid data provided: {str(e)}', 'error')
+            current_app.logger.error(f'ValueError adding employee: {e}')
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f'Error adding employee: {e}')
             flash(f'Error adding employee: {str(e)}', 'error')
         
-        # If we get here, there was an error - redisplay form
+        # If we get here, there was an error - redisplay form with entered data
         return render_template('employees/add.html',
                              form_data=get_employee_form_data(),
                              employee_data=employee_data)
     
-    # GET request - show form
+    # GET request - show empty form
     form_data = get_employee_form_data()
     return render_template('employees/add.html', form_data=form_data)
 
@@ -777,6 +837,7 @@ def get_employee_form_data():
 
 def validate_employee_data(data):
     """Validate employee data and return list of errors"""
+    import re  # Import at function level so it's available for all validations
     errors = []
     
     # Required fields
@@ -790,7 +851,6 @@ def validate_employee_data(data):
     
     # Email validation
     if data.get('email'):
-        import re
         email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         if not re.match(email_pattern, data['email']):
             errors.append('Invalid email format.')
